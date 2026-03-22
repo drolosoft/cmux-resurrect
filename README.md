@@ -1,26 +1,36 @@
-# cmux-resurrect
+# 🔄 cmux-resurrect
 
-**Save, restore, and manage [cmux](https://github.com/nicholasgasior/cmux) workspace layouts.**
+> **Session persistence for [cmux](https://github.com/nicholasgasior/cmux) — save, restore, and manage your terminal workspaces.**
 
-cmux is a Ghostty-based terminal multiplexer with 9.3K stars and a loyal following -- but its most cited weakness is that **sessions don't survive restarts**. `cmres` fixes that. It captures your entire workspace layout (tabs, splits, working directories, pinned state, running commands) to TOML files and recreates them on demand. It also provides a human-editable Markdown workspace file for declarative project management, compatible with Obsidian and any text editor.
+cmux is a Ghostty-based terminal multiplexer with 9.3K+ stars — but **sessions don't survive restarts**. That's its #1 weakness. `cmres` fixes it.
+
+```
+💾 cmres save work       → captures your entire layout to TOML
+🔄 cmres restore work    → recreates everything: tabs, splits, commands
+👁️ cmres restore --dry-run → preview what would happen, execute nothing
+```
 
 ---
 
-## Features
+## ✨ Features
 
-- **Full layout capture** -- saves all workspaces, split panes, CWDs, pinned state, and active tab
-- **One-command restore** -- recreates workspaces, splits, and sends startup commands
-- **Dry-run mode** -- preview restore commands without executing them
-- **Markdown workspace file** -- declare projects with checkbox-driven enable/disable, icons, templates, and paths
-- **Reusable templates** -- define pane layouts once (e.g., `dev`, `go`, `monitor`), apply them to any project
-- **Sync from Markdown** -- `cmres sync` reads the workspace file and creates missing workspaces in the running cmux instance
-- **Export to Markdown** -- `cmres export` captures the live cmux state into the workspace file
-- **Auto-save with watch** -- periodic background saves with content-hash deduplication
-- **launchd integration** -- ships with a plist for macOS auto-save tied to cmux socket availability
-- **Edit layouts in $EDITOR** -- raw TOML files are human-readable and hand-editable
-- **Project management CLI** -- add, remove, toggle, and list projects without opening the Markdown file
+| | Feature | What it does |
+|---|---------|-------------|
+| 💾 | **Full layout capture** | Saves workspaces, splits, CWDs, pinned state, active tab |
+| 🔄 | **One-command restore** | Recreates workspaces, splits, sends startup commands |
+| 👁️ | **Dry-run mode** | Preview every command before executing anything |
+| 📝 | **Markdown workspace file** | Declare projects with checkboxes, icons, templates |
+| 🧩 | **Reusable templates** | Define pane layouts once (`dev`, `go`, `monitor`), reuse everywhere |
+| 🔀 | **Sync from Markdown** | Reads workspace file → creates missing workspaces in cmux |
+| 📤 | **Export to Markdown** | Captures live cmux state → writes it to the workspace file |
+| ⏱️ | **Auto-save (watch)** | Periodic saves with content-hash deduplication |
+| 🍎 | **launchd integration** | macOS auto-save tied to cmux socket availability |
+| ✏️ | **Edit in $EDITOR** | TOML files are human-readable and hand-editable |
+| 📋 | **Project management** | `add`, `remove`, `toggle`, `list` projects from CLI |
 
-## Quick Start
+---
+
+## 🚀 Quick Start
 
 ### Install
 
@@ -28,80 +38,113 @@ cmux is a Ghostty-based terminal multiplexer with 9.3K stars and a loyal followi
 git clone https://github.com/drolosoft/cmux-resurrect.git
 cd cmux-resurrect
 make build
-make install   # copies bin/cmres to /usr/local/bin
+make install   # → /usr/local/bin/cmres
 ```
 
-### Save your current layout
+### 💾 Save your layout
 
 ```sh
 cmres save work
 ```
 
-This captures every workspace, split, CWD, and pinned state into `~/.config/cmres/layouts/work.toml`.
+Captures every workspace, split, CWD, and pinned state into `~/.config/cmres/layouts/work.toml`.
 
-### Restore it later
+### 🔄 Restore it later
 
 ```sh
 cmres restore work
 ```
 
-All workspaces are recreated with their original splits and startup commands.
+```
+Restoring layout "work"...
+Restored 6/6 workspaces
+```
 
-### Preview before restoring
+All workspaces recreated with their original splits and startup commands.
+
+### 👁️ Preview before restoring
 
 ```sh
 cmres restore work --dry-run
 ```
 
-## Commands
+Shows every cmux command that **would** be executed — without touching anything:
+
+```
+Dry-run restore of "work":
+
+cmux new-workspace --cwd "/home/user/projects/webapp"
+cmux rename-workspace --workspace workspace:new_0 "0 webapp"
+cmux send --workspace workspace:new_0 "npm run dev"
+cmux new-split right --workspace workspace:new_0
+cmux send --workspace workspace:new_0 "lazygit"
+cmux new-workspace --cwd "/home/user/projects/api-server"
+cmux rename-workspace --workspace workspace:new_1 "1 api-server"
+cmux new-split right --workspace workspace:new_1
+cmux send --workspace workspace:new_1 "go test ./..."
+cmux new-workspace --cwd "/home/user/docs"
+cmux rename-workspace --workspace workspace:new_2 "2 docs"
+cmux select-workspace --workspace workspace:new_0
+
+12 commands for 3 workspaces
+```
+
+Inspect, verify, **then** run without `--dry-run` when ready.
+
+---
+
+## 📖 Commands
 
 | Command | Alias | Description |
 |---------|-------|-------------|
-| `cmres save [name]` | | Capture current cmux layout to a TOML file |
-| `cmres restore <name>` | | Recreate workspaces, splits, and commands from a saved layout |
-| `cmres list` | `ls` | List all saved layouts with workspace count and timestamp |
-| `cmres show <name>` | | Display details of a saved layout (use `--raw` for TOML) |
-| `cmres edit <name>` | | Open a layout file in `$EDITOR` |
-| `cmres delete <name>` | `rm` | Delete a saved layout |
-| `cmres sync` | | Reconcile workspace Markdown file with live cmux (create missing workspaces) |
-| `cmres export` | | Export live cmux state to the workspace Markdown file |
-| `cmres watch [name]` | | Auto-save layout at a configurable interval (default: 5m) |
-| `cmres project add <name> <path>` | `p add` | Add a project to the workspace file |
-| `cmres project remove <name>` | `p rm` | Remove a project from the workspace file |
-| `cmres project list` | `p ls` | List projects in the workspace file |
-| `cmres project toggle <name>` | `p toggle` | Enable or disable a project |
-| `cmres version` | | Print version, commit, and build date |
+| `cmres save [name]` | | 💾 Capture current layout to TOML |
+| `cmres restore <name>` | | 🔄 Recreate workspaces, splits, and commands |
+| `cmres list` | `ls` | 📋 List saved layouts with workspace count |
+| `cmres show <name>` | | 🔍 Display layout details (`--raw` for TOML) |
+| `cmres edit <name>` | | ✏️ Open layout in `$EDITOR` |
+| `cmres delete <name>` | `rm` | 🗑️ Delete a saved layout |
+| `cmres sync` | | 🔀 Reconcile Markdown workspace file → cmux |
+| `cmres export` | | 📤 Export live cmux state → Markdown file |
+| `cmres watch [name]` | | ⏱️ Auto-save at interval (default: 5m) |
+| `cmres project add` | `p add` | ➕ Add project to workspace file |
+| `cmres project remove` | `p rm` | ➖ Remove project from workspace file |
+| `cmres project list` | `p ls` | 📋 List projects in workspace file |
+| `cmres project toggle` | `p toggle` | 🔘 Enable/disable a project |
+| `cmres version` | | ℹ️ Print version, commit, build date |
 
-### Key Flags
+### 🏴 Key Flags
 
+```sh
+cmres save -d "Friday standup layout"       # 💬 attach a description
+cmres restore work --dry-run                # 👁️ preview without executing
+cmres watch autosave --interval 2m          # ⏱️ custom interval
+cmres project add api ~/projects/api -t go --icon "⚙️"  # ➕ with template + icon
+cmres project add notes ~/docs -t single --disabled     # ➕ disabled by default
+cmres project list --all                    # 📋 include disabled projects
+cmres show work --raw                       # 🔍 dump raw TOML
 ```
-cmres save -d "Friday standup layout"     # attach a description
-cmres restore work --dry-run              # preview without executing
-cmres watch autosave --interval 2m        # custom watch interval
-cmres project add MyApp ~/src/myapp -t go --icon "🚀"
-cmres project add Notes ~/notes -t single --disabled
-cmres project list --all                  # include disabled projects
-cmres show work --raw                     # dump raw TOML
-```
 
-## Workspace File Format
+---
 
-The workspace file is a Markdown document with two sections: **Projects** and **Templates**. It is fully compatible with Obsidian and any Markdown editor.
+## 📝 Workspace File
+
+The workspace file is a Markdown document with two sections: **Projects** and **Templates**. Fully compatible with Obsidian and any Markdown editor.
 
 ```markdown
 ## Projects
 **Icon | Name | Template | Pin | Path**
 
-- [x] | 🏟️ | LaPorrA        | dev      | yes | ~/Git/htmx/laporra                     |
-- [x] | 🥌 | ioc-events     | dev      | yes | ~/Git/go/44-ioc-events                 |
-- [x] | 📸 | Gallery        | go       | yes | ~/Git/yo/gallery                       |
-- [ ] | 🗿 | Obsidian       | single   | yes | ~/Library/Mobile Documents/iCloud~md~obsidian/Documents |
+- [x] | 🌐 | webapp         | dev      | yes | ~/projects/webapp
+- [x] | ⚙️ | api-server     | dev      | yes | ~/projects/api-server
+- [x] | 🧪 | testing        | go       | yes | ~/projects/testing
+- [ ] | 📓 | notes          | single   | no  | ~/documents/notes
+- [x] | 📊 | dashboard      | monitor  | yes | ~/projects/dashboard
 
 ## Templates
 
 ### dev
 - [x] main terminal (focused)
-- [x] split right: `claude`
+- [x] split right: `npm run dev`
 - [x] split right: `lazygit`
 
 ### go
@@ -116,173 +159,127 @@ The workspace file is a Markdown document with two sections: **Projects** and **
 - [x] split right: `tail -f /var/log/system.log`
 ```
 
-### How the format works
+### How it works
 
-- **Checkboxes** (`[x]` / `[ ]`) control whether a project or template pane is enabled
-- **Pipe-delimited columns** define icon, name, template, pin status, and filesystem path
-- **Templates** are referenced by name from the project row and define the pane layout
-- Unchecking a project excludes it from `cmres sync` without deleting it
-- Unchecking a template pane disables that split during sync
-- Any `## ` sections after Templates are preserved verbatim (notes, docs, etc.)
+| Element | Meaning |
+|---------|---------|
+| `[x]` / `[ ]` | ✅ Enabled / ⬜ Disabled — controls sync behavior |
+| Pipe columns | 🏷️ Icon, name, template, pin, path |
+| Template reference | 🧩 Links to a `### template-name` section |
+| Unchecked project | ⏸️ Excluded from `cmres sync` without deleting |
+| Unchecked pane | ⏸️ That split is skipped during sync |
+| Sections after Templates | 📄 Preserved verbatim (notes, docs, etc.) |
 
-## Templates
+### 🧩 Templates
 
-Templates define reusable pane configurations. Each template has a list of panes:
+Templates define reusable pane layouts:
 
-| Pane keyword | Meaning |
-|--------------|---------|
-| `main terminal` | The first pane in the workspace (no split) |
-| `split right:` | Create a vertical split to the right |
-| `split down:` | Create a horizontal split below |
-| `(focused)` | This pane receives focus after creation |
-| `` `command` `` | Send this command to the pane after creation |
+| Keyword | What it creates |
+|---------|----------------|
+| `main terminal` | 🖥️ First pane (no split) |
+| `split right:` | ➡️ Vertical split to the right |
+| `split down:` | ⬇️ Horizontal split below |
+| `(focused)` | 🎯 This pane gets focus after creation |
+| `` `command` `` | ⚡ Send this command to the pane |
 
-### Built-in templates
+Built-in templates: **dev** (terminal + dev server + lazygit), **go** (terminal + tests), **single** (terminal only), **monitor** (htop + logs).
 
-When creating a new workspace file, `cmres` generates four starter templates:
+---
 
-- **dev** -- main terminal (focused) + `claude` split + `lazygit` split
-- **go** -- main terminal (focused) + `go test ./...` split
-- **single** -- main terminal only
-- **monitor** -- `htop` main + `tail -f /var/log/system.log` split
+## ⚙️ Configuration
 
-You can define your own templates by adding `### template-name` sections under `## Templates`.
-
-## Configuration
-
-Configuration lives at `~/.config/cmres/config.toml`. All fields are optional; defaults are applied automatically.
+`~/.config/cmres/config.toml` — all fields optional, defaults applied automatically.
 
 ```toml
-# Workspace MD file path (Obsidian vault or anywhere)
+# 📝 Workspace MD file path (Obsidian vault or anywhere)
 workspace_file = "~/Documents/cmux-workspaces.md"
 
-# Directory where layout TOML files are stored
+# 📁 Directory for layout TOML files
 layouts_dir = "~/.config/cmres/layouts"
 
-# Auto-save interval for the watch command
+# ⏱️ Auto-save interval for watch
 watch_interval = "5m"
 
-# Maximum number of rotated autosave files to keep
+# 🔄 Max rotated autosave files
 max_autosaves = 10
 ```
 
-### Default paths
-
 | Setting | Default |
 |---------|---------|
-| Config file | `~/.config/cmres/config.toml` |
-| Layouts directory | `~/.config/cmres/layouts/` |
-| Workspace file | `~/.config/cmres/workspaces.md` (configurable) |
+| 📄 Config file | `~/.config/cmres/config.toml` |
+| 📁 Layouts dir | `~/.config/cmres/layouts/` |
+| 📝 Workspace file | `~/.config/cmres/workspaces.md` |
 
-Override any path with flags:
+Override with flags: `cmres --config /path/to/config.toml --layouts-dir /path/to/layouts list`
 
-```sh
-cmres --config /path/to/config.toml --layouts-dir /path/to/layouts list
-```
+---
 
-## Auto-Save with launchd
+## 🍎 Auto-Save with launchd
 
-`cmres` ships with a launchd plist that starts the watch daemon automatically when cmux is running (detected via `/tmp/cmux.sock`).
-
-### Install the service
+The `watch` command runs as a macOS service, auto-saving when cmux is active.
 
 ```sh
-make install-service
+make install-service    # → ~/Library/LaunchAgents/com.cmres.watch.plist
+make uninstall-service  # remove it
 ```
 
-This copies the plist to `~/Library/LaunchAgents/com.cmres.watch.plist` and loads it. The service:
+The service:
+- ⏱️ Runs `cmres watch autosave --interval 5m`
+- 🔌 Only starts when `/tmp/cmux.sock` exists (cmux is running)
+- 📄 Logs to `/tmp/cmres-watch.log`
+- 🛡️ Throttles restarts to every 30s
 
-- Starts `cmres watch autosave --interval 5m`
-- Only runs when `/tmp/cmux.sock` exists (cmux is active)
-- Logs to `/tmp/cmres-watch.log`
-- Throttles restarts to every 30 seconds
+**Hash deduplication**: `watch` compares content hashes before writing — no duplicate files when the layout hasn't changed.
 
-### Remove the service
+---
+
+## 🏗️ How It Works
+
+```
+┌──────────────────┐         ┌──────────────────┐
+│  🖥️ cmux          │ ◄─────► │  ⚡ cmres CLI     │
+│  (Ghostty mux)   │  cmux   │  (Go binary)     │
+└──────────────────┘  CLI    └────────┬─────────┘
+                      calls           │
+                            ┌─────────┼─────────┐
+                            ▼                   ▼
+                   ┌──────────────┐    ┌──────────────┐
+                   │ 💾 Layouts    │    │ 📝 Workspace  │
+                   │ (TOML files) │    │ (Markdown)   │
+                   │ ~/.config/   │    │ Obsidian-    │
+                   │ cmres/layouts│    │ compatible   │
+                   └──────────────┘    └──────────────┘
+```
+
+1. **💾 Save** — calls `cmux tree` + `cmux sidebar-state` → captures hierarchy → serializes to TOML
+2. **🔄 Restore** — reads TOML → issues `cmux new-workspace`, `new-split`, `rename`, `send` → recreates everything
+3. **🔀 Sync** — parses Markdown → resolves templates → creates missing workspaces in cmux
+4. **📤 Export** — captures live state → writes to Markdown with templates
+
+---
+
+## 🔨 Building from Source
+
+**Prerequisites**: Go 1.21+ · cmux in `$PATH`
 
 ```sh
-make uninstall-service
+make build              # → bin/cmres
+make install            # → /usr/local/bin/cmres
+make test               # 🧪 unit tests (47 passing)
+make test-integration   # 🧪 integration tests (needs running cmux)
+make lint               # 🔍 go vet
+make fmt                # ✨ go fmt
+make clean              # 🗑️ remove bin/
 ```
 
-### How watch deduplication works
+---
 
-The `watch` command saves periodically but compares content hashes to avoid writing duplicate files when the layout hasn't changed. Combined with `max_autosaves`, this keeps disk usage minimal.
+## 📜 License & Philosophy
 
-## How It Works
+**MIT License** — free to use, modify, and distribute.
 
-```
-+------------------+          +------------------+
-|   cmux (Ghostty) | <------> |   cmres CLI      |
-|   multiplexer    |  cmux    |   (Go binary)    |
-+------------------+  CLI     +--------+---------+
-                      calls            |
-                                       v
-                              +--------+---------+
-                              |  Layout Store    |
-                              |  (TOML files)    |
-                              |  ~/.config/cmres/|
-                              |  layouts/        |
-                              +--------+---------+
-                                       |
-                                       v
-                              +--------+---------+
-                              |  Workspace File  |
-                              |  (Markdown)      |
-                              |  Obsidian-ready  |
-                              +------------------+
-```
+This is a **personal project** born from a real need: I lost an hour of work when cmux crashed and all my workspaces vanished. I built `cmres` to fix that, and I'm sharing it because others have the same problem.
 
-1. **Save** -- `cmres` calls `cmux` CLI commands (`tree`, `sidebar-state`) to capture the full workspace hierarchy, then serializes it as TOML.
-2. **Restore** -- `cmres` reads the TOML file and issues `cmux` CLI commands (`new-workspace`, `new-split`, `rename-workspace`, `send`) to recreate everything.
-3. **Sync** -- `cmres` parses the Markdown workspace file, resolves templates into pane definitions, and creates any workspaces that don't already exist in the running cmux instance.
-4. **Export** -- The reverse of sync: captures live state and writes it to the Markdown file with default templates.
+That said, this is **not an actively maintained product**. It works, it's tested (47 tests across 7 packages), and it solves the problem it was built for. I may improve it over time, but I make no promises about timelines, feature requests, or support. If you find a bug, PRs are welcome. If you want a feature, fork it — that's what open source is for.
 
-The client interface abstracts cmux interaction behind a Go interface, making it straightforward to swap the CLI backend for a direct socket connection in the future.
-
-## Building from Source
-
-### Prerequisites
-
-- Go 1.21+
-- cmux installed and in `$PATH`
-
-### Build
-
-```sh
-make build          # produces bin/cmres
-make install        # copies to /usr/local/bin/cmres
-```
-
-### Test
-
-```sh
-make test           # unit tests
-make test-integration  # integration tests (requires running cmux)
-```
-
-### Other targets
-
-```sh
-make lint           # go vet
-make fmt            # go fmt
-make clean          # remove bin/
-```
-
-## Requirements
-
-- **cmux** -- the Ghostty-based terminal multiplexer
-- **Go 1.21+** -- for building from source
-- **macOS** -- launchd integration is macOS-specific; the core CLI works on any platform where cmux runs
-
-## Contributing
-
-Contributions are welcome. Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Run `make test && make lint` before submitting
-5. Open a pull request with a clear description of the change
-
-## License
-
-MIT
+**Forged by [Drolosoft](https://drolosoft.com)** · Canary Islands, Spain · *Tools we wish existed*
