@@ -6,7 +6,7 @@ import (
 )
 
 func TestParseSidebarState(t *testing.T) {
-	raw, err := os.ReadFile("../../testdata/responses/sidebar-state-ioc.txt")
+	raw, err := os.ReadFile("../../testdata/responses/sidebar-state-api.txt")
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
 	}
@@ -16,10 +16,10 @@ func TestParseSidebarState(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	if state.CWD != "/home/user/projects/ioc-events" {
-		t.Errorf("CWD = %q, want /home/user/projects/ioc-events", state.CWD)
+	if state.CWD != "/home/user/projects/api-server" {
+		t.Errorf("CWD = %q, want /home/user/projects/api-server", state.CWD)
 	}
-	if state.FocusedCWD != "/home/user/projects/ioc-events" {
+	if state.FocusedCWD != "/home/user/projects/api-server" {
 		t.Errorf("FocusedCWD = %q", state.FocusedCWD)
 	}
 	if state.GitBranch != "main" {
@@ -53,7 +53,7 @@ func TestParseSidebarState_CleanBranch(t *testing.T) {
 }
 
 func TestParseListWorkspaces(t *testing.T) {
-	raw := `  workspace:1  0 ioc-events
+	raw := `  workspace:1  0 api-server
   workspace:2  1 Obsidian
   workspace:3  2 LaPorrA
 * workspace:6  Claude Code  [selected]`

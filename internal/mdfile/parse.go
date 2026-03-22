@@ -22,7 +22,7 @@ func Parse(path string) (*model.WorkspaceFile, error) {
 	}
 
 	scanner := bufio.NewScanner(f)
-	var section string       // "projects", "templates", or "tail"
+	var section string // "projects", "templates", or "tail"
 	var currentTmpl *model.Template
 	var tailLines []string
 
@@ -88,7 +88,7 @@ func Parse(path string) (*model.WorkspaceFile, error) {
 	return wf, nil
 }
 
-// parseProjectLine parses: - [x] | 🏟️ | LaPorrA | dev | yes | ~/Git/htmx/laporra |
+// parseProjectLine parses: - [x] | 🌐 | webapp | dev | yes | ~/projects/webapp |
 func parseProjectLine(line string) (model.Project, bool) {
 	var p model.Project
 

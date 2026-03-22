@@ -5,10 +5,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/drolosoft/cmux-resurrect/internal/client"
 	"github.com/drolosoft/cmux-resurrect/internal/config"
 	"github.com/drolosoft/cmux-resurrect/internal/mdfile"
+	"github.com/spf13/cobra"
 )
 
 var syncDryRun bool

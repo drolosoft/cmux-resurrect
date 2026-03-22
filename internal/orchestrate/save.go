@@ -2,6 +2,7 @@ package orchestrate
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"time"
 
@@ -41,7 +42,7 @@ func (s *Saver) Save(name, description string) (*model.Layout, error) {
 		ws, err := s.buildWorkspace(tw)
 		if err != nil {
 			// Log but don't fail — isolate errors per workspace.
-			fmt.Printf("  warning: workspace %q: %v\n", tw.Title, err)
+			fmt.Fprintf(os.Stderr, "  warning: workspace %q: %v\n", tw.Title, err)
 			continue
 		}
 		layout.Workspaces = append(layout.Workspaces, *ws)

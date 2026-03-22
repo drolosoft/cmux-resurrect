@@ -5,8 +5,8 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/spf13/cobra"
 	"github.com/drolosoft/cmux-resurrect/internal/mdfile"
+	"github.com/spf13/cobra"
 )
 
 var projectListAll bool

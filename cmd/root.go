@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/cobra"
 	"github.com/drolosoft/cmux-resurrect/internal/client"
 	"github.com/drolosoft/cmux-resurrect/internal/config"
 	"github.com/drolosoft/cmux-resurrect/internal/persist"
+	"github.com/spf13/cobra"
 )
 
 var (

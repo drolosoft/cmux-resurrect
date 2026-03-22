@@ -20,12 +20,12 @@ type Template struct {
 
 // TemplatePan is a pane definition within a template.
 type TemplatePan struct {
-	Enabled   bool   // [x] or [ ]
-	IsMain    bool   // "main" keyword = first pane
-	Split     string // "right", "down", "left", "up"
-	Type      string // "terminal" (default), "browser"
-	Command   string // command in backticks
-	Focus     bool   // "(focused)" suffix
+	Enabled bool   // [x] or [ ]
+	IsMain  bool   // "main" keyword = first pane
+	Split   string // "right", "down", "left", "up"
+	Type    string // "terminal" (default), "browser"
+	Command string // command in backticks
+	Focus   bool   // "(focused)" suffix
 }
 
 // WorkspaceFile is the full parsed content of the MD file.

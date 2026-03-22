@@ -15,9 +15,9 @@ func TestProject_BuildTitle(t *testing.T) {
 }
 
 func TestProject_BuildTitle_Zero(t *testing.T) {
-	p := Project{Icon: "🥌", Name: "ioc-events"}
+	p := Project{Icon: "⚙️", Name: "api-server"}
 	got := p.BuildTitle(0)
-	if got != "0 🥌 ioc-events" {
+	if got != "0 ⚙️ api-server" {
 		t.Errorf("BuildTitle = %q", got)
 	}
 }

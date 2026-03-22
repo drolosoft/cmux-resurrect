@@ -3,10 +3,10 @@ package orchestrate
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/drolosoft/cmux-resurrect/internal/client"
+	"github.com/drolosoft/cmux-resurrect/internal/config"
 	"github.com/drolosoft/cmux-resurrect/internal/mdfile"
 	"github.com/drolosoft/cmux-resurrect/internal/model"
 )
@@ -37,7 +37,7 @@ func (e *Exporter) ExportToMD(mdPath string) error {
 		wf.Projects = nil // Rebuild projects from live state.
 	} else {
 		wf = &model.WorkspaceFile{
-			Templates: DefaultTemplates(),
+			Templates: mdfile.DefaultTemplates(),
 		}
 	}
 
@@ -70,7 +70,7 @@ func (e *Exporter) ExportToMD(mdPath string) error {
 	return mdfile.Write(mdPath, wf)
 }
 
-// ExtractIconAndName parses a title like "0 🥌 ioc-events" into icon and name.
+// ExtractIconAndName parses a title like "0 🌐 webapp" into icon and name.
 func ExtractIconAndName(title string) (string, string) {
 	rest := title
 	for i, r := range rest {
@@ -123,33 +123,7 @@ func AbbreviateHome(path string) string {
 	return path
 }
 
-// DefaultTemplates returns the built-in starter templates.
-func DefaultTemplates() map[string]*model.Template {
-	return map[string]*model.Template{
-		"dev": {Name: "dev", Panes: []model.TemplatePan{
-			{Enabled: true, IsMain: true, Type: "terminal", Focus: true},
-			{Enabled: true, Split: "right", Type: "terminal", Command: "claude"},
-			{Enabled: true, Split: "right", Type: "terminal", Command: "lazygit"},
-		}},
-		"go": {Name: "go", Panes: []model.TemplatePan{
-			{Enabled: true, IsMain: true, Type: "terminal", Focus: true},
-			{Enabled: true, Split: "right", Type: "terminal", Command: "go test ./..."},
-		}},
-		"single": {Name: "single", Panes: []model.TemplatePan{
-			{Enabled: true, IsMain: true, Type: "terminal", Focus: true},
-		}},
-		"monitor": {Name: "monitor", Panes: []model.TemplatePan{
-			{Enabled: true, IsMain: true, Type: "terminal", Command: "htop"},
-			{Enabled: true, Split: "right", Type: "terminal", Command: "tail -f /var/log/system.log"},
-		}},
-	}
-}
-
-// ExpandHome expands ~ to absolute path.
+// ExpandHome delegates to config.ExpandHome for path expansion.
 func ExpandHome(path string) string {
-	if len(path) > 0 && path[0] == '~' {
-		home, _ := os.UserHomeDir()
-		return filepath.Join(home, path[1:])
-	}
-	return path
+	return config.ExpandHome(path)
 }

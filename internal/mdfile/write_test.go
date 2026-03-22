@@ -80,7 +80,7 @@ func TestAddProject(t *testing.T) {
 
 func TestAddProject_Duplicate(t *testing.T) {
 	path := writeTempMD(t, testMD)
-	p := model.Project{Name: "LaPorrA", Icon: "🏟️", Template: "dev", Path: "/tmp"}
+	p := model.Project{Name: "webapp", Icon: "🌐", Template: "dev", Path: "/tmp"}
 	err := AddProject(path, p)
 	if err == nil {
 		t.Error("expected duplicate error")
@@ -90,7 +90,7 @@ func TestAddProject_Duplicate(t *testing.T) {
 func TestRemoveProject(t *testing.T) {
 	path := writeTempMD(t, testMD)
 
-	if err := RemoveProject(path, "Gallery"); err != nil {
+	if err := RemoveProject(path, "dashboard"); err != nil {
 		t.Fatalf("remove: %v", err)
 	}
 
@@ -99,8 +99,8 @@ func TestRemoveProject(t *testing.T) {
 		t.Fatalf("projects = %d, want 3", len(wf.Projects))
 	}
 	for _, p := range wf.Projects {
-		if p.Name == "Gallery" {
-			t.Error("Gallery should have been removed")
+		if p.Name == "dashboard" {
+			t.Error("dashboard should have been removed")
 		}
 	}
 }
@@ -116,8 +116,8 @@ func TestRemoveProject_NotFound(t *testing.T) {
 func TestToggleProject(t *testing.T) {
 	path := writeTempMD(t, testMD)
 
-	// LaPorrA is enabled, toggle to disabled.
-	newState, err := ToggleProject(path, "LaPorrA")
+	// webapp is enabled, toggle to disabled.
+	newState, err := ToggleProject(path, "webapp")
 	if err != nil {
 		t.Fatalf("toggle: %v", err)
 	}
@@ -126,7 +126,7 @@ func TestToggleProject(t *testing.T) {
 	}
 
 	// Toggle back to enabled.
-	newState, err = ToggleProject(path, "LaPorrA")
+	newState, err = ToggleProject(path, "webapp")
 	if err != nil {
 		t.Fatalf("toggle back: %v", err)
 	}
@@ -143,7 +143,7 @@ func TestWrite_NewFile(t *testing.T) {
 		Projects: []model.Project{
 			{Enabled: true, Icon: "🔥", Name: "test", Template: "single", Pin: true, Path: "/tmp"},
 		},
-		Templates: defaultTemplates(),
+		Templates: DefaultTemplates(),
 	}
 
 	if err := Write(path, wf); err != nil {

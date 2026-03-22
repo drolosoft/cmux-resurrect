@@ -1,14 +1,18 @@
 # ⚰️➡️🖥️ cmux-resurrect
 
-> **Session persistence for [cmux](https://github.com/nicholasgasior/cmux) — your terminal workspaces, resurrected.**
+[![CI](https://github.com/drolosoft/cmux-resurrect/actions/workflows/ci.yml/badge.svg)](https://github.com/drolosoft/cmux-resurrect/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/drolosoft/cmux-resurrect)](https://goreportcard.com/report/github.com/drolosoft/cmux-resurrect)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+> **Session persistence for [cmux](https://github.com/manaflow-ai/cmux) — your terminal workspaces, resurrected.**
 
 cmux is a Ghostty-based terminal multiplexer with 9.3K+ stars — but **sessions don't survive restarts**. `cmres` fixes that.
 
-<!-- TODO: Replace with actual recording (see scripts/record-demo.sh) -->
+<!-- 🎬 Demo GIF — run ./scripts/record-demo.sh to generate -->
 <p align="center">
-  <img src="assets/demo.gif" alt="cmux-resurrect demo: save, dry-run, restore" width="700">
-  <br>
-  <em>💾 Save → 👁️ Preview → 🔄 Restore — your entire workspace in seconds</em>
+  <em>🎬 Demo coming soon — <code>./scripts/record-demo.sh</code> to record</em>
+  <br><br>
+  <strong>💾 Save → 👁️ Preview → 🔄 Restore</strong> — your entire workspace in seconds
 </p>
 
 ---
@@ -253,7 +257,7 @@ make uninstall-service  # remove it
 
 ## 🔨 Building from Source
 
-**Prerequisites**: Go 1.21+ · cmux in `$PATH`
+**Prerequisites**: Go 1.26+ · cmux in `$PATH`
 
 ```sh
 make build              # → bin/cmres
@@ -277,4 +281,4 @@ This is a **personal project** born from a real need: a crashed cmux session too
 
 This is **shared, not staffed**. It works, it's tested, and it solves the problem it was built for. There are no promises about timelines, feature requests, or support. If you find a bug, PRs are welcome. If you want a feature, fork it — that's what open source is for.
 
-**Forged by [Drolosoft](https://drolosoft.com/cmux-resurrect)** · *Tools we wish existed*
+**Forged by [Drolosoft](https://drolosoft.com)** · *Tools we wish existed*

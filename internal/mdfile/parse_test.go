@@ -9,9 +9,9 @@ import (
 const testMD = `## Projects
 **Icon | Name | Template | Pin | Path**
 
-- [x] | 🏟️ | LaPorrA        | dev      | yes | ~/Git/htmx/laporra                     |
-- [x] | 🥌 | ioc-events     | dev      | yes | ~/Git/go/44-ioc-events                 |
-- [x] | 📸 | Gallery        | go       | yes | ~/Git/yo/gallery                       |
+- [x] | 🌐 | webapp        | dev      | yes | ~/projects/webapp                     |
+- [x] | ⚙️ | api-server     | dev      | yes | ~/Git/go/44-api-server                 |
+- [x] | 📊 | dashboard        | go       | yes | ~/projects/dashboard                       |
 - [ ] | 🗿 | Obsidian       | single   | yes | ~/Library/Mobile Documents/iCloud~md~obsidian/Documents |
 
 ## Templates
@@ -54,10 +54,10 @@ func TestParse_Projects(t *testing.T) {
 	if !p0.Enabled {
 		t.Error("p0 should be enabled")
 	}
-	if p0.Icon != "🏟️" {
+	if p0.Icon != "🌐" {
 		t.Errorf("p0.Icon = %q", p0.Icon)
 	}
-	if p0.Name != "LaPorrA" {
+	if p0.Name != "webapp" {
 		t.Errorf("p0.Name = %q", p0.Name)
 	}
 	if p0.Template != "dev" {
@@ -66,7 +66,7 @@ func TestParse_Projects(t *testing.T) {
 	if !p0.Pin {
 		t.Error("p0 should be pinned")
 	}
-	if p0.Path != "~/Git/htmx/laporra" {
+	if p0.Path != "~/projects/webapp" {
 		t.Errorf("p0.Path = %q", p0.Path)
 	}
 

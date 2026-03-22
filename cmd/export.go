@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/cobra"
 	"github.com/drolosoft/cmux-resurrect/internal/mdfile"
 	"github.com/drolosoft/cmux-resurrect/internal/orchestrate"
+	"github.com/spf13/cobra"
 )
 
 var exportCmd = &cobra.Command{

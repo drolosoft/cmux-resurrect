@@ -31,7 +31,7 @@ func TestTreeResponseParsing(t *testing.T) {
 
 	// First workspace has 2 panes (split)
 	ws0 := win.Workspaces[0]
-	if ws0.Title != "0 ioc-events" {
+	if ws0.Title != "0 api-server" {
 		t.Errorf("ws0.Title = %q", ws0.Title)
 	}
 	if !ws0.Pinned {

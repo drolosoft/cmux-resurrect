@@ -12,7 +12,7 @@ func TestExtractIconAndName(t *testing.T) {
 		wantIcon string
 		wantName string
 	}{
-		{"0 🥌 ioc-events", "🥌", "ioc-events"},
+		{"0 ⚙️ api-server", "⚙️", "api-server"},
 		{"1 🗿Obsidian", "🗿", "Obsidian"},
 		{"2 🏟️ LaPorrA", "🏟️", "LaPorrA"},
 		{"3 🗾 immich-photo-manager", "🗾", "immich-photo-manager"},

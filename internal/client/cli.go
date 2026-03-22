@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os/exec"
@@ -23,7 +24,9 @@ func NewCLIClient() *CLIClient {
 }
 
 func (c *CLIClient) run(args ...string) (string, error) {
-	cmd := exec.Command(c.Binary, args...)
+	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, c.Binary, args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("cmux %s: %w\n%s", strings.Join(args, " "), err, string(out))

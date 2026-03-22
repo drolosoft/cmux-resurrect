@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/cobra"
 	"github.com/drolosoft/cmux-resurrect/internal/mdfile"
+	"github.com/spf13/cobra"
 )
 
 var projectToggleCmd = &cobra.Command{

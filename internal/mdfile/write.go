@@ -100,7 +100,7 @@ func AddProject(path string, p model.Project) error {
 	if err != nil {
 		if os.IsNotExist(err) {
 			wf = &model.WorkspaceFile{
-				Templates: defaultTemplates(),
+				Templates: DefaultTemplates(),
 			}
 		} else {
 			return err
@@ -166,14 +166,15 @@ func ToggleProject(path string, name string) (bool, error) {
 	return newState, Write(path, wf)
 }
 
-// defaultTemplates returns the built-in starter templates.
-func defaultTemplates() map[string]*model.Template {
+// DefaultTemplates returns the built-in starter templates.
+// This is the single source of truth — used by both mdfile and orchestrate.
+func DefaultTemplates() map[string]*model.Template {
 	return map[string]*model.Template{
 		"dev": {
 			Name: "dev",
 			Panes: []model.TemplatePan{
 				{Enabled: true, IsMain: true, Type: "terminal", Focus: true},
-				{Enabled: true, Split: "right", Type: "terminal", Command: "claude"},
+				{Enabled: true, Split: "right", Type: "terminal", Command: "npm run dev"},
 				{Enabled: true, Split: "right", Type: "terminal", Command: "lazygit"},
 			},
 		},

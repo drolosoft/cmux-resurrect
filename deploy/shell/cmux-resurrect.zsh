@@ -14,7 +14,7 @@ cmres-autosave() {
     fi
 }
 
-# Completion
-if (( $+commands[cmres] )); then
-    eval "$(cmres completion zsh 2>/dev/null || true)"
-fi
+# Completion (available when cmres adds cobra completion support)
+# if (( $+commands[cmres] )); then
+#     eval "$(cmres completion zsh 2>/dev/null || true)"
+# fi

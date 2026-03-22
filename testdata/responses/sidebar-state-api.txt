@@ -1,7 +1,7 @@
 tab=DFFF3AE1-19EF-4AE1-B53A-832C93EA024A
 color=none
-cwd=/home/user/projects/ioc-events
-focused_cwd=/home/user/projects/ioc-events
+cwd=/home/user/projects/api-server
+focused_cwd=/home/user/projects/api-server
 focused_panel=6F4418DE-D4C6-4543-A613-C17B7A3B5FA0
 git_branch=main dirty
 pr=none

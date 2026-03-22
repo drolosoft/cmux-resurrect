@@ -9,10 +9,10 @@ import (
 )
 
 var listCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List saved layouts",
-	Args:  cobra.NoArgs,
-	RunE:  runList,
+	Use:     "list",
+	Short:   "List saved layouts",
+	Args:    cobra.NoArgs,
+	RunE:    runList,
 	Aliases: []string{"ls"},
 }
 

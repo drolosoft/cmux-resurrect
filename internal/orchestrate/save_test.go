@@ -42,9 +42,9 @@ func (m *mockClient) NewWorkspace(opts client.NewWorkspaceOpts) (string, error) 
 
 func (m *mockClient) RenameWorkspace(ref, title string) error { return nil }
 func (m *mockClient) SelectWorkspace(ref string) error        { return nil }
-func (m *mockClient) NewSplit(dir, ref string) error           { return nil }
-func (m *mockClient) FocusPane(pane, ws string) error          { return nil }
-func (m *mockClient) Send(ws, surf, text string) error         { return nil }
+func (m *mockClient) NewSplit(dir, ref string) error          { return nil }
+func (m *mockClient) FocusPane(pane, ws string) error         { return nil }
+func (m *mockClient) Send(ws, surf, text string) error        { return nil }
 
 func TestSave_FromFixture(t *testing.T) {
 	// Load tree fixture.
@@ -60,7 +60,7 @@ func TestSave_FromFixture(t *testing.T) {
 	mc := &mockClient{
 		treeResp: &treeResp,
 		sidebarCWDs: map[string]string{
-			"workspace:1": "/home/user/projects/ioc-events",
+			"workspace:1": "/home/user/projects/api-server",
 			"workspace:2": "/home/user/Documents/notes",
 			"workspace:3": "/home/user/projects/webapp",
 		},
@@ -84,10 +84,10 @@ func TestSave_FromFixture(t *testing.T) {
 
 	// First workspace should have 2 panes (it has 2 in the fixture).
 	ws0 := layout.Workspaces[0]
-	if ws0.Title != "0 ioc-events" {
+	if ws0.Title != "0 api-server" {
 		t.Errorf("ws0.Title = %q", ws0.Title)
 	}
-	if ws0.CWD != "/home/user/projects/ioc-events" {
+	if ws0.CWD != "/home/user/projects/api-server" {
 		t.Errorf("ws0.CWD = %q", ws0.CWD)
 	}
 	if len(ws0.Panes) != 2 {
@@ -112,7 +112,7 @@ func TestSave_MergePreservesUserEdits(t *testing.T) {
 	mc := &mockClient{
 		treeResp: &treeResp,
 		sidebarCWDs: map[string]string{
-			"workspace:1": "/home/user/projects/ioc-events",
+			"workspace:1": "/home/user/projects/api-server",
 			"workspace:2": "/home/user/Documents/notes",
 			"workspace:3": "/home/user/projects/webapp",
 		},

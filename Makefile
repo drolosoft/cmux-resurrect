@@ -28,9 +28,9 @@ fmt:
 	go fmt ./...
 
 # launchd service management
-install-service: build
+install-service: install
 	@mkdir -p ~/Library/LaunchAgents
-	@sed "s|{{BINARY}}|$(shell pwd)/bin/$(BINARY)|g" deploy/launchd/com.cmux-resurrect.watch.plist > ~/Library/LaunchAgents/com.cmres.watch.plist
+	@sed "s|{{BINARY}}|/usr/local/bin/$(BINARY)|g" deploy/launchd/com.cmux-resurrect.watch.plist > ~/Library/LaunchAgents/com.cmres.watch.plist
 	launchctl load ~/Library/LaunchAgents/com.cmres.watch.plist
 	@echo "Service installed and started"
 
