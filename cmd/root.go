@@ -17,9 +17,9 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "cmux-persist",
-	Short: "Save and restore cmux layouts",
-	Long:  "cmux-persist captures your cmux workspace layout (splits, CWDs, commands) and restores it after a restart.",
+	Use:   "cmx",
+	Short: "The cmux companion CLI",
+	Long:  "cmx saves/restores cmux layouts and manages workspaces from an Obsidian-friendly markdown file.",
 }
 
 func Execute() error {
@@ -28,8 +28,8 @@ func Execute() error {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default ~/.config/cmux-persist/config.toml)")
-	rootCmd.PersistentFlags().StringVar(&layoutsDir, "layouts-dir", "", "layouts directory (default ~/.config/cmux-persist/layouts)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default ~/.config/cmx/config.toml)")
+	rootCmd.PersistentFlags().StringVar(&layoutsDir, "layouts-dir", "", "layouts directory (default ~/.config/cmx/layouts)")
 }
 
 func initConfig() {

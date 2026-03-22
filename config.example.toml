@@ -1,8 +1,11 @@
-# cmux-persist configuration
-# Copy to ~/.config/cmux-persist/config.toml
+# cmx configuration
+# Copy to ~/.config/cmx/config.toml
+
+# Workspace MD file (Obsidian vault or anywhere you like)
+# workspace_file = "~/Library/Mobile Documents/iCloud~md~obsidian/Documents/cmux-workspaces.md"
 
 # Directory where layout TOML files are stored
-# layouts_dir = "~/.config/cmux-persist/layouts"
+# layouts_dir = "~/.config/cmx/layouts"
 
 # Auto-save interval for the watch command
 watch_interval = "5m"

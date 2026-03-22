@@ -8,34 +8,51 @@ import (
 	toml "github.com/pelletier/go-toml/v2"
 )
 
-// Config holds global configuration for cmux-persist.
+// Config holds global configuration for cmx.
 type Config struct {
-	LayoutsDir    string        `toml:"layouts_dir"`
-	WatchInterval time.Duration `toml:"-"`
-	WatchIntervalStr string    `toml:"watch_interval"`
-	MaxAutosaves  int           `toml:"max_autosaves"`
+	LayoutsDir       string        `toml:"layouts_dir"`
+	WorkspaceFile    string        `toml:"workspace_file"`
+	WatchInterval    time.Duration `toml:"-"`
+	WatchIntervalStr string        `toml:"watch_interval"`
+	MaxAutosaves     int           `toml:"max_autosaves"`
 }
 
 // DefaultConfig returns the default configuration.
 func DefaultConfig() *Config {
 	return &Config{
 		LayoutsDir:       DefaultLayoutsDir(),
+		WorkspaceFile:    DefaultWorkspaceFile(),
 		WatchInterval:    5 * time.Minute,
 		WatchIntervalStr: "5m",
 		MaxAutosaves:     10,
 	}
 }
 
-// DefaultLayoutsDir returns ~/.config/cmux-persist/layouts.
+// DefaultLayoutsDir returns ~/.config/cmx/layouts.
 func DefaultLayoutsDir() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "cmux-persist", "layouts")
+	return filepath.Join(home, ".config", "cmx", "layouts")
 }
 
-// DefaultConfigPath returns ~/.config/cmux-persist/config.toml.
+// DefaultConfigPath returns ~/.config/cmx/config.toml.
 func DefaultConfigPath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "cmux-persist", "config.toml")
+	return filepath.Join(home, ".config", "cmx", "config.toml")
+}
+
+// DefaultWorkspaceFile returns the default Obsidian vault MD path.
+func DefaultWorkspaceFile() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, "Library", "Mobile Documents", "iCloud~md~obsidian", "Documents", "cmux-workspaces.md")
+}
+
+// ExpandHome expands ~ to the user's home directory.
+func ExpandHome(path string) string {
+	if len(path) > 0 && path[0] == '~' {
+		home, _ := os.UserHomeDir()
+		return filepath.Join(home, path[1:])
+	}
+	return path
 }
 
 // Load reads config from a TOML file, falling back to defaults.
@@ -56,5 +73,8 @@ func Load(path string) (*Config, error) {
 			cfg.WatchInterval = d
 		}
 	}
+	// Expand ~ in paths.
+	cfg.WorkspaceFile = ExpandHome(cfg.WorkspaceFile)
+	cfg.LayoutsDir = ExpandHome(cfg.LayoutsDir)
 	return cfg, nil
 }
