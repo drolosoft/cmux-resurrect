@@ -1,0 +1,159 @@
+{
+  "caller": {
+    "workspace_ref": "workspace:6",
+    "pane_ref": "pane:7",
+    "window_ref": "window:1",
+    "surface_ref": "surface:7",
+    "surface_type": "terminal"
+  },
+  "active": {
+    "workspace_ref": "workspace:6",
+    "pane_ref": "pane:7",
+    "window_ref": "window:1",
+    "surface_ref": "surface:7",
+    "surface_type": "terminal"
+  },
+  "windows": [
+    {
+      "ref": "window:1",
+      "index": 0,
+      "active": true,
+      "visible": true,
+      "current": true,
+      "workspace_count": 6,
+      "selected_workspace_ref": "workspace:6",
+      "workspaces": [
+        {
+          "ref": "workspace:1",
+          "title": "0 ioc-events",
+          "index": 0,
+          "pinned": true,
+          "active": false,
+          "selected": false,
+          "panes": [
+            {
+              "ref": "pane:1",
+              "index": 0,
+              "active": false,
+              "focused": true,
+              "surface_count": 1,
+              "selected_surface_ref": "surface:2",
+              "surface_refs": ["surface:2"],
+              "surfaces": [
+                {
+                  "ref": "surface:2",
+                  "pane_ref": "pane:1",
+                  "type": "terminal",
+                  "title": "txeo@txeo-mini: ~/Git/go/44-ioc-events",
+                  "url": null,
+                  "index": 0,
+                  "index_in_pane": 0,
+                  "active": false,
+                  "focused": true,
+                  "selected": true,
+                  "selected_in_pane": true,
+                  "here": false
+                }
+              ]
+            },
+            {
+              "ref": "pane:2",
+              "index": 1,
+              "active": false,
+              "focused": false,
+              "surface_count": 1,
+              "selected_surface_ref": "surface:1",
+              "surface_refs": ["surface:1"],
+              "surfaces": [
+                {
+                  "ref": "surface:1",
+                  "pane_ref": "pane:2",
+                  "type": "terminal",
+                  "title": "txeo@txeo-mini: ~/Git/go/44-ioc-events",
+                  "url": null,
+                  "index": 1,
+                  "index_in_pane": 0,
+                  "active": false,
+                  "focused": false,
+                  "selected": true,
+                  "selected_in_pane": true,
+                  "here": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "ref": "workspace:2",
+          "title": "1 Obsidian",
+          "index": 1,
+          "pinned": true,
+          "active": false,
+          "selected": false,
+          "panes": [
+            {
+              "ref": "pane:3",
+              "index": 0,
+              "active": false,
+              "focused": true,
+              "surface_count": 1,
+              "selected_surface_ref": "surface:3",
+              "surface_refs": ["surface:3"],
+              "surfaces": [
+                {
+                  "ref": "surface:3",
+                  "pane_ref": "pane:3",
+                  "type": "terminal",
+                  "title": "txeo@txeo-mini: ~/Library/Mobile Documents",
+                  "url": null,
+                  "index": 0,
+                  "index_in_pane": 0,
+                  "active": false,
+                  "focused": true,
+                  "selected": true,
+                  "selected_in_pane": true,
+                  "here": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "ref": "workspace:3",
+          "title": "2 LaPorrA",
+          "index": 2,
+          "pinned": true,
+          "active": false,
+          "selected": false,
+          "panes": [
+            {
+              "ref": "pane:4",
+              "index": 0,
+              "active": false,
+              "focused": true,
+              "surface_count": 1,
+              "selected_surface_ref": "surface:4",
+              "surface_refs": ["surface:4"],
+              "surfaces": [
+                {
+                  "ref": "surface:4",
+                  "pane_ref": "pane:4",
+                  "type": "terminal",
+                  "title": "Claude Code",
+                  "url": null,
+                  "index": 0,
+                  "index_in_pane": 0,
+                  "active": false,
+                  "focused": true,
+                  "selected": true,
+                  "selected_in_pane": true,
+                  "here": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

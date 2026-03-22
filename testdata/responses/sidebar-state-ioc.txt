@@ -1,0 +1,14 @@
+tab=DFFF3AE1-19EF-4AE1-B53A-832C93EA024A
+color=none
+cwd=/Users/txeo/Git/go/44-ioc-events
+focused_cwd=/Users/txeo/Git/go/44-ioc-events
+focused_panel=6F4418DE-D4C6-4543-A613-C17B7A3B5FA0
+git_branch=main dirty
+pr=none
+pr_label=none
+ports=none
+progress=none
+status_count=1
+  claude_code=Needs input icon=bell.fill color=#4C8DFF
+meta_block_count=0
+log_count=0

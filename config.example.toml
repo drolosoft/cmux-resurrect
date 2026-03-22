@@ -1,0 +1,11 @@
+# cmux-persist configuration
+# Copy to ~/.config/cmux-persist/config.toml
+
+# Directory where layout TOML files are stored
+# layouts_dir = "~/.config/cmux-persist/layouts"
+
+# Auto-save interval for the watch command
+watch_interval = "5m"
+
+# Maximum number of rotated autosave files to keep
+max_autosaves = 10
