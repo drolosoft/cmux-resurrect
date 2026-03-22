@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -54,5 +55,53 @@ func TestDefaultLayoutsDir(t *testing.T) {
 	dir := DefaultLayoutsDir()
 	if dir == "" {
 		t.Error("empty layouts dir")
+	}
+}
+
+func TestDefaultWorkspaceFile(t *testing.T) {
+	path := DefaultWorkspaceFile()
+	if path == "" {
+		t.Error("empty workspace file path")
+	}
+	if !strings.Contains(path, "cmux-workspaces.md") {
+		t.Errorf("path should contain cmux-workspaces.md: %q", path)
+	}
+}
+
+func TestExpandHome(t *testing.T) {
+	home, _ := os.UserHomeDir()
+
+	tests := []struct {
+		in, want string
+	}{
+		{"~/test/path", filepath.Join(home, "test/path")},
+		{"/absolute/path", "/absolute/path"},
+		{"relative/path", "relative/path"},
+		{"", ""},
+	}
+	for _, tt := range tests {
+		got := ExpandHome(tt.in)
+		if got != tt.want {
+			t.Errorf("ExpandHome(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
+func TestLoad_WithWorkspaceFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	content := `workspace_file = "~/my-vault/workspaces.md"`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	home, _ := os.UserHomeDir()
+	want := filepath.Join(home, "my-vault/workspaces.md")
+	if cfg.WorkspaceFile != want {
+		t.Errorf("WorkspaceFile = %q, want %q", cfg.WorkspaceFile, want)
 	}
 }

@@ -43,7 +43,7 @@ func DefaultConfigPath() string {
 // DefaultWorkspaceFile returns the default Obsidian vault MD path.
 func DefaultWorkspaceFile() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, "Library", "Mobile Documents", "iCloud~md~obsidian", "Documents", "cmux-workspaces.md")
+	return filepath.Join(home, "Library", "Mobile Documents", "iCloud~md~obsidian", "Documents", "1. 👤 txeo", "6 💻 Dev", "🖥️ cmux-workspaces.md")
 }
 
 // ExpandHome expands ~ to the user's home directory.
