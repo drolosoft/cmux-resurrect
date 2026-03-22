@@ -32,6 +32,7 @@ type TemplatePan struct {
 type WorkspaceFile struct {
 	Projects  []Project
 	Templates map[string]*Template
+	Tail      string // Everything after Templates section (preserved on write)
 }
 
 // BuildTitle constructs the cmux workspace title: "{index} {icon} {name}"

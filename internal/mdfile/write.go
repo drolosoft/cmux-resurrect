@@ -62,6 +62,12 @@ func Write(path string, wf *model.WorkspaceFile) error {
 		}
 	}
 
+	// Append preserved tail sections (docs, etc.).
+	if wf.Tail != "" {
+		b.WriteString("\n")
+		b.WriteString(wf.Tail)
+	}
+
 	// Atomic write.
 	tmp := path + ".tmp"
 	if err := os.WriteFile(tmp, []byte(b.String()), 0o644); err != nil {

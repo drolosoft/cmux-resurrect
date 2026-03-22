@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.cmux-persist.watch</string>
+    <string>com.cmx.watch</string>
     <key>ProgramArguments</key>
     <array>
         <string>{{BINARY}}</string>
@@ -23,9 +23,9 @@
         </dict>
     </dict>
     <key>StandardOutPath</key>
-    <string>/tmp/cmux-persist-watch.log</string>
+    <string>/tmp/cmx-watch.log</string>
     <key>StandardErrorPath</key>
-    <string>/tmp/cmux-persist-watch.log</string>
+    <string>/tmp/cmx-watch.log</string>
     <key>ThrottleInterval</key>
     <integer>30</integer>
 </dict>

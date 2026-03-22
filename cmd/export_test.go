@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"testing"
+
+	"github.com/txeo/cmux-persist/internal/orchestrate"
 )
 
 func TestExtractIconAndName(t *testing.T) {
@@ -18,38 +20,19 @@ func TestExtractIconAndName(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		icon, name := extractIconAndName(tt.title)
+		icon, name := orchestrate.ExtractIconAndName(tt.title)
 		if icon != tt.wantIcon {
-			t.Errorf("extractIconAndName(%q) icon = %q, want %q", tt.title, icon, tt.wantIcon)
+			t.Errorf("ExtractIconAndName(%q) icon = %q, want %q", tt.title, icon, tt.wantIcon)
 		}
 		if name != tt.wantName {
-			t.Errorf("extractIconAndName(%q) name = %q, want %q", tt.title, name, tt.wantName)
+			t.Errorf("ExtractIconAndName(%q) name = %q, want %q", tt.title, name, tt.wantName)
 		}
 	}
 }
 
 func TestAbbreviateHome(t *testing.T) {
-	// This test depends on the actual home dir, so just test the logic.
-	got := abbreviateHome("/some/other/path")
+	got := orchestrate.AbbreviateHome("/some/other/path")
 	if got != "/some/other/path" {
 		t.Errorf("non-home path changed: %q", got)
-	}
-}
-
-func TestTrimSpace(t *testing.T) {
-	tests := []struct {
-		in, want string
-	}{
-		{"  hello  ", "hello"},
-		{"hello", "hello"},
-		{"  ", ""},
-		{"", ""},
-		{"\thello\t", "hello"},
-	}
-	for _, tt := range tests {
-		got := trimSpace(tt.in)
-		if got != tt.want {
-			t.Errorf("trimSpace(%q) = %q, want %q", tt.in, got, tt.want)
-		}
 	}
 }

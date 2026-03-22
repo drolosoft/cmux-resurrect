@@ -15,10 +15,11 @@ import (
 
 // Watcher periodically saves the cmux layout, deduplicating via content hash.
 type Watcher struct {
-	Client   client.CmuxClient
-	Store    persist.Store
-	Name     string
-	Interval time.Duration
+	Client        client.CmuxClient
+	Store         persist.Store
+	Name          string
+	Interval      time.Duration
+	WorkspaceFile string // MD file path; if set, also updates the MD on each tick
 
 	lastHash string
 }
@@ -59,9 +60,18 @@ func (w *Watcher) saveOnce() {
 	hash := fmt.Sprintf("%x", sha256.Sum256(data))
 
 	if hash == w.lastHash {
-		return // no change, skip logging
+		return // no change, skip logging and MD update
 	}
 	w.lastHash = hash
+
+	// Also update the MD file if configured.
+	if w.WorkspaceFile != "" {
+		exporter := &Exporter{Client: w.Client}
+		if err := exporter.ExportToMD(w.WorkspaceFile); err != nil {
+			fmt.Fprintf(os.Stderr, "  watch md update error: %v\n", err)
+		}
+	}
+
 	fmt.Fprintf(os.Stderr, "  saved %d workspaces at %s\n",
 		len(layout.Workspaces),
 		time.Now().Format("15:04:05"))

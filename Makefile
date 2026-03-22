@@ -28,13 +28,13 @@ fmt:
 	go fmt ./...
 
 # launchd service management
-install-service:
+install-service: build
 	@mkdir -p ~/Library/LaunchAgents
-	@sed "s|{{BINARY}}|$(shell pwd)/bin/$(BINARY)|g" deploy/launchd/com.cmux-persist.watch.plist > ~/Library/LaunchAgents/com.cmux-persist.watch.plist
-	launchctl load ~/Library/LaunchAgents/com.cmux-persist.watch.plist
+	@sed "s|{{BINARY}}|$(shell pwd)/bin/$(BINARY)|g" deploy/launchd/com.cmux-persist.watch.plist > ~/Library/LaunchAgents/com.cmx.watch.plist
+	launchctl load ~/Library/LaunchAgents/com.cmx.watch.plist
 	@echo "Service installed and started"
 
 uninstall-service:
-	launchctl unload ~/Library/LaunchAgents/com.cmux-persist.watch.plist 2>/dev/null || true
-	rm -f ~/Library/LaunchAgents/com.cmux-persist.watch.plist
+	launchctl unload ~/Library/LaunchAgents/com.cmx.watch.plist 2>/dev/null || true
+	rm -f ~/Library/LaunchAgents/com.cmx.watch.plist
 	@echo "Service removed"

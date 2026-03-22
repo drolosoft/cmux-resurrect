@@ -22,8 +22,9 @@ func Parse(path string) (*model.WorkspaceFile, error) {
 	}
 
 	scanner := bufio.NewScanner(f)
-	var section string       // "projects" or "templates"
+	var section string       // "projects", "templates", or "tail"
 	var currentTmpl *model.Template
+	var tailLines []string
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -38,6 +39,16 @@ func Parse(path string) (*model.WorkspaceFile, error) {
 		if strings.HasPrefix(trimmed, "## Templates") {
 			section = "templates"
 			currentTmpl = nil
+			continue
+		}
+		// Any other ## header after templates = tail section (preserved as-is).
+		if section == "templates" && strings.HasPrefix(trimmed, "## ") && !strings.HasPrefix(trimmed, "### ") {
+			section = "tail"
+			tailLines = append(tailLines, line)
+			continue
+		}
+		if section == "tail" {
+			tailLines = append(tailLines, line)
 			continue
 		}
 
@@ -65,6 +76,10 @@ func Parse(path string) (*model.WorkspaceFile, error) {
 				}
 			}
 		}
+	}
+
+	if len(tailLines) > 0 {
+		wf.Tail = strings.Join(tailLines, "\n") + "\n"
 	}
 
 	if err := scanner.Err(); err != nil {

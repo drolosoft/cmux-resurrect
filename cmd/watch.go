@@ -46,10 +46,11 @@ func runWatch(cmd *cobra.Command, args []string) error {
 	}
 
 	watcher := &orchestrate.Watcher{
-		Client:   cl,
-		Store:    store,
-		Name:     name,
-		Interval: interval,
+		Client:        cl,
+		Store:         store,
+		Name:          name,
+		Interval:      interval,
+		WorkspaceFile: cfg.WorkspaceFile,
 	}
 
 	fmt.Fprintf(os.Stderr, "Watching cmux state, saving as %q every %s\n", name, interval)
