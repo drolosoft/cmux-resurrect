@@ -5,9 +5,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juanatsap/cmux-resurrect/internal/client"
-	"github.com/juanatsap/cmux-resurrect/internal/model"
-	"github.com/juanatsap/cmux-resurrect/internal/persist"
+	"github.com/drolosoft/cmux-resurrect/internal/client"
+	"github.com/drolosoft/cmux-resurrect/internal/model"
+	"github.com/drolosoft/cmux-resurrect/internal/persist"
 )
 
 // Saver captures the current cmux state and persists it.

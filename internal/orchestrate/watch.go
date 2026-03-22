@@ -9,8 +9,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/juanatsap/cmux-resurrect/internal/client"
-	"github.com/juanatsap/cmux-resurrect/internal/persist"
+	"github.com/drolosoft/cmux-resurrect/internal/client"
+	"github.com/drolosoft/cmux-resurrect/internal/persist"
 )
 
 // Watcher periodically saves the cmux layout, deduplicating via content hash.

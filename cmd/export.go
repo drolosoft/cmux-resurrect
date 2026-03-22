@@ -5,8 +5,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/juanatsap/cmux-resurrect/internal/mdfile"
-	"github.com/juanatsap/cmux-resurrect/internal/orchestrate"
+	"github.com/drolosoft/cmux-resurrect/internal/mdfile"
+	"github.com/drolosoft/cmux-resurrect/internal/orchestrate"
 )
 
 var exportCmd = &cobra.Command{

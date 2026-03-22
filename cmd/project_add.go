@@ -5,8 +5,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/juanatsap/cmux-resurrect/internal/mdfile"
-	"github.com/juanatsap/cmux-resurrect/internal/model"
+	"github.com/drolosoft/cmux-resurrect/internal/mdfile"
+	"github.com/drolosoft/cmux-resurrect/internal/model"
 )
 
 var (

@@ -1,4 +1,4 @@
-module github.com/juanatsap/cmux-resurrect
+module github.com/drolosoft/cmux-resurrect
 
 go 1.26
 

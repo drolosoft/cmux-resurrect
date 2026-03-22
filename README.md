@@ -25,7 +25,7 @@ cmux is a Ghostty-based terminal multiplexer with 9.3K stars and a loyal followi
 ### Install
 
 ```sh
-git clone https://github.com/juanatsap/cmux-resurrect.git
+git clone https://github.com/drolosoft/cmux-resurrect.git
 cd cmux-resurrect
 make build
 make install   # copies bin/cmres to /usr/local/bin

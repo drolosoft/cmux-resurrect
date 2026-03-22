@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/juanatsap/cmux-resurrect/internal/model"
+	"github.com/drolosoft/cmux-resurrect/internal/model"
 )
 
 // Parse reads and parses the workspace MD file.

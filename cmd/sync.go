@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/juanatsap/cmux-resurrect/internal/client"
-	"github.com/juanatsap/cmux-resurrect/internal/config"
-	"github.com/juanatsap/cmux-resurrect/internal/mdfile"
+	"github.com/drolosoft/cmux-resurrect/internal/client"
+	"github.com/drolosoft/cmux-resurrect/internal/config"
+	"github.com/drolosoft/cmux-resurrect/internal/mdfile"
 )
 
 var syncDryRun bool

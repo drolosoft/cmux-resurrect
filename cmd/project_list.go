@@ -6,7 +6,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
-	"github.com/juanatsap/cmux-resurrect/internal/mdfile"
+	"github.com/drolosoft/cmux-resurrect/internal/mdfile"
 )
 
 var projectListAll bool

@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/juanatsap/cmux-resurrect/cmd"
+	"github.com/drolosoft/cmux-resurrect/cmd"
 )
 
 func main() {

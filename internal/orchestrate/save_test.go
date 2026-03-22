@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/juanatsap/cmux-resurrect/internal/client"
-	"github.com/juanatsap/cmux-resurrect/internal/persist"
+	"github.com/drolosoft/cmux-resurrect/internal/client"
+	"github.com/drolosoft/cmux-resurrect/internal/persist"
 )
 
 // mockClient implements client.CmuxClient for testing.

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/juanatsap/cmux-resurrect/internal/orchestrate"
+	"github.com/drolosoft/cmux-resurrect/internal/orchestrate"
 )
 
 var watchInterval string

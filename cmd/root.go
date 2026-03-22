@@ -5,9 +5,9 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/juanatsap/cmux-resurrect/internal/client"
-	"github.com/juanatsap/cmux-resurrect/internal/config"
-	"github.com/juanatsap/cmux-resurrect/internal/persist"
+	"github.com/drolosoft/cmux-resurrect/internal/client"
+	"github.com/drolosoft/cmux-resurrect/internal/config"
+	"github.com/drolosoft/cmux-resurrect/internal/persist"
 )
 
 var (

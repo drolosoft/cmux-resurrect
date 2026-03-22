@@ -3,7 +3,7 @@ package cmd
 import (
 	"testing"
 
-	"github.com/juanatsap/cmux-resurrect/internal/orchestrate"
+	"github.com/drolosoft/cmux-resurrect/internal/orchestrate"
 )
 
 func TestExtractIconAndName(t *testing.T) {

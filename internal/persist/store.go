@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	toml "github.com/pelletier/go-toml/v2"
-	"github.com/juanatsap/cmux-resurrect/internal/model"
+	"github.com/drolosoft/cmux-resurrect/internal/model"
 )
 
 // Store defines the interface for layout persistence.
