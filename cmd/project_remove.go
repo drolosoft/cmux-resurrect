@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/txeo/cmux-persist/internal/mdfile"
+	"github.com/juanatsap/cmux-resurrect/internal/mdfile"
 )
 
 var projectRemoveCmd = &cobra.Command{

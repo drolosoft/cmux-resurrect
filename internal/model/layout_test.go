@@ -17,7 +17,7 @@ func TestLayoutRoundTrip(t *testing.T) {
 		Workspaces: []Workspace{
 			{
 				Title:  "0 dev",
-				CWD:    "/Users/txeo/Git/project",
+				CWD:    "/home/user/projects/myapp",
 				Pinned: true,
 				Index:  0,
 				Panes: []Pane{
@@ -27,7 +27,7 @@ func TestLayoutRoundTrip(t *testing.T) {
 			},
 			{
 				Title:  "1 docs",
-				CWD:    "/Users/txeo/Documents",
+				CWD:    "/home/user/Documents",
 				Pinned: false,
 				Index:  1,
 				Panes: []Pane{
@@ -53,7 +53,7 @@ func TestLayoutRoundTrip(t *testing.T) {
 	if len(decoded.Workspaces) != 2 {
 		t.Fatalf("Workspaces = %d, want 2", len(decoded.Workspaces))
 	}
-	if decoded.Workspaces[0].CWD != "/Users/txeo/Git/project" {
+	if decoded.Workspaces[0].CWD != "/home/user/projects/myapp" {
 		t.Errorf("CWD = %q", decoded.Workspaces[0].CWD)
 	}
 	if len(decoded.Workspaces[0].Panes) != 2 {

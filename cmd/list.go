@@ -32,7 +32,7 @@ func runList(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(metas) == 0 {
-		fmt.Println("No saved layouts. Use 'cmux-persist save <name>' to save one.")
+		fmt.Println("No saved layouts. Use 'cmres save <name>' to save one.")
 		return nil
 	}
 

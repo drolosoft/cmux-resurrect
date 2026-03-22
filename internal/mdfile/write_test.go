@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/txeo/cmux-persist/internal/model"
+	"github.com/juanatsap/cmux-resurrect/internal/model"
 )
 
 func TestWriteRoundTrip(t *testing.T) {

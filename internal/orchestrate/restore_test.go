@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/txeo/cmux-persist/internal/model"
-	"github.com/txeo/cmux-persist/internal/persist"
+	"github.com/juanatsap/cmux-resurrect/internal/model"
+	"github.com/juanatsap/cmux-resurrect/internal/persist"
 )
 
 func TestRestore_DryRun(t *testing.T) {

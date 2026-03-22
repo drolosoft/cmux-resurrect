@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/txeo/cmux-persist/internal/client"
-	"github.com/txeo/cmux-persist/internal/persist"
+	"github.com/juanatsap/cmux-resurrect/internal/client"
+	"github.com/juanatsap/cmux-resurrect/internal/persist"
 )
 
 // mockClient implements client.CmuxClient for testing.
@@ -60,9 +60,9 @@ func TestSave_FromFixture(t *testing.T) {
 	mc := &mockClient{
 		treeResp: &treeResp,
 		sidebarCWDs: map[string]string{
-			"workspace:1": "/Users/txeo/Git/go/44-ioc-events",
-			"workspace:2": "/Users/txeo/Library/Mobile Documents",
-			"workspace:3": "/Users/txeo/Git/htmx/laporra",
+			"workspace:1": "/home/user/projects/ioc-events",
+			"workspace:2": "/home/user/Documents/notes",
+			"workspace:3": "/home/user/projects/webapp",
 		},
 	}
 
@@ -87,7 +87,7 @@ func TestSave_FromFixture(t *testing.T) {
 	if ws0.Title != "0 ioc-events" {
 		t.Errorf("ws0.Title = %q", ws0.Title)
 	}
-	if ws0.CWD != "/Users/txeo/Git/go/44-ioc-events" {
+	if ws0.CWD != "/home/user/projects/ioc-events" {
 		t.Errorf("ws0.CWD = %q", ws0.CWD)
 	}
 	if len(ws0.Panes) != 2 {
@@ -112,9 +112,9 @@ func TestSave_MergePreservesUserEdits(t *testing.T) {
 	mc := &mockClient{
 		treeResp: &treeResp,
 		sidebarCWDs: map[string]string{
-			"workspace:1": "/Users/txeo/Git/go/44-ioc-events",
-			"workspace:2": "/Users/txeo/Library/Mobile Documents",
-			"workspace:3": "/Users/txeo/Git/htmx/laporra",
+			"workspace:1": "/home/user/projects/ioc-events",
+			"workspace:2": "/home/user/Documents/notes",
+			"workspace:3": "/home/user/projects/webapp",
 		},
 	}
 

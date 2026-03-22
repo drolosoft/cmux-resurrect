@@ -5,7 +5,7 @@ saved_at = 2026-03-22T11:00:00Z
 
 [[workspace]]
 title = "0 dev"
-cwd = "/Users/txeo/Git/go/project"
+cwd = "/home/user/projects/myapp"
 pinned = true
 index = 0
 
@@ -20,7 +20,7 @@ index = 0
 
 [[workspace]]
 title = "1 docs"
-cwd = "/Users/txeo/Documents"
+cwd = "/home/user/Documents"
 pinned = false
 index = 1
 

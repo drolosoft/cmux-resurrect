@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/txeo/cmux-persist/internal/model"
+	"github.com/juanatsap/cmux-resurrect/internal/model"
 )
 
 // Parse reads and parses the workspace MD file.

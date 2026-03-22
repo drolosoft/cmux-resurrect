@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/txeo/cmux-persist/internal/client"
-	"github.com/txeo/cmux-persist/internal/config"
-	"github.com/txeo/cmux-persist/internal/mdfile"
+	"github.com/juanatsap/cmux-resurrect/internal/client"
+	"github.com/juanatsap/cmux-resurrect/internal/config"
+	"github.com/juanatsap/cmux-resurrect/internal/mdfile"
 )
 
 var syncDryRun bool

@@ -19,7 +19,7 @@ func TestDefaultConfig(t *testing.T) {
 }
 
 func TestLoad_NonexistentFile(t *testing.T) {
-	cfg, err := Load("/tmp/nonexistent-cmux-persist-config.toml")
+	cfg, err := Load("/tmp/nonexistent-cmux-resurrect-config.toml")
 	if err != nil {
 		t.Fatalf("load nonexistent: %v", err)
 	}
@@ -63,8 +63,8 @@ func TestDefaultWorkspaceFile(t *testing.T) {
 	if path == "" {
 		t.Error("empty workspace file path")
 	}
-	if !strings.Contains(path, "cmux-workspaces.md") {
-		t.Errorf("path should contain cmux-workspaces.md: %q", path)
+	if !strings.Contains(path, "workspaces.md") {
+		t.Errorf("path should contain workspaces.md: %q", path)
 	}
 }
 

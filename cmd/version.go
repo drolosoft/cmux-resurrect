@@ -17,7 +17,7 @@ var versionCmd = &cobra.Command{
 	Short: "Print version information",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("cmux-persist %s (%s) built %s\n", Version, Commit, Date)
+		fmt.Printf("cmux-resurrect %s (%s) built %s\n", Version, Commit, Date)
 	},
 }
 

@@ -1,4 +1,4 @@
-module github.com/txeo/cmux-persist
+module github.com/juanatsap/cmux-resurrect
 
 go 1.26
 

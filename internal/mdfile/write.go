@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/txeo/cmux-persist/internal/model"
+	"github.com/juanatsap/cmux-resurrect/internal/model"
 )
 
 // Write serializes a WorkspaceFile back to the MD format.

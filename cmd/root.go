@@ -5,9 +5,9 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/txeo/cmux-persist/internal/client"
-	"github.com/txeo/cmux-persist/internal/config"
-	"github.com/txeo/cmux-persist/internal/persist"
+	"github.com/juanatsap/cmux-resurrect/internal/client"
+	"github.com/juanatsap/cmux-resurrect/internal/config"
+	"github.com/juanatsap/cmux-resurrect/internal/persist"
 )
 
 var (
@@ -17,9 +17,9 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "cmx",
-	Short: "The cmux companion CLI",
-	Long:  "cmx saves/restores cmux layouts and manages workspaces from an Obsidian-friendly markdown file.",
+	Use:   "cmres",
+	Short: "Resurrect your cmux sessions",
+	Long:  "cmres saves/restores cmux layouts and manages workspaces from an Obsidian-friendly markdown file.",
 }
 
 func Execute() error {
@@ -28,8 +28,8 @@ func Execute() error {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default ~/.config/cmx/config.toml)")
-	rootCmd.PersistentFlags().StringVar(&layoutsDir, "layouts-dir", "", "layouts directory (default ~/.config/cmx/layouts)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default ~/.config/cmres/config.toml)")
+	rootCmd.PersistentFlags().StringVar(&layoutsDir, "layouts-dir", "", "layouts directory (default ~/.config/cmres/layouts)")
 }
 
 func initConfig() {

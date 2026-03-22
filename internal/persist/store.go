@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	toml "github.com/pelletier/go-toml/v2"
-	"github.com/txeo/cmux-persist/internal/model"
+	"github.com/juanatsap/cmux-resurrect/internal/model"
 )
 
 // Store defines the interface for layout persistence.
@@ -37,7 +37,7 @@ func NewFileStore(dir string) (*FileStore, error) {
 // DefaultDir returns the default layout storage directory.
 func DefaultDir() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "cmux-persist", "layouts")
+	return filepath.Join(home, ".config", "cmres", "layouts")
 }
 
 func (s *FileStore) Path(name string) string {
@@ -57,7 +57,7 @@ func (s *FileStore) Save(name string, layout *model.Layout) error {
 	}
 
 	// Add a header comment
-	header := fmt.Sprintf("# cmux-persist layout: %s\n# Saved at: %s\n\n",
+	header := fmt.Sprintf("# cmux-resurrect layout: %s\n# Saved at: %s\n\n",
 		name, layout.SavedAt.Format("2006-01-02T15:04:05Z07:00"))
 	content := header + string(data)
 

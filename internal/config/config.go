@@ -8,7 +8,7 @@ import (
 	toml "github.com/pelletier/go-toml/v2"
 )
 
-// Config holds global configuration for cmx.
+// Config holds global configuration for cmres.
 type Config struct {
 	LayoutsDir       string        `toml:"layouts_dir"`
 	WorkspaceFile    string        `toml:"workspace_file"`
@@ -28,22 +28,22 @@ func DefaultConfig() *Config {
 	}
 }
 
-// DefaultLayoutsDir returns ~/.config/cmx/layouts.
+// DefaultLayoutsDir returns ~/.config/cmres/layouts.
 func DefaultLayoutsDir() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "cmx", "layouts")
+	return filepath.Join(home, ".config", "cmres", "layouts")
 }
 
-// DefaultConfigPath returns ~/.config/cmx/config.toml.
+// DefaultConfigPath returns ~/.config/cmres/config.toml.
 func DefaultConfigPath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "cmx", "config.toml")
+	return filepath.Join(home, ".config", "cmres", "config.toml")
 }
 
-// DefaultWorkspaceFile returns the default Obsidian vault MD path.
+// DefaultWorkspaceFile returns ~/.config/cmres/workspaces.md.
 func DefaultWorkspaceFile() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, "Library", "Mobile Documents", "iCloud~md~obsidian", "Documents", "1. 👤 txeo", "6 💻 Dev", "🖥️ cmux-workspaces.md")
+	return filepath.Join(home, ".config", "cmres", "workspaces.md")
 }
 
 // ExpandHome expands ~ to the user's home directory.

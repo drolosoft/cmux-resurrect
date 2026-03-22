@@ -16,10 +16,10 @@ func TestParseSidebarState(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	if state.CWD != "/Users/txeo/Git/go/44-ioc-events" {
-		t.Errorf("CWD = %q, want /Users/txeo/Git/go/44-ioc-events", state.CWD)
+	if state.CWD != "/home/user/projects/ioc-events" {
+		t.Errorf("CWD = %q, want /home/user/projects/ioc-events", state.CWD)
 	}
-	if state.FocusedCWD != "/Users/txeo/Git/go/44-ioc-events" {
+	if state.FocusedCWD != "/home/user/projects/ioc-events" {
 		t.Errorf("FocusedCWD = %q", state.FocusedCWD)
 	}
 	if state.GitBranch != "main" {

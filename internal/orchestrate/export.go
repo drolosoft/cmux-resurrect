@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/txeo/cmux-persist/internal/client"
-	"github.com/txeo/cmux-persist/internal/mdfile"
-	"github.com/txeo/cmux-persist/internal/model"
+	"github.com/juanatsap/cmux-resurrect/internal/client"
+	"github.com/juanatsap/cmux-resurrect/internal/mdfile"
+	"github.com/juanatsap/cmux-resurrect/internal/model"
 )
 
 // Exporter captures live cmux state and writes it to the MD file.

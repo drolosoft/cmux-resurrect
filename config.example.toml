@@ -1,11 +1,14 @@
-# cmx configuration
-# Copy to ~/.config/cmx/config.toml
+# cmux-resurrect configuration
+# Copy to ~/.config/cmres/config.toml
 
-# Workspace MD file (Obsidian vault or anywhere you like)
-# workspace_file = "~/Library/Mobile Documents/iCloud~md~obsidian/Documents/cmux-workspaces.md"
+# Workspace MD file (default: ~/.config/cmres/workspaces.md)
+# workspace_file = "~/.config/cmres/workspaces.md"
+#
+# Example: use an Obsidian vault instead
+# workspace_file = "~/Library/Mobile Documents/iCloud~md~obsidian/Documents/my-vault/workspaces.md"
 
 # Directory where layout TOML files are stored
-# layouts_dir = "~/.config/cmx/layouts"
+# layouts_dir = "~/.config/cmres/layouts"
 
 # Auto-save interval for the watch command
 watch_interval = "5m"

@@ -4,7 +4,7 @@ saved_at = 2026-03-22T11:00:00Z
 
 [[workspace]]
 title = "0 main"
-cwd = "/Users/txeo/Git/go/project"
+cwd = "/home/user/projects/myapp"
 pinned = true
 index = 0
 
