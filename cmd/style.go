@@ -7,111 +7,70 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// -- Color palette -------------------------------------------------------
+// -- Color palette (simple: green, bold, dim) --------------------------------
 
 var (
-	colorCyan    = lipgloss.Color("#00D7FF")
-	colorMagenta = lipgloss.Color("#FF5FAF")
-	colorGreen   = lipgloss.Color("#5FFF87")
-	colorYellow  = lipgloss.Color("#FFD75F")
-	colorDim     = lipgloss.Color("#6C6C6C")
-	colorWhite   = lipgloss.Color("#FFFFFF")
-	colorOrange  = lipgloss.Color("#FF8700")
+	colorGreen = lipgloss.Color("#5FFF87")
+	colorDim   = lipgloss.Color("#6C6C6C")
+	colorWhite = lipgloss.Color("#FFFFFF")
 )
 
-// -- Reusable styles -----------------------------------------------------
+// -- Reusable styles ---------------------------------------------------------
 
 var (
-	titleStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(colorCyan)
-
-	subtitleStyle = lipgloss.NewStyle().
-			Foreground(colorDim).
-			Italic(true)
-
 	headingStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(colorMagenta).
 			MarginTop(1)
 
 	cmdNameStyle = lipgloss.NewStyle().
-			Foreground(colorGreen).
 			Bold(true)
-
-	cmdDescStyle = lipgloss.NewStyle().
-			Foreground(colorWhite)
-
-	flagStyle = lipgloss.NewStyle().
-			Foreground(colorYellow)
 
 	dimStyle = lipgloss.NewStyle().
 			Foreground(colorDim)
-
-	accentStyle = lipgloss.NewStyle().
-			Foreground(colorOrange).
-			Bold(true)
 )
 
-// -- ASCII banner --------------------------------------------------------
+// -- ASCII banner ------------------------------------------------------------
 
-// banner returns the styled ASCII art banner for cmux-resurrect.
-// Shadow/bloody style — creepy, resurrection-themed.
 func banner() string {
-	artCmux := []string{
-		` ▄████▄   ███▄ ▄███▓ █    ██ ▒██   ██▒`,
-		`▒██▀ ▀█  ▓██▒▀█▀ ██▒ ██  ▓██▒▒▒ █ █ ▒░`,
-		`▒▓█    ▄ ▓██    ▓██░▓██  ▒██░░░  █   ░`,
-		`▒▓▓▄ ▄██▒▒██    ▒██ ▓▓█  ░██░ ░ █ █ ▒ `,
-		`▒ ▓███▀ ░▒██▒   ░██▒▒▒█████▓ ▒██▒ ▒██▒`,
-		`░ ░▒ ▒  ░░ ▒░   ░  ░░▒▓▒ ▒ ▒ ▒▒ ░ ░▓ ░`,
-		`  ░  ▒   ░  ░      ░░░▒░ ░ ░ ░░   ░▒ ░`,
-		`░        ░      ░    ░░░ ░ ░  ░    ░  `,
-		`░ ░             ░      ░      ░    ░  `,
-	}
-	artResurrect := []string{
-		` ██▀███  ▓█████   ██████  █    ██  ██▀███   ██▀███  ▓█████  ▄████▄  ▄▄▄█████▓`,
-		`▓██ ▒ ██▒▓█   ▀ ▒██    ▒  ██  ▓██▒▓██ ▒ ██▒▓██ ▒ ██▒▓█   ▀ ▒██▀ ▀█  ▓  ██▒ ▓▒`,
-		`▓██ ░▄█ ▒▒███   ░ ▓██▄   ▓██  ▒██░▓██ ░▄█ ▒▓██ ░▄█ ▒▒███   ▒▓█    ▄ ▒ ▓██░ ▒░`,
-		`▒██▀▀█▄  ▒▓█  ▄   ▒   ██▒▓▓█  ░██░▒██▀▀█▄  ▒██▀▀█▄  ▒▓█  ▄ ▒▓▓▄ ▄██▒░ ▓██▓ ░ `,
-		`░██▓ ▒██▒░▒████▒▒██████▒▒▒▒█████▓ ░██▓ ▒██▒░██▓ ▒██▒░▒████▒▒ ▓███▀ ░  ▒██▒ ░ `,
-		`░ ▒▓ ░▒▓░░░ ▒░ ░▒ ▒▓▒ ▒ ░░▒▓▒ ▒ ▒ ░ ▒▓ ░▒▓░░ ▒▓ ░▒▓░░░ ▒░ ░░ ░▒ ▒  ░  ▒ ░░   `,
-		`  ░▒ ░ ▒░ ░ ░  ░░ ░▒  ░ ░░░▒░ ░ ░   ░▒ ░ ▒░  ░▒ ░ ▒░ ░ ░  ░  ░  ▒       ░    `,
-		`  ░░   ░    ░   ░  ░  ░   ░░░ ░ ░   ░░   ░   ░░   ░    ░   ░          ░      `,
-		`   ░        ░  ░      ░     ░        ░        ░        ░  ░░ ░               `,
+	art := []string{
+		` ▄████▄   ███▄ ▄███▓ █    ██ ▒██   ██▒ ██▀███  ▓█████   ██████  █    ██  ██▀███   ██▀███  ▓█████  ▄████▄  ▄▄▄█████▓`,
+		`▒██▀ ▀█  ▓██▒▀█▀ ██▒ ██  ▓██▒▒▒ █ █ ▒░▓██ ▒ ██▒▓█   ▀ ▒██    ▒  ██  ▓██▒▓██ ▒ ██▒▓██ ▒ ██▒▓█   ▀ ▒██▀ ▀█  ▓  ██▒ ▓▒`,
+		`▒▓█    ▄ ▓██    ▓██░▓██  ▒██░░░  █   ░▓██ ░▄█ ▒▒███   ░ ▓██▄   ▓██  ▒██░▓██ ░▄█ ▒▓██ ░▄█ ▒▒███   ▒▓█    ▄ ▒ ▓██░ ▒░`,
+		`▒▓▓▄ ▄██▒▒██    ▒██ ▓▓█  ░██░ ░ █ █ ▒ ▒██▀▀█▄  ▒▓█  ▄   ▒   ██▒▓▓█  ░██░▒██▀▀█▄  ▒██▀▀█▄  ▒▓█  ▄ ▒▓▓▄ ▄██▒░ ▓██▓ ░`,
+		`▒ ▓███▀ ░▒██▒   ░██▒▒▒█████▓ ▒██▒ ▒██▒░██▓ ▒██▒░▒████▒▒██████▒▒▒▒█████▓ ░██▓ ▒██▒░██▓ ▒██▒░▒████▒▒ ▓███▀ ░  ▒██▒ ░`,
+		`░ ░▒ ▒  ░░ ▒░   ░  ░░▒▓▒ ▒ ▒ ▒▒ ░ ░▓ ░░ ▒▓ ░▒▓░░░ ▒░ ░▒ ▒▓▒ ▒ ░░▒▓▒ ▒ ▒ ░ ▒▓ ░▒▓░░ ▒▓ ░▒▓░░░ ▒░ ░░ ░▒ ▒  ░  ▒ ░░`,
+		`  ░  ▒   ░  ░      ░░░▒░ ░ ░ ░░   ░▒ ░  ░▒ ░ ▒░ ░ ░  ░░ ░▒  ░ ░░░▒░ ░ ░   ░▒ ░ ▒░  ░▒ ░ ▒░ ░ ░  ░  ░  ▒       ░`,
+		`░        ░      ░    ░░░ ░ ░  ░    ░    ░░   ░    ░   ░  ░  ░   ░░░ ░ ░   ░░   ░   ░░   ░    ░   ░          ░`,
+		`░ ░             ░      ░      ░    ░     ░        ░  ░      ░     ░        ░        ░        ░  ░░ ░`,
+		`░                                                                                                ░`,
 	}
 
 	bannerStyle := lipgloss.NewStyle().
-		Foreground(colorCyan).
+		Foreground(colorGreen).
 		Bold(true)
 
-	taglineStyle := lipgloss.NewStyle().
+	tagStyle := lipgloss.NewStyle().
 		Foreground(colorDim).
 		Italic(true)
 
-	versionLine := lipgloss.NewStyle().
-		Foreground(colorMagenta)
+	verStyle := lipgloss.NewStyle().
+		Foreground(colorDim)
 
 	var b strings.Builder
-	for _, line := range artCmux {
+	for _, line := range art {
 		b.WriteString(bannerStyle.Render(line))
 		b.WriteString("\n")
 	}
-	for _, line := range artResurrect {
-		b.WriteString(bannerStyle.Render(line))
-		b.WriteString("\n")
-	}
-	b.WriteString(taglineStyle.Render("  Session persistence for cmux — your terminal workspaces, resurrected."))
+	b.WriteString(tagStyle.Render("  Session persistence for cmux — your terminal workspaces, resurrected."))
 	b.WriteString("\n")
-	b.WriteString(versionLine.Render(fmt.Sprintf("  v%s (%s) built %s", Version, Commit, Date)))
+	b.WriteString(verStyle.Render(fmt.Sprintf("  v%s (%s) built %s", Version, Commit, Date)))
 	b.WriteString("\n")
 
 	return b.String()
 }
 
-// -- Help template -------------------------------------------------------
+// -- Help template -----------------------------------------------------------
 
-// styledHelp generates a beautiful help output for the root command.
 func styledHelp() string {
 	var b strings.Builder
 
@@ -121,7 +80,7 @@ func styledHelp() string {
 	// Usage
 	b.WriteString(headingStyle.Render("USAGE"))
 	b.WriteString("\n")
-	b.WriteString("  " + cmdNameStyle.Render("crex") + " " + dimStyle.Render("<command>") + " " + dimStyle.Render("[flags]"))
+	b.WriteString("  " + cmdNameStyle.Render("crex") + " " + dimStyle.Render("<command> [flags]"))
 	b.WriteString("\n")
 
 	// Core commands
@@ -169,14 +128,6 @@ func styledHelp() string {
 	writeExample(&b, "crex restore work --dry-run", "Preview restore without executing")
 	writeExample(&b, "crex project add api ~/code/api -t dev", "Add project with dev template")
 	writeExample(&b, "crex watch autosave -i 2m", "Auto-save every 2 minutes")
-
-	// Footer
-	b.WriteString("\n")
-	b.WriteString(dimStyle.Render("  Forged by "))
-	b.WriteString(accentStyle.Render("Drolosoft"))
-	b.WriteString(dimStyle.Render(" -- Tools we wish existed"))
-	b.WriteString("\n")
-	b.WriteString(dimStyle.Render("  https://drolosoft.com"))
 	b.WriteString("\n")
 
 	return b.String()
@@ -184,30 +135,20 @@ func styledHelp() string {
 
 func writeCmd(b *strings.Builder, name, args, desc string) {
 	nameRendered := cmdNameStyle.Render(fmt.Sprintf("  %-18s", name))
-	argsRendered := ""
-	if args != "" {
-		argsRendered = dimStyle.Render(fmt.Sprintf("%-16s", args))
-	} else {
-		argsRendered = dimStyle.Render(fmt.Sprintf("%-16s", ""))
-	}
-	descRendered := cmdDescStyle.Render(desc)
+	argsRendered := dimStyle.Render(fmt.Sprintf("%-16s", args))
+	descRendered := dimStyle.Render(desc)
 	b.WriteString(fmt.Sprintf("%s %s %s\n", nameRendered, argsRendered, descRendered))
 }
 
 func writeFlag(b *strings.Builder, flag, typeName, desc string) {
-	flagRendered := flagStyle.Render(fmt.Sprintf("  %-18s", flag))
-	typeRendered := ""
-	if typeName != "" {
-		typeRendered = dimStyle.Render(fmt.Sprintf("%-8s", typeName))
-	} else {
-		typeRendered = dimStyle.Render(fmt.Sprintf("%-8s", ""))
-	}
-	descRendered := cmdDescStyle.Render(desc)
+	flagRendered := cmdNameStyle.Render(fmt.Sprintf("  %-18s", flag))
+	typeRendered := dimStyle.Render(fmt.Sprintf("%-8s", typeName))
+	descRendered := dimStyle.Render(desc)
 	b.WriteString(fmt.Sprintf("%s %s %s\n", flagRendered, typeRendered, descRendered))
 }
 
 func writeExample(b *strings.Builder, example, desc string) {
-	b.WriteString("  " + accentStyle.Render("$") + " " + cmdNameStyle.Render(example))
+	b.WriteString("  " + cmdNameStyle.Render("$ "+example))
 	b.WriteString("\n")
 	b.WriteString("    " + dimStyle.Render(desc))
 	b.WriteString("\n")
