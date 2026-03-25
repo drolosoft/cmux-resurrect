@@ -1,8 +1,8 @@
 ## Projects
 **Icon | Name | Template | Pin | Path**
 
-- [x] | 🧪 | test-alpha | single | yes | /tmp/cmres-test/alpha |
-- [x] | 🔬 | test-beta | single | no | /tmp/cmres-test/beta |
+- [x] | 🧪 | test-alpha | single | yes | /tmp/crex-test/alpha |
+- [x] | 🔬 | test-beta | single | no | /tmp/crex-test/beta |
 
 ## Templates
 

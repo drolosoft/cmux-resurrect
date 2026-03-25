@@ -1,9 +1,9 @@
 ## Projects
 **Icon | Name | Template | Pin | Path**
 
-- [x] | 🛠️ | test-dev | dev | yes | /tmp/cmres-test/dev |
-- [x] | 📊 | test-monitor | monitor | no | /tmp/cmres-test/monitor |
-- [ ] | 🚫 | test-disabled | single | no | /tmp/cmres-test/disabled |
+- [x] | 🛠️ | test-dev | dev | yes | /tmp/crex-test/dev |
+- [x] | 📊 | test-monitor | monitor | no | /tmp/crex-test/monitor |
+- [ ] | 🚫 | test-disabled | single | no | /tmp/crex-test/disabled |
 
 ## Templates
 

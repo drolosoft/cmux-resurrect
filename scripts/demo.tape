@@ -19,7 +19,7 @@ Set CursorBlink false
 
 # --- Scene 1: Banner & Help ---
 
-Type "cmres"
+Type "crex"
 Enter
 Sleep 3s
 
@@ -29,7 +29,7 @@ Type "# Save your current cmux layout"
 Enter
 Sleep 400ms
 
-Type "cmres save work"
+Type "crex save work"
 Enter
 Sleep 1.5s
 
@@ -39,7 +39,7 @@ Type "# See what you've saved"
 Enter
 Sleep 400ms
 
-Type "cmres list"
+Type "crex list"
 Enter
 Sleep 1.5s
 
@@ -49,7 +49,7 @@ Type "# Inspect a layout"
 Enter
 Sleep 400ms
 
-Type "cmres show work"
+Type "crex show work"
 Enter
 Sleep 2s
 
@@ -59,7 +59,7 @@ Type "# Preview restore (nothing is executed)"
 Enter
 Sleep 400ms
 
-Type "cmres restore work --dry-run"
+Type "crex restore work --dry-run"
 Enter
 Sleep 3s
 
@@ -69,7 +69,7 @@ Type "# Restore! All workspaces come back"
 Enter
 Sleep 400ms
 
-Type "cmres restore work"
+Type "crex restore work"
 Enter
 Sleep 2s
 
@@ -79,17 +79,17 @@ Type "# Add a project to your workspace file"
 Enter
 Sleep 400ms
 
-Type 'cmres project add api ~/projects/api -t dev --icon "gear"'
+Type 'crex project add api ~/projects/api -t dev --icon "gear"'
 Enter
 Sleep 1.5s
 
-Type "cmres project list"
+Type "crex project list"
 Enter
 Sleep 2s
 
 # --- Scene 8: Version ---
 
-Type "cmres version"
+Type "crex version"
 Enter
 Sleep 2s
 

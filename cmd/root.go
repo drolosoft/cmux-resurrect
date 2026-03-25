@@ -17,9 +17,9 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "cmres",
+	Use:   "crex",
 	Short: "Resurrect your cmux sessions",
-	Long:  "cmres saves/restores cmux layouts and manages workspaces from an Obsidian-friendly markdown file.",
+	Long:  "cmux-resurrect (crex) saves/restores cmux layouts and manages workspaces from an Obsidian-friendly markdown file.",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Print(styledHelp())
 	},
@@ -31,8 +31,8 @@ func Execute() error {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default ~/.config/cmres/config.toml)")
-	rootCmd.PersistentFlags().StringVar(&layoutsDir, "layouts-dir", "", "layouts directory (default ~/.config/cmres/layouts)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default ~/.config/crex/config.toml)")
+	rootCmd.PersistentFlags().StringVar(&layoutsDir, "layouts-dir", "", "layouts directory (default ~/.config/crex/layouts)")
 
 	// Override the default help command to use our styled output for the root.
 	defaultHelp := rootCmd.HelpFunc()

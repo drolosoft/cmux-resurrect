@@ -6,7 +6,7 @@
 
 > **Session persistence for [cmux](https://github.com/manaflow-ai/cmux) — your terminal workspaces, resurrected.**
 
-cmux is a Ghostty-based terminal multiplexer with 9.3K+ stars — but **sessions don't survive restarts**. `cmres` fixes that.
+cmux is a Ghostty-based terminal multiplexer with 9.3K+ stars — but **sessions don't survive restarts**. `crex` fixes that.
 
 <!-- 🎬 Demo GIF — run ./scripts/record-demo.sh to generate -->
 <p align="center">
@@ -58,21 +58,28 @@ cmux is a Ghostty-based terminal multiplexer with 9.3K+ stars — but **sessions
 git clone https://github.com/drolosoft/cmux-resurrect.git
 cd cmux-resurrect
 make build
-make install   # → /usr/local/bin/cmres
+```
+
+Choose your preferred command name:
+
+```sh
+make install        # → /usr/local/bin/crex           (short name)
+make install-long   # → /usr/local/bin/cmux-resurrect (long name)
+make install-both   # → both names (crex + cmux-resurrect)
 ```
 
 ### 💾 Save your layout
 
 ```sh
-cmres save work
+crex save work
 ```
 
-Captures every workspace, split, CWD, and pinned state into `~/.config/cmres/layouts/work.toml`.
+Captures every workspace, split, CWD, and pinned state into `~/.config/crex/layouts/work.toml`.
 
 ### 🔄 Restore it later
 
 ```sh
-cmres restore work
+crex restore work
 ```
 
 ```
@@ -89,7 +96,7 @@ All workspaces recreated with their original splits and startup commands.
 See exactly what will happen **before** it happens:
 
 ```sh
-cmres restore work --dry-run
+crex restore work --dry-run
 ```
 
 ```
@@ -121,31 +128,31 @@ Every `cmux` command listed. Nothing executed. Inspect, verify, **then** run wit
 
 | Command | Alias | Description |
 |---------|-------|-------------|
-| `cmres save [name]` | | 💾 Capture current layout to TOML |
-| `cmres restore <name>` | | 🔄 Recreate workspaces, splits, and commands |
-| `cmres list` | `ls` | 📋 List saved layouts with workspace count |
-| `cmres show <name>` | | 🔍 Display layout details (`--raw` for TOML) |
-| `cmres edit <name>` | | ✏️ Open layout in `$EDITOR` |
-| `cmres delete <name>` | `rm` | 🗑️ Delete a saved layout |
-| `cmres sync` | | 🔀 Reconcile Markdown workspace file → cmux |
-| `cmres export` | | 📤 Export live cmux state → Markdown file |
-| `cmres watch [name]` | | ⏱️ Auto-save at interval (default: 5m) |
-| `cmres project add` | `p add` | ➕ Add project to workspace file |
-| `cmres project remove` | `p rm` | ➖ Remove project from workspace file |
-| `cmres project list` | `p ls` | 📋 List projects in workspace file |
-| `cmres project toggle` | `p toggle` | 🔘 Enable/disable a project |
-| `cmres version` | | ℹ️ Print version, commit, build date |
+| `crex save [name]` | | 💾 Capture current layout to TOML |
+| `crex restore <name>` | | 🔄 Recreate workspaces, splits, and commands |
+| `crex list` | `ls` | 📋 List saved layouts with workspace count |
+| `crex show <name>` | | 🔍 Display layout details (`--raw` for TOML) |
+| `crex edit <name>` | | ✏️ Open layout in `$EDITOR` |
+| `crex delete <name>` | `rm` | 🗑️ Delete a saved layout |
+| `crex sync` | | 🔀 Reconcile Markdown workspace file → cmux |
+| `crex export` | | 📤 Export live cmux state → Markdown file |
+| `crex watch [name]` | | ⏱️ Auto-save at interval (default: 5m) |
+| `crex project add` | `p add` | ➕ Add project to workspace file |
+| `crex project remove` | `p rm` | ➖ Remove project from workspace file |
+| `crex project list` | `p ls` | 📋 List projects in workspace file |
+| `crex project toggle` | `p toggle` | 🔘 Enable/disable a project |
+| `crex version` | | ℹ️ Print version, commit, build date |
 
 ### 🏴 Key Flags
 
 ```sh
-cmres save -d "Friday standup layout"                   # 💬 attach a description
-cmres restore work --dry-run                            # 👁️ preview without executing
-cmres watch autosave --interval 2m                      # ⏱️ custom interval
-cmres project add api ~/projects/api -t dev --icon "⚙️"  # ➕ with template + icon
-cmres project add notes ~/docs -t single --disabled     # ➕ disabled by default
-cmres project list --all                                # 📋 include disabled projects
-cmres show work --raw                                   # 🔍 dump raw TOML
+crex save -d "Friday standup layout"                   # 💬 attach a description
+crex restore work --dry-run                            # 👁️ preview without executing
+crex watch autosave --interval 2m                      # ⏱️ custom interval
+crex project add api ~/projects/api -t dev --icon "⚙️"  # ➕ with template + icon
+crex project add notes ~/docs -t single --disabled     # ➕ disabled by default
+crex project list --all                                # 📋 include disabled projects
+crex show work --raw                                   # 🔍 dump raw TOML
 ```
 
 ---
@@ -169,7 +176,7 @@ A Markdown document with two sections: **Projects** and **Templates**. Compatibl
 |---------|---------|
 | `[x]` / `[ ]` | ✅ Enabled / ⬜ Disabled — controls sync behavior |
 | Pipe columns | 🏷️ Icon, name, template, pin status, filesystem path |
-| Unchecked project | ⏸️ Excluded from `cmres sync` without deleting it |
+| Unchecked project | ⏸️ Excluded from `crex sync` without deleting it |
 | Unchecked pane | ⏸️ That split is skipped during sync |
 
 ---
@@ -212,14 +219,14 @@ Define your own templates by adding `### template-name` sections. Uncheck any pa
 
 ## ⚙️ Configuration
 
-`~/.config/cmres/config.toml` — all fields optional, defaults applied automatically.
+`~/.config/crex/config.toml` — all fields optional, defaults applied automatically.
 
 ```toml
 # Workspace MD file path
 workspace_file = "~/documents/cmux-workspaces.md"
 
 # Directory for layout TOML files
-layouts_dir = "~/.config/cmres/layouts"
+layouts_dir = "~/.config/crex/layouts"
 
 # Auto-save interval for watch
 watch_interval = "5m"
@@ -230,11 +237,11 @@ max_autosaves = 10
 
 | Setting | Default |
 |---------|---------|
-| 📄 Config file | `~/.config/cmres/config.toml` |
-| 📁 Layouts dir | `~/.config/cmres/layouts/` |
-| 📝 Workspace file | `~/.config/cmres/workspaces.md` |
+| 📄 Config file | `~/.config/crex/config.toml` |
+| 📁 Layouts dir | `~/.config/crex/layouts/` |
+| 📝 Workspace file | `~/.config/crex/workspaces.md` |
 
-Override with flags: `cmres --config /path/to/config.toml --layouts-dir /path/to/layouts list`
+Override with flags: `crex --config /path/to/config.toml --layouts-dir /path/to/layouts list`
 
 ---
 
@@ -243,13 +250,13 @@ Override with flags: `cmres --config /path/to/config.toml --layouts-dir /path/to
 The `watch` command runs as a macOS service, auto-saving when cmux is active.
 
 ```sh
-make install-service    # → ~/Library/LaunchAgents/com.cmres.watch.plist
+make install-service    # → ~/Library/LaunchAgents/com.crex.watch.plist
 make uninstall-service  # remove it
 ```
 
-- ⏱️ Runs `cmres watch autosave --interval 5m`
+- ⏱️ Runs `crex watch autosave --interval 5m`
 - 🔌 Only starts when `/tmp/cmux.sock` exists (cmux is running)
-- 📄 Logs to `/tmp/cmres-watch.log`
+- 📄 Logs to `/tmp/crex-watch.log`
 - 🛡️ Throttles restarts to every 30s
 - 🔗 Content-hash deduplication — no duplicate files when layout hasn't changed
 
@@ -260,8 +267,10 @@ make uninstall-service  # remove it
 **Prerequisites**: Go 1.26+ · cmux in `$PATH`
 
 ```sh
-make build              # → bin/cmres
-make install            # → /usr/local/bin/cmres
+make build              # → bin/crex
+make install            # → /usr/local/bin/crex (short name)
+make install-long       # → /usr/local/bin/cmux-resurrect (long name)
+make install-both       # → both names (crex + cmux-resurrect)
 make test               # 🧪 unit tests
 make test-integration   # 🧪 integration tests (needs running cmux)
 make lint               # 🔍 go vet
@@ -277,7 +286,7 @@ make clean              # 🗑️ remove bin/
 
 **MIT License** — free to use, modify, and distribute.
 
-This is a **personal project** born from a real need: a crashed cmux session took an hour of carefully arranged workspaces with it. `cmres` exists so that never happens again.
+This is a **personal project** born from a real need: a crashed cmux session took an hour of carefully arranged workspaces with it. `crex` exists so that never happens again.
 
 This is **shared, not staffed**. It works, it's tested, and it solves the problem it was built for. There are no promises about timelines, feature requests, or support. If you find a bug, PRs are welcome. If you want a feature, fork it — that's what open source is for.
 

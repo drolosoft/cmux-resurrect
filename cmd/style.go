@@ -56,15 +56,29 @@ var (
 // -- ASCII banner --------------------------------------------------------
 
 // banner returns the styled ASCII art banner for cmux-resurrect.
-// Minimal 5-line design that is tasteful and not overwhelming.
+// Shadow/bloody style — creepy, resurrection-themed.
 func banner() string {
-	art := []string{
-		`                                  `,
-		`   ___ _ __ ___  _ __ ___  ___    `,
-		`  / __| '_ ` + "`" + ` _ \| '__/ _ \/ __|   `,
-		`  \__ \ | | | | | | |  __/\__ \   `,
-		`  |___/_| |_| |_|_|  \___||___/   `,
-		`                                  `,
+	artCmux := []string{
+		` ▄████▄   ███▄ ▄███▓ █    ██ ▒██   ██▒`,
+		`▒██▀ ▀█  ▓██▒▀█▀ ██▒ ██  ▓██▒▒▒ █ █ ▒░`,
+		`▒▓█    ▄ ▓██    ▓██░▓██  ▒██░░░  █   ░`,
+		`▒▓▓▄ ▄██▒▒██    ▒██ ▓▓█  ░██░ ░ █ █ ▒ `,
+		`▒ ▓███▀ ░▒██▒   ░██▒▒▒█████▓ ▒██▒ ▒██▒`,
+		`░ ░▒ ▒  ░░ ▒░   ░  ░░▒▓▒ ▒ ▒ ▒▒ ░ ░▓ ░`,
+		`  ░  ▒   ░  ░      ░░░▒░ ░ ░ ░░   ░▒ ░`,
+		`░        ░      ░    ░░░ ░ ░  ░    ░  `,
+		`░ ░             ░      ░      ░    ░  `,
+	}
+	artResurrect := []string{
+		` ██▀███  ▓█████   ██████  █    ██  ██▀███   ██▀███  ▓█████  ▄████▄  ▄▄▄█████▓`,
+		`▓██ ▒ ██▒▓█   ▀ ▒██    ▒  ██  ▓██▒▓██ ▒ ██▒▓██ ▒ ██▒▓█   ▀ ▒██▀ ▀█  ▓  ██▒ ▓▒`,
+		`▓██ ░▄█ ▒▒███   ░ ▓██▄   ▓██  ▒██░▓██ ░▄█ ▒▓██ ░▄█ ▒▒███   ▒▓█    ▄ ▒ ▓██░ ▒░`,
+		`▒██▀▀█▄  ▒▓█  ▄   ▒   ██▒▓▓█  ░██░▒██▀▀█▄  ▒██▀▀█▄  ▒▓█  ▄ ▒▓▓▄ ▄██▒░ ▓██▓ ░ `,
+		`░██▓ ▒██▒░▒████▒▒██████▒▒▒▒█████▓ ░██▓ ▒██▒░██▓ ▒██▒░▒████▒▒ ▓███▀ ░  ▒██▒ ░ `,
+		`░ ▒▓ ░▒▓░░░ ▒░ ░▒ ▒▓▒ ▒ ░░▒▓▒ ▒ ▒ ░ ▒▓ ░▒▓░░ ▒▓ ░▒▓░░░ ▒░ ░░ ░▒ ▒  ░  ▒ ░░   `,
+		`  ░▒ ░ ▒░ ░ ░  ░░ ░▒  ░ ░░░▒░ ░ ░   ░▒ ░ ▒░  ░▒ ░ ▒░ ░ ░  ░  ░  ▒       ░    `,
+		`  ░░   ░    ░   ░  ░  ░   ░░░ ░ ░   ░░   ░   ░░   ░    ░   ░          ░      `,
+		`   ░        ░  ░      ░     ░        ░        ░        ░  ░░ ░               `,
 	}
 
 	bannerStyle := lipgloss.NewStyle().
@@ -73,19 +87,21 @@ func banner() string {
 
 	taglineStyle := lipgloss.NewStyle().
 		Foreground(colorDim).
-		Italic(true).
-		Align(lipgloss.Center)
+		Italic(true)
 
 	versionLine := lipgloss.NewStyle().
-		Foreground(colorMagenta).
-		Align(lipgloss.Center)
+		Foreground(colorMagenta)
 
 	var b strings.Builder
-	for _, line := range art {
+	for _, line := range artCmux {
 		b.WriteString(bannerStyle.Render(line))
 		b.WriteString("\n")
 	}
-	b.WriteString(taglineStyle.Render("  Session persistence for cmux"))
+	for _, line := range artResurrect {
+		b.WriteString(bannerStyle.Render(line))
+		b.WriteString("\n")
+	}
+	b.WriteString(taglineStyle.Render("  Session persistence for cmux — your terminal workspaces, resurrected."))
 	b.WriteString("\n")
 	b.WriteString(versionLine.Render(fmt.Sprintf("  v%s (%s) built %s", Version, Commit, Date)))
 	b.WriteString("\n")
@@ -105,7 +121,7 @@ func styledHelp() string {
 	// Usage
 	b.WriteString(headingStyle.Render("USAGE"))
 	b.WriteString("\n")
-	b.WriteString("  " + cmdNameStyle.Render("cmres") + " " + dimStyle.Render("<command>") + " " + dimStyle.Render("[flags]"))
+	b.WriteString("  " + cmdNameStyle.Render("crex") + " " + dimStyle.Render("<command>") + " " + dimStyle.Render("[flags]"))
 	b.WriteString("\n")
 
 	// Core commands
@@ -142,17 +158,17 @@ func styledHelp() string {
 	// Global flags
 	b.WriteString(headingStyle.Render("GLOBAL FLAGS"))
 	b.WriteString("\n")
-	writeFlag(&b, "--config", "string", "Config file (default ~/.config/cmres/config.toml)")
-	writeFlag(&b, "--layouts-dir", "string", "Layouts directory (default ~/.config/cmres/layouts)")
-	writeFlag(&b, "-h, --help", "", "Help for cmres")
+	writeFlag(&b, "--config", "string", "Config file (default ~/.config/crex/config.toml)")
+	writeFlag(&b, "--layouts-dir", "string", "Layouts directory (default ~/.config/crex/layouts)")
+	writeFlag(&b, "-h, --help", "", "Help for crex")
 
 	// Examples
 	b.WriteString(headingStyle.Render("EXAMPLES"))
 	b.WriteString("\n")
-	writeExample(&b, "cmres save work", "Save current layout as 'work'")
-	writeExample(&b, "cmres restore work --dry-run", "Preview restore without executing")
-	writeExample(&b, "cmres project add api ~/code/api -t dev", "Add project with dev template")
-	writeExample(&b, "cmres watch autosave -i 2m", "Auto-save every 2 minutes")
+	writeExample(&b, "crex save work", "Save current layout as 'work'")
+	writeExample(&b, "crex restore work --dry-run", "Preview restore without executing")
+	writeExample(&b, "crex project add api ~/code/api -t dev", "Add project with dev template")
+	writeExample(&b, "crex watch autosave -i 2m", "Auto-save every 2 minutes")
 
 	// Footer
 	b.WriteString("\n")

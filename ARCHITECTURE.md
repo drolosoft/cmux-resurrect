@@ -6,7 +6,7 @@
 
 ```
 ┌──────────────────┐         ┌──────────────────┐
-│  🖥️ cmux          │ ◄─────► │  ⚡ cmres CLI     │
+│  🖥️ cmux          │ ◄─────► │  ⚡ crex CLI     │
 │  (Ghostty mux)   │  cmux   │  (Go binary)     │
 └──────────────────┘  CLI    └────────┬─────────┘
                       calls           │
@@ -16,7 +16,7 @@
                    │ 💾 Layouts    │    │ 📝 Workspace  │
                    │ (TOML files) │    │ (Markdown)   │
                    │ ~/.config/   │    │ Obsidian-    │
-                   │ cmres/layouts│    │ compatible   │
+                   │ crex/layouts│    │ compatible   │
                    └──────────────┘    └──────────────┘
 ```
 
@@ -29,7 +29,7 @@ cmux tree --json → parse TreeResponse
   → for each workspace: cmux sidebar-state → parse CWD
     → build model.Layout
       → serialize to TOML
-        → write to ~/.config/cmres/layouts/<name>.toml
+        → write to ~/.config/crex/layouts/<name>.toml
 ```
 
 ### 🔄 Restore

@@ -8,7 +8,7 @@ import (
 	toml "github.com/pelletier/go-toml/v2"
 )
 
-// Config holds global configuration for cmres.
+// Config holds global configuration for crex.
 type Config struct {
 	LayoutsDir       string        `toml:"layouts_dir"`
 	WorkspaceFile    string        `toml:"workspace_file"`
@@ -28,22 +28,22 @@ func DefaultConfig() *Config {
 	}
 }
 
-// DefaultLayoutsDir returns ~/.config/cmres/layouts.
+// DefaultLayoutsDir returns ~/.config/crex/layouts.
 func DefaultLayoutsDir() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "cmres", "layouts")
+	return filepath.Join(home, ".config", "crex", "layouts")
 }
 
-// DefaultConfigPath returns ~/.config/cmres/config.toml.
+// DefaultConfigPath returns ~/.config/crex/config.toml.
 func DefaultConfigPath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "cmres", "config.toml")
+	return filepath.Join(home, ".config", "crex", "config.toml")
 }
 
-// DefaultWorkspaceFile returns ~/.config/cmres/workspaces.md.
+// DefaultWorkspaceFile returns ~/.config/crex/workspaces.md.
 func DefaultWorkspaceFile() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "cmres", "workspaces.md")
+	return filepath.Join(home, ".config", "crex", "workspaces.md")
 }
 
 // ExpandHome expands ~ to the user's home directory.

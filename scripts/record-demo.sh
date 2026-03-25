@@ -26,9 +26,9 @@ if ! command -v vhs &>/dev/null; then
     exit 1
 fi
 
-# Check for cmres
-if ! command -v cmres &>/dev/null; then
-    echo "❌ cmres not found. Build it first:"
+# Check for crex
+if ! command -v crex &>/dev/null; then
+    echo "❌ crex not found. Build it first:"
     echo "   make build && make install"
     exit 1
 fi

@@ -1,4 +1,4 @@
-# cmres Runbook -- Manual Integration Tests
+# crex Runbook -- Manual Integration Tests
 
 > **Atuin Desktop compatible** -- Open this file in [Atuin Desktop](https://atuin.sh/)
 > to run code blocks step-by-step with the play button,
@@ -15,7 +15,7 @@ make build && make install
 
 ```sh
 # Create test directories
-mkdir -p /tmp/cmres-test/{alpha,beta,dev,monitor,disabled,one,two,three,four}
+mkdir -p /tmp/crex-test/{alpha,beta,dev,monitor,disabled,one,two,three,four}
 ```
 
 ```sh
@@ -41,14 +41,14 @@ Three workspace files in `testdata/workspaces/`:
 
 ```sh
 # Dry-run first
-cmres sync --config /dev/null --workspace-file testdata/workspaces/minimal.md --dry-run
+crex sync --config /dev/null --workspace-file testdata/workspaces/minimal.md --dry-run
 
 # Expected: CREATE 2 workspaces (test-alpha pinned, test-beta unpinned)
 ```
 
 ```sh
 # Real sync
-cmres sync
+crex sync
 
 # Verify
 cmux list-workspaces
@@ -60,7 +60,7 @@ cmux list-workspaces
 - [ ] Titles show icons: `test-alpha`, `test-beta`
 - [ ] test-alpha is pinned
 - [ ] test-beta is NOT pinned
-- [ ] CWDs are `/tmp/cmres-test/alpha` and `/tmp/cmres-test/beta`
+- [ ] CWDs are `/tmp/crex-test/alpha` and `/tmp/crex-test/beta`
 
 **Cleanup:**
 ```sh
@@ -74,7 +74,7 @@ cmux close-workspace --workspace workspace:YY
 ## Test 2: sync with splits
 
 ```sh
-cmres sync --config /dev/null --workspace-file testdata/workspaces/splits.md --dry-run
+crex sync --config /dev/null --workspace-file testdata/workspaces/splits.md --dry-run
 
 # Expected: CREATE 2 workspaces (test-disabled is [ ] so skipped)
 #   test-dev: 2 panes (main + split right)
@@ -82,7 +82,7 @@ cmres sync --config /dev/null --workspace-file testdata/workspaces/splits.md --d
 ```
 
 ```sh
-cmres sync
+crex sync
 cmux list-workspaces
 ```
 
@@ -99,7 +99,7 @@ cmux list-workspaces
 ## Test 3: sync with full (multi-split + numbering)
 
 ```sh
-cmres sync --config /dev/null --workspace-file testdata/workspaces/full.md --dry-run
+crex sync --config /dev/null --workspace-file testdata/workspaces/full.md --dry-run
 ```
 
 **Check:**
@@ -115,23 +115,23 @@ cmres sync --config /dev/null --workspace-file testdata/workspaces/full.md --dry
 
 ```sh
 # First create some workspaces via sync
-cmres sync --config /dev/null --workspace-file testdata/workspaces/splits.md
+crex sync --config /dev/null --workspace-file testdata/workspaces/splits.md
 ```
 
 ```sh
 # Save current layout
-cmres save runbook-test
+crex save runbook-test
 ```
 
 ```sh
 # Verify
-cmres list
+crex list
 # Expected: runbook-test appears with workspace count and timestamp
 ```
 
 **Check:**
 - [ ] Layout saved without errors
-- [ ] `cmres list` shows it
+- [ ] `crex list` shows it
 - [ ] File exists in layouts dir
 
 ---
@@ -139,12 +139,12 @@ cmres list
 ## Test 5: show
 
 ```sh
-cmres show runbook-test
+crex show runbook-test
 # Expected: formatted display of workspaces, panes, CWDs
 ```
 
 ```sh
-cmres show runbook-test --raw
+crex show runbook-test --raw
 # Expected: raw TOML content
 ```
 
@@ -157,7 +157,7 @@ cmres show runbook-test --raw
 ## Test 6: edit
 
 ```sh
-EDITOR=cat cmres edit runbook-test
+EDITOR=cat crex edit runbook-test
 # Expected: prints TOML content (cat acts as editor)
 ```
 
@@ -170,13 +170,13 @@ EDITOR=cat cmres edit runbook-test
 
 ```sh
 # Dry-run first
-cmres restore runbook-test --dry-run
+crex restore runbook-test --dry-run
 # Expected: lists cmux commands to recreate layout
 ```
 
 ```sh
 # Close all test workspaces, then restore
-cmres restore runbook-test
+crex restore runbook-test
 cmux list-workspaces
 # Expected: workspaces recreated with correct titles, splits, pins
 ```
@@ -194,9 +194,9 @@ cmux list-workspaces
 
 ```sh
 # With workspaces running, export to a temp file
-cmres export --workspace-file /tmp/cmres-test/exported.md
+crex export --workspace-file /tmp/crex-test/exported.md
 
-cat /tmp/cmres-test/exported.md
+cat /tmp/crex-test/exported.md
 # Expected: valid workspace MD with current cmux state
 ```
 
@@ -210,15 +210,15 @@ cat /tmp/cmres-test/exported.md
 ## Test 9: delete
 
 ```sh
-cmres list
+crex list
 ```
 
 ```sh
-cmres delete runbook-test -f
+crex delete runbook-test -f
 ```
 
 ```sh
-cmres list
+crex list
 # Expected: runbook-test no longer appears
 ```
 
@@ -231,7 +231,7 @@ cmres list
 ## Test 10: project management
 
 ```sh
-WF=/tmp/cmres-test/project-test.md
+WF=/tmp/crex-test/project-test.md
 
 # Start fresh
 echo '## Projects
@@ -243,42 +243,42 @@ echo '## Projects
 - [x] main (focused)' > $WF
 
 # Add projects
-cmres project add "web" ~/projects/web -i "W" -t dev --workspace-file $WF
-cmres project add "api" ~/projects/api -i "A" -t go --workspace-file $WF
-cmres project add "docs" ~/docs -i "D" -t single --disabled --workspace-file $WF
+crex project add "web" ~/projects/web -i "W" -t dev --workspace-file $WF
+crex project add "api" ~/projects/api -i "A" -t go --workspace-file $WF
+crex project add "docs" ~/docs -i "D" -t single --disabled --workspace-file $WF
 ```
 
 ```sh
-WF=/tmp/cmres-test/project-test.md
+WF=/tmp/crex-test/project-test.md
 
 # List enabled
-cmres project list --workspace-file $WF
+crex project list --workspace-file $WF
 # Expected: web, api (enabled)
 ```
 
 ```sh
-WF=/tmp/cmres-test/project-test.md
+WF=/tmp/crex-test/project-test.md
 
 # List all
-cmres project list --all --workspace-file $WF
+crex project list --all --workspace-file $WF
 # Expected: web, api, docs (docs disabled)
 ```
 
 ```sh
-WF=/tmp/cmres-test/project-test.md
+WF=/tmp/crex-test/project-test.md
 
 # Toggle
-cmres project toggle "docs" --workspace-file $WF
-cmres project list --workspace-file $WF
+crex project toggle "docs" --workspace-file $WF
+crex project list --workspace-file $WF
 # Expected: web, api, docs (all enabled)
 ```
 
 ```sh
-WF=/tmp/cmres-test/project-test.md
+WF=/tmp/crex-test/project-test.md
 
 # Remove
-cmres project remove "api" --workspace-file $WF
-cmres project list --all --workspace-file $WF
+crex project remove "api" --workspace-file $WF
+crex project list --all --workspace-file $WF
 # Expected: web, docs
 ```
 
@@ -294,14 +294,14 @@ cmres project list --all --workspace-file $WF
 ## Test 11: watch
 
 ```sh
-cmres watch runbook-watch --interval 10s &
+crex watch runbook-watch --interval 10s &
 WATCH_PID=$!
 
 # Wait 15 seconds
 sleep 15
 
 # Check autosave
-cmres list
+crex list
 # Expected: runbook-watch appears
 
 kill $WATCH_PID
@@ -316,7 +316,7 @@ kill $WATCH_PID
 ## Test 12: version
 
 ```sh
-cmres version
+crex version
 # Expected: ASCII banner with version, commit, and build date
 ```
 
@@ -326,12 +326,12 @@ cmres version
 
 ```sh
 # Sync once
-cmres sync
+crex sync
 ```
 
 ```sh
 # Sync again -- should skip existing
-cmres sync
+crex sync
 # Expected: all SKIP (already exists)
 ```
 
@@ -344,7 +344,7 @@ cmres sync
 ## Cleanup
 
 ```sh
-rm -rf /tmp/cmres-test
-cmres delete runbook-test 2>/dev/null
-cmres delete runbook-watch 2>/dev/null
+rm -rf /tmp/crex-test
+crex delete runbook-test 2>/dev/null
+crex delete runbook-watch 2>/dev/null
 ```
