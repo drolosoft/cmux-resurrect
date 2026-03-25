@@ -1,4 +1,8 @@
-# cmres Runbook — Manual Integration Tests
+# cmres Runbook -- Manual Integration Tests
+
+> **Atuin Desktop compatible** -- Open this file in [Atuin Desktop](https://atuin.sh/)
+> to run code blocks step-by-step with the play button,
+> or use it as a manual reference.
 
 Test every command end-to-end against a running cmux instance.
 
@@ -7,10 +11,14 @@ Test every command end-to-end against a running cmux instance.
 ```sh
 # Build and install
 make build && make install
+```
 
+```sh
 # Create test directories
 mkdir -p /tmp/cmres-test/{alpha,beta,dev,monitor,disabled,one,two,three,four}
+```
 
+```sh
 # Verify cmux is running
 cmux ping
 ```
@@ -49,7 +57,7 @@ cmux list-workspaces
 
 **Check:**
 - [ ] 2 workspaces created
-- [ ] Titles show icons: `🧪 test-alpha`, `🔬 test-beta`
+- [ ] Titles show icons: `test-alpha`, `test-beta`
 - [ ] test-alpha is pinned
 - [ ] test-beta is NOT pinned
 - [ ] CWDs are `/tmp/cmres-test/alpha` and `/tmp/cmres-test/beta`
@@ -79,7 +87,7 @@ cmux list-workspaces
 ```
 
 **Check:**
-- [ ] 2 workspaces created (NOT 3 — disabled is skipped)
+- [ ] 2 workspaces created (NOT 3 -- disabled is skipped)
 - [ ] test-dev has 2 panes with split
 - [ ] test-monitor has 2 panes with split
 - [ ] Commands were sent (`echo "hello from split"`, etc.)
@@ -99,7 +107,7 @@ cmres sync --config /dev/null --workspace-file testdata/workspaces/full.md --dry
 - [ ] project-one: 3 panes (main + right + down)
 - [ ] project-two: 2 panes (main + right)
 - [ ] project-three: 1 pane
-- [ ] Titles include numbers: `1 🟢 project-one`, etc.
+- [ ] Titles include numbers: `1 project-one`, etc.
 
 ---
 
@@ -108,10 +116,14 @@ cmres sync --config /dev/null --workspace-file testdata/workspaces/full.md --dry
 ```sh
 # First create some workspaces via sync
 cmres sync --config /dev/null --workspace-file testdata/workspaces/splits.md
+```
 
+```sh
 # Save current layout
 cmres save runbook-test
+```
 
+```sh
 # Verify
 cmres list
 # Expected: runbook-test appears with workspace count and timestamp
@@ -129,7 +141,9 @@ cmres list
 ```sh
 cmres show runbook-test
 # Expected: formatted display of workspaces, panes, CWDs
+```
 
+```sh
 cmres show runbook-test --raw
 # Expected: raw TOML content
 ```
@@ -155,11 +169,13 @@ EDITOR=cat cmres edit runbook-test
 ## Test 7: restore
 
 ```sh
-# Close all test workspaces first
-# Then restore
+# Dry-run first
 cmres restore runbook-test --dry-run
 # Expected: lists cmux commands to recreate layout
+```
 
+```sh
+# Close all test workspaces, then restore
 cmres restore runbook-test
 cmux list-workspaces
 # Expected: workspaces recreated with correct titles, splits, pins
@@ -195,7 +211,13 @@ cat /tmp/cmres-test/exported.md
 
 ```sh
 cmres list
-cmres delete runbook-test
+```
+
+```sh
+cmres delete runbook-test -f
+```
+
+```sh
 cmres list
 # Expected: runbook-test no longer appears
 ```
@@ -221,21 +243,38 @@ echo '## Projects
 - [x] main (focused)' > $WF
 
 # Add projects
-cmres project add "web" ~/projects/web -i "🌐" -t dev --workspace-file $WF
-cmres project add "api" ~/projects/api -i "⚙️" -t go --workspace-file $WF
-cmres project add "docs" ~/docs -i "📖" -t single --disabled --workspace-file $WF
+cmres project add "web" ~/projects/web -i "W" -t dev --workspace-file $WF
+cmres project add "api" ~/projects/api -i "A" -t go --workspace-file $WF
+cmres project add "docs" ~/docs -i "D" -t single --disabled --workspace-file $WF
+```
 
-# List
+```sh
+WF=/tmp/cmres-test/project-test.md
+
+# List enabled
 cmres project list --workspace-file $WF
 # Expected: web, api (enabled)
+```
 
+```sh
+WF=/tmp/cmres-test/project-test.md
+
+# List all
 cmres project list --all --workspace-file $WF
 # Expected: web, api, docs (docs disabled)
+```
+
+```sh
+WF=/tmp/cmres-test/project-test.md
 
 # Toggle
 cmres project toggle "docs" --workspace-file $WF
 cmres project list --workspace-file $WF
 # Expected: web, api, docs (all enabled)
+```
+
+```sh
+WF=/tmp/cmres-test/project-test.md
 
 # Remove
 cmres project remove "api" --workspace-file $WF
@@ -278,7 +317,7 @@ kill $WATCH_PID
 
 ```sh
 cmres version
-# Expected: version string with commit and build date
+# Expected: ASCII banner with version, commit, and build date
 ```
 
 ---
@@ -288,8 +327,10 @@ cmres version
 ```sh
 # Sync once
 cmres sync
+```
 
-# Sync again — should skip existing
+```sh
+# Sync again -- should skip existing
 cmres sync
 # Expected: all SKIP (already exists)
 ```

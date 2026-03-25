@@ -1,78 +1,95 @@
-# 🎬 cmux-resurrect demo — recorded with github.com/charmbracelet/vhs
+# cmux-resurrect demo -- recorded with github.com/charmbracelet/vhs
 #
 # This tape file produces the demo.gif shown in the README.
 # Edit timings and commands below, then run: vhs scripts/demo.tape
+#
+# Prerequisites:
+#   brew install vhs       # charmbracelet/vhs -- terminal GIF recorder
+#   make build && make install
 
 # Configuration
 Output assets/demo.gif
 Set FontSize 14
-Set Width 900
-Set Height 500
+Set Width 920
+Set Height 540
 Set Theme "Catppuccin Mocha"
 Set Padding 20
-Set TypingSpeed 50ms
+Set TypingSpeed 40ms
+Set CursorBlink false
 
-# --- Scene 1: Save ---
+# --- Scene 1: Banner & Help ---
 
-Type "# 💾 Save your current cmux layout"
+Type "cmres"
 Enter
-Sleep 500ms
+Sleep 3s
+
+# --- Scene 2: Save ---
+
+Type "# Save your current cmux layout"
+Enter
+Sleep 400ms
 
 Type "cmres save work"
 Enter
 Sleep 1.5s
 
-# --- Scene 2: List ---
+# --- Scene 3: List ---
 
-Type "# 📋 See what you've saved"
+Type "# See what you've saved"
 Enter
-Sleep 500ms
+Sleep 400ms
 
 Type "cmres list"
 Enter
 Sleep 1.5s
 
-# --- Scene 3: Show ---
+# --- Scene 4: Show ---
 
-Type "# 🔍 Inspect a layout"
+Type "# Inspect a layout"
 Enter
-Sleep 500ms
+Sleep 400ms
 
 Type "cmres show work"
 Enter
 Sleep 2s
 
-# --- Scene 4: Dry-run ---
+# --- Scene 5: Dry-run ---
 
-Type "# 👁️ Preview restore (nothing is executed)"
+Type "# Preview restore (nothing is executed)"
 Enter
-Sleep 500ms
+Sleep 400ms
 
 Type "cmres restore work --dry-run"
 Enter
 Sleep 3s
 
-# --- Scene 5: Restore ---
+# --- Scene 6: Restore ---
 
-Type "# 🔄 Restore! All workspaces come back"
+Type "# Restore! All workspaces come back"
 Enter
-Sleep 500ms
+Sleep 400ms
 
 Type "cmres restore work"
 Enter
 Sleep 2s
 
-# --- Scene 6: Project management ---
+# --- Scene 7: Project management ---
 
-Type "# ➕ Add a project to your workspace file"
+Type "# Add a project to your workspace file"
 Enter
-Sleep 500ms
+Sleep 400ms
 
-Type 'cmres project add api ~/projects/api -t dev --icon "⚙️"'
+Type 'cmres project add api ~/projects/api -t dev --icon "gear"'
 Enter
 Sleep 1.5s
 
 Type "cmres project list"
+Enter
+Sleep 2s
+
+# --- Scene 8: Version ---
+
+Type "cmres version"
 Enter
 Sleep 2s
 
