@@ -5,19 +5,19 @@ import (
 )
 
 func TestProject_BuildTitle(t *testing.T) {
-	p := Project{Icon: "🏟️", Name: "LaPorrA"}
+	p := Project{Icon: "4 🏟️", Name: "LaPorrA"}
 
 	got := p.BuildTitle(2)
-	want := "2 🏟️ LaPorrA"
+	want := "4 🏟️ LaPorrA"
 	if got != want {
 		t.Errorf("BuildTitle = %q, want %q", got, want)
 	}
 }
 
-func TestProject_BuildTitle_Zero(t *testing.T) {
+func TestProject_BuildTitle_IconOnly(t *testing.T) {
 	p := Project{Icon: "⚙️", Name: "api-server"}
 	got := p.BuildTitle(0)
-	if got != "0 ⚙️ api-server" {
+	if got != "⚙️ api-server" {
 		t.Errorf("BuildTitle = %q", got)
 	}
 }

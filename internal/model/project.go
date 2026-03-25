@@ -35,9 +35,10 @@ type WorkspaceFile struct {
 	Tail      string // Everything after Templates section (preserved on write)
 }
 
-// BuildTitle constructs the cmux workspace title: "{index} {icon} {name}"
-func (p *Project) BuildTitle(index int) string {
-	return fmt.Sprintf("%d %s %s", index, p.Icon, p.Name)
+// BuildTitle constructs the cmux workspace title: "{icon} {name}"
+// The icon field already contains any numeric prefix from the MD file.
+func (p *Project) BuildTitle(_ int) string {
+	return fmt.Sprintf("%s %s", p.Icon, p.Name)
 }
 
 // EnabledProjects returns only projects with [x].

@@ -1,4 +1,4 @@
-# ⚰️➡️🖥️ cmux-resurrect
+# 🔄✨🖥️ cmux-resurrect
 
 [![CI](https://github.com/drolosoft/cmux-resurrect/actions/workflows/ci.yml/badge.svg)](https://github.com/drolosoft/cmux-resurrect/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/drolosoft/cmux-resurrect)](https://goreportcard.com/report/github.com/drolosoft/cmux-resurrect)

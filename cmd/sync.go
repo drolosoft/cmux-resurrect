@@ -66,8 +66,12 @@ func runSync(cmd *cobra.Command, args []string) error {
 		panes := wf.ResolveTemplate(p.Template)
 
 		if syncDryRun {
-			fmt.Printf("CREATE  %s  cwd=%s  template=%s  panes=%d\n",
-				title, expandedPath, p.Template, len(panes))
+			pin := ""
+			if p.Pin {
+				pin = " [pin]"
+			}
+			fmt.Printf("CREATE  %s  cwd=%s  template=%s  panes=%d%s\n",
+				title, expandedPath, p.Template, len(panes), pin)
 			for j, pane := range panes {
 				if j == 0 {
 					desc := "main"
@@ -98,20 +102,22 @@ func runSync(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
-		// Create workspace.
+		// 1. Create workspace.
 		ref, err := cl.NewWorkspace(client.NewWorkspaceOpts{CWD: expandedPath})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "  FAIL  %s: %v\n", title, err)
 			continue
 		}
 
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(300 * time.Millisecond)
 
-		if err := cl.RenameWorkspace(ref, title); err != nil {
-			fmt.Fprintf(os.Stderr, "  WARN  %s: rename failed: %v\n", title, err)
+		// 2. Select workspace to ensure splits target the correct one.
+		if err := cl.SelectWorkspace(ref); err != nil {
+			fmt.Fprintf(os.Stderr, "  WARN  %s: select failed: %v\n", title, err)
 		}
+		time.Sleep(100 * time.Millisecond)
 
-		// Create splits and send commands.
+		// 3. Create splits and send commands.
 		for j, pane := range panes {
 			if j == 0 {
 				if pane.Command != "" {
@@ -130,6 +136,20 @@ func runSync(cmd *cobra.Command, args []string) error {
 			time.Sleep(200 * time.Millisecond)
 			if pane.Command != "" {
 				cl.Send(ref, "", pane.Command+"\n")
+			}
+		}
+
+		// 4. Wait for shell to settle, then rename.
+		// Shell prompt sets terminal title on startup; renaming too early gets overwritten.
+		time.Sleep(500 * time.Millisecond)
+		if err := cl.RenameWorkspace(ref, title); err != nil {
+			fmt.Fprintf(os.Stderr, "  WARN  %s: rename failed: %v\n", title, err)
+		}
+
+		// 5. Pin if requested.
+		if p.Pin {
+			if err := cl.PinWorkspace(ref); err != nil {
+				fmt.Fprintf(os.Stderr, "  WARN  %s: pin failed: %v\n", title, err)
 			}
 		}
 

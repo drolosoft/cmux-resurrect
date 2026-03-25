@@ -32,4 +32,7 @@ type CmuxClient interface {
 
 	// Send sends text to a surface in a workspace.
 	Send(workspaceRef, surfaceRef, text string) error
+
+	// PinWorkspace pins a workspace in the sidebar.
+	PinWorkspace(ref string) error
 }

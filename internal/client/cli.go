@@ -68,6 +68,14 @@ func (c *CLIClient) ListWorkspaces() ([]WorkspaceInfo, error) {
 }
 
 func (c *CLIClient) NewWorkspace(opts NewWorkspaceOpts) (string, error) {
+	// Snapshot existing workspace refs before creation.
+	before := make(map[string]bool)
+	if wsList, err := c.ListWorkspaces(); err == nil {
+		for _, w := range wsList {
+			before[w.Ref] = true
+		}
+	}
+
 	args := []string{"new-workspace"}
 	if opts.CWD != "" {
 		args = append(args, "--cwd", opts.CWD)
@@ -80,8 +88,7 @@ func (c *CLIClient) NewWorkspace(opts NewWorkspaceOpts) (string, error) {
 		return "", err
 	}
 
-	// Poll list-workspaces to find the newly created workspace.
-	// The new workspace is typically the last one or the selected one.
+	// Poll list-workspaces and find the NEW ref (not in the before set).
 	var ref string
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
@@ -90,9 +97,8 @@ func (c *CLIClient) NewWorkspace(opts NewWorkspaceOpts) (string, error) {
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}
-		// The new workspace becomes selected.
 		for _, w := range ws {
-			if w.Selected {
+			if !before[w.Ref] {
 				ref = w.Ref
 				break
 			}
@@ -115,6 +121,11 @@ func (c *CLIClient) RenameWorkspace(ref, title string) error {
 
 func (c *CLIClient) SelectWorkspace(ref string) error {
 	_, err := c.run("select-workspace", "--workspace", ref)
+	return err
+}
+
+func (c *CLIClient) PinWorkspace(ref string) error {
+	_, err := c.run("workspace-action", "--action", "pin", "--workspace", ref)
 	return err
 }
 
