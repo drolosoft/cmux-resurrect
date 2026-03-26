@@ -19,7 +19,7 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "crex",
 	Short: "Resurrect your cmux sessions",
-	Long:  "cmux-resurrect (crex) saves/restores cmux layouts and manages workspaces from an Obsidian-friendly markdown file.",
+	Long:  "cmux-resurrect (crex) saves/restores cmux layouts and manages workspaces from a Workspace Blueprint.",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Print(banner())
 		fmt.Print(styledHelp())

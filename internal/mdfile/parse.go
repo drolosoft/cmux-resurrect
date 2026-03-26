@@ -9,11 +9,11 @@ import (
 	"github.com/drolosoft/cmux-resurrect/internal/model"
 )
 
-// Parse reads and parses the workspace MD file.
+// Parse reads and parses a Workspace Blueprint (.md).
 func Parse(path string) (*model.WorkspaceFile, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("open workspace file: %w", err)
+		return nil, fmt.Errorf("open Workspace Blueprint: %w", err)
 	}
 	defer f.Close()
 
@@ -83,7 +83,7 @@ func Parse(path string) (*model.WorkspaceFile, error) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("read workspace file: %w", err)
+		return nil, fmt.Errorf("read Workspace Blueprint: %w", err)
 	}
 	return wf, nil
 }

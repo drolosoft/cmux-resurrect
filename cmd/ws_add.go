@@ -18,7 +18,7 @@ var (
 
 var wsAddCmd = &cobra.Command{
 	Use:   "add <name> <path>",
-	Short: "Add a workspace entry to the workspace file",
+	Short: "Add a workspace entry to the Workspace Blueprint",
 	Args:  cobra.ExactArgs(2),
 	RunE:  runProjectAdd,
 }

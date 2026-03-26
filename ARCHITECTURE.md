@@ -14,9 +14,9 @@
                             ▼                   ▼
                    ┌──────────────┐    ┌──────────────┐
                    │ 💾 Layouts    │    │ 📝 Workspace  │
-                   │ (TOML files) │    │ (Markdown)   │
-                   │ ~/.config/   │    │ Obsidian-    │
-                   │ crex/layouts│    │ compatible   │
+                   │ (TOML files) │    │ (Blueprint)   │
+                   │ ~/.config/   │    │ Obsidian-ok    │
+                   │ crex/layouts│    │ (.md)        │
                    └──────────────┘    └──────────────┘
 ```
 
@@ -46,13 +46,13 @@ read TOML → parse model.Layout
     → cmux select-workspace (restore active tab)
 ```
 
-### 🔀 Sync
+### 📥 Import from Blueprint
 
-Parses Markdown workspace file → resolves templates into pane definitions → creates any workspaces that don't already exist in the running cmux instance.
+Parses Workspace Blueprint (.md) → resolves templates into pane definitions → creates any workspaces that don't already exist in the running cmux instance.
 
-### 📤 Export
+### 📤 Export to Blueprint
 
-The reverse of sync: captures live state and writes it to the Markdown file with default templates.
+The reverse of import: captures live state and writes it to the Workspace Blueprint with default templates.
 
 ## Package Structure
 
@@ -62,7 +62,7 @@ internal/
   client/               → CmuxClient interface + CLI implementation
   config/               → TOML config loading, default paths
   model/                → Layout, Workspace, Pane structs + merge logic
-  mdfile/               → Markdown workspace file parser + writer
+  mdfile/               → Workspace Blueprint (.md) parser + writer
   orchestrate/          → Business logic: save, restore, watch, export
   persist/              → TOML file store (read/write layouts)
 ```
@@ -92,6 +92,8 @@ type CmuxClient interface {
     NewSplit(direction, workspaceRef string) error
     FocusPane(paneRef, workspaceRef string) error
     Send(workspaceRef, surfaceRef, text string) error
+    CloseWorkspace(ref string) error
+    PinWorkspace(ref string) error
 }
 ```
 

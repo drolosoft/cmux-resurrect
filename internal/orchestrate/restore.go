@@ -56,6 +56,14 @@ func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode) (*Restore
 		DryRun:          dryRun,
 	}
 
+	// Remember the caller's workspace so we can return focus to it at the end.
+	var callerRef string
+	if !dryRun {
+		if tree, err := r.Client.Tree(); err == nil && tree.Caller != nil {
+			callerRef = tree.Caller.WorkspaceRef
+		}
+	}
+
 	// In replace mode, close all existing workspaces first.
 	if mode == RestoreModeReplace && !dryRun {
 		existing, err := r.Client.ListWorkspaces()
@@ -84,27 +92,22 @@ func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode) (*Restore
 		return workspaces[i].Index < workspaces[j].Index
 	})
 
-	var activeRef string
-
 	for _, ws := range workspaces {
-		ref, err := r.restoreWorkspace(ws, dryRun, result)
+		_, err := r.restoreWorkspace(ws, dryRun, result)
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("workspace %q: %v", ws.Title, err))
 			continue
 		}
 		result.WorkspacesOK++
-		if ws.Active {
-			activeRef = ref
-		}
 	}
 
-	// Restore active workspace.
-	if activeRef != "" && !dryRun {
-		if err := r.Client.SelectWorkspace(activeRef); err != nil {
-			result.Errors = append(result.Errors, fmt.Sprintf("select active workspace: %v", err))
+	// Return focus to the caller's workspace (the terminal that ran crex).
+	if callerRef != "" && !dryRun {
+		if err := r.Client.SelectWorkspace(callerRef); err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("select caller workspace: %v", err))
 		}
-	} else if activeRef != "" {
-		result.Commands = append(result.Commands, fmt.Sprintf("cmux select-workspace --workspace %s", activeRef))
+	} else if dryRun {
+		result.Commands = append(result.Commands, "cmux select-workspace --workspace <caller>")
 	}
 
 	return result, nil

@@ -27,7 +27,7 @@ cmux ping
 
 ## Fixture Files
 
-Three workspace files in `testdata/workspaces/`:
+Three Workspace Blueprints in `testdata/workspaces/`:
 
 | File | Projects | Templates | Tests |
 |------|----------|-----------|-------|
@@ -197,11 +197,11 @@ cmux list-workspaces
 crex export-to-md --workspace-file /tmp/crex-test/exported.md
 
 cat /tmp/crex-test/exported.md
-# Expected: valid workspace MD with current cmux state
+# Expected: valid Workspace Blueprint with current cmux state
 ```
 
 **Check:**
-- [ ] Markdown file created
+- [ ] Workspace Blueprint created
 - [ ] Workspaces section lists current workspaces
 - [ ] Paths are correct
 

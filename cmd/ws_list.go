@@ -13,7 +13,7 @@ var projectListAll bool
 
 var wsListCmd = &cobra.Command{
 	Use:     "list",
-	Short:   "List workspace entries from the workspace file",
+	Short:   "List workspace entries from the Workspace Blueprint",
 	Aliases: []string{"ls"},
 	Args:    cobra.NoArgs,
 	RunE:    runProjectList,
@@ -28,7 +28,7 @@ func runProjectList(cmd *cobra.Command, args []string) error {
 	wsFile := cfg.WorkspaceFile
 	wf, err := mdfile.Parse(wsFile)
 	if err != nil {
-		return fmt.Errorf("read workspace file: %w", err)
+		return fmt.Errorf("read Workspace Blueprint: %w", err)
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)

@@ -75,7 +75,7 @@ Sleep 2s
 
 # --- Scene 7: Workspace management ---
 
-Type "# Add a workspace entry to your workspace file"
+Type "# Add a workspace entry to your Workspace Blueprint"
 Enter
 Sleep 400ms
 

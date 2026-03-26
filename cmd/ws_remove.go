@@ -10,7 +10,7 @@ import (
 
 var wsRemoveCmd = &cobra.Command{
 	Use:     "remove <name>",
-	Short:   "Remove a workspace entry from the workspace file",
+	Short:   "Remove a workspace entry from the Workspace Blueprint",
 	Aliases: []string{"rm"},
 	Args:    cobra.ExactArgs(1),
 	RunE:    runProjectRemove,

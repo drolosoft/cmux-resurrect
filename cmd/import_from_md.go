@@ -15,8 +15,8 @@ var importDryRun bool
 
 var importFromMDCmd = &cobra.Command{
 	Use:   "import-from-md",
-	Short: "Create cmux workspaces from a Markdown workspace file",
-	Long:  "Reads the workspace Markdown file, resolves templates, and creates any workspaces that don't already exist in cmux.",
+	Short: "Create cmux workspaces from a Workspace Blueprint",
+	Long:  "Reads a Workspace Blueprint (.md), resolves templates, and creates any workspaces that don't already exist in cmux.",
 	RunE:  runImportFromMD,
 }
 
@@ -31,7 +31,7 @@ func runImportFromMD(cmd *cobra.Command, args []string) error {
 
 	wf, err := mdfile.Parse(wsFile)
 	if err != nil {
-		return fmt.Errorf("parse workspace file: %w", err)
+		return fmt.Errorf("parse blueprint: %w", err)
 	}
 
 	if err := cl.Ping(); err != nil && !importDryRun {
@@ -40,7 +40,7 @@ func runImportFromMD(cmd *cobra.Command, args []string) error {
 
 	enabled := wf.EnabledProjects()
 	if len(enabled) == 0 {
-		fmt.Println("No enabled workspaces in workspace file.")
+		fmt.Println("No enabled workspaces in Workspace Blueprint.")
 		return nil
 	}
 

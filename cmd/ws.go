@@ -6,8 +6,8 @@ import (
 
 var workspaceCmd = &cobra.Command{
 	Use:     "workspace",
-	Short:   "Manage workspace entries in the workspace file",
-	Long:    "Add, remove, list, and toggle workspace entries in the Obsidian-friendly workspace markdown file.",
+	Short:   "Manage workspace entries in the Workspace Blueprint",
+	Long:    "Add, remove, list, and toggle workspace entries in the Workspace Blueprint (.md).",
 	Aliases: []string{"ws"},
 }
 

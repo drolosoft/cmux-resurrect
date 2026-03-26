@@ -1,7 +1,7 @@
 # cmux-resurrect configuration
 # Copy to ~/.config/crex/config.toml
 
-# Workspace MD file (default: ~/.config/crex/workspaces.md)
+# Workspace Blueprint file path (default: ~/.config/crex/workspaces.md)
 # workspace_file = "~/.config/crex/workspaces.md"
 #
 # Example: use an Obsidian vault instead

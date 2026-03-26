@@ -24,7 +24,7 @@ cmux is a Ghostty-based terminal multiplexer with 9.3K+ stars — but **sessions
 - [🚀 Quick Start](#-quick-start)
 - [👁️ Dry-Run Preview](#️-dry-run-preview)
 - [📖 Commands](#-commands)
-- [📝 Workspace File](#-workspace-file)
+- [📝 Workspace Blueprint](#-workspace-blueprint)
 - [🧩 Templates](#-templates)
 - [⚙️ Configuration](#️-configuration)
 - [🍎 Auto-Save with launchd](#-auto-save-with-launchd)
@@ -40,10 +40,10 @@ cmux is a Ghostty-based terminal multiplexer with 9.3K+ stars — but **sessions
 | 💾 | **Full layout capture** | Saves workspaces, splits, CWDs, pinned state, active tab |
 | 🔄 | **One-command restore** | Recreates workspaces, splits, sends startup commands |
 | 👁️ | **Dry-run mode** | Preview every command before executing anything |
-| 📝 | **Markdown workspace file** | Declare workspaces with checkboxes, icons, templates |
+| 📝 | **Workspace Blueprint** | Declare workspaces with checkboxes, icons, templates in a Markdown file |
 | 🧩 | **Reusable templates** | Define pane layouts once (`dev`, `go`, `monitor`), reuse everywhere |
-| 📥 | **Import from Markdown** | Reads workspace file → creates missing workspaces in cmux |
-| 📤 | **Export to Markdown** | Captures live cmux state → writes it to the workspace file |
+| 📥 | **Import from Blueprint** | Reads Workspace Blueprint → creates missing workspaces in cmux |
+| 📤 | **Export to Blueprint** | Captures live cmux state → writes it to the Workspace Blueprint |
 | ⏱️ | **Auto-save (watch)** | Periodic saves with content-hash deduplication |
 | 🍎 | **launchd integration** | macOS auto-save tied to cmux socket availability |
 | ✏️ | **Edit in $EDITOR** | TOML files are human-readable and hand-editable |
@@ -73,9 +73,9 @@ Think of it as **backup and recovery**. The TOML file is a photograph of your se
 
 ### 📥 Import from Markdown — Workspace as Code
 
-**Use case**: you maintain a Markdown file describing your ideal workspace setup, and you want cmux to match it.
+**Use case**: you maintain a Workspace Blueprint describing your ideal workspace setup, and you want cmux to match it.
 
-`import-from-md` reads a declarative Markdown file (compatible with Obsidian), resolves templates into pane layouts, and creates only the workspaces that **don't already exist** in cmux. Running it twice does nothing the second time — it's idempotent.
+`import-from-md` reads a Workspace Blueprint (.md, compatible with Obsidian), resolves templates into pane layouts, and creates only the workspaces that **don't already exist** in cmux. Running it twice does nothing the second time — it's idempotent.
 
 ```sh
 # Define your workspaces in a .md file, then:
@@ -86,13 +86,13 @@ crex workspace add api ~/projects/api -t dev --icon "⚙️"
 crex import-from-md
 ```
 
-Think of it as **infrastructure as code** for your terminal. The Markdown file is the source of truth; `import-from-md` makes cmux match it. The reverse operation, `export-to-md`, captures your live cmux state back into the Markdown file.
+Think of it as **infrastructure as code** for your terminal. The Workspace Blueprint is the source of truth; `import-from-md` makes cmux match it. The reverse operation, `export-to-md`, captures your live cmux state back into the Blueprint.
 
 ### Side by Side
 
 | | Save / Restore | Import from Markdown |
 |---|---|---|
-| Source | TOML file (auto-generated snapshot) | Markdown file (hand-written or managed via CLI) |
+| Source | TOML file (auto-generated snapshot) | Workspace Blueprint (hand-written or managed via CLI) |
 | Creates | Everything, every time | Only what's missing (idempotent) |
 | Pane layout | Captured from live session | Defined by templates (`dev`, `go`, `monitor`) |
 | Best for | Crash recovery, switching contexts | Standardized workspace setup, onboarding |
@@ -194,12 +194,12 @@ Every `cmux` command listed. Nothing executed. Inspect, verify, **then** run wit
 | `crex show <name>` | | 🔍 Display layout details (`--raw` for TOML) |
 | `crex edit <name>` | | ✏️ Open layout in `$EDITOR` |
 | `crex delete <name>` | `rm` | 🗑️ Delete a saved layout |
-| `crex import-from-md` | | 📥 Create workspaces in cmux from a Markdown file |
-| `crex export-to-md` | | 📤 Export live cmux state to a Markdown file |
+| `crex import-from-md` | | 📥 Create workspaces from a Workspace Blueprint |
+| `crex export-to-md` | | 📤 Export live cmux state to a Workspace Blueprint |
 | `crex watch [name]` | | ⏱️ Auto-save at interval (default: 5m) |
-| `crex workspace add` | `ws add` | ➕ Add workspace entry to workspace file |
-| `crex workspace remove` | `ws rm` | ➖ Remove workspace entry from workspace file |
-| `crex workspace list` | `ws ls` | 📋 List workspace entries in workspace file |
+| `crex workspace add` | `ws add` | ➕ Add workspace entry to the Blueprint |
+| `crex workspace remove` | `ws rm` | ➖ Remove workspace entry from the Blueprint |
+| `crex workspace list` | `ws ls` | 📋 List workspace entries in the Blueprint |
 | `crex workspace toggle` | `ws toggle` | 🔘 Enable/disable a workspace entry |
 | `crex version` | | ℹ️ Print version, commit, build date |
 
@@ -217,9 +217,9 @@ crex show work --raw                                   # 🔍 dump raw TOML
 
 ---
 
-## 📝 Workspace File
+## 📝 Workspace Blueprint
 
-A Markdown document with two sections: **Projects** and **Templates**. Compatible with Obsidian and any Markdown editor.
+A Workspace Blueprint is a Markdown document (.md) with two sections: **Projects** and **Templates**. Compatible with Obsidian and any Markdown editor.
 
 ```markdown
 ## Projects
@@ -282,7 +282,7 @@ Define your own templates by adding `### template-name` sections. Uncheck any pa
 `~/.config/crex/config.toml` — all fields optional, defaults applied automatically.
 
 ```toml
-# Workspace MD file path
+# Workspace Blueprint file path
 workspace_file = "~/documents/cmux-workspaces.md"
 
 # Directory for layout TOML files
@@ -299,7 +299,7 @@ max_autosaves = 10
 |---------|---------|
 | 📄 Config file | `~/.config/crex/config.toml` |
 | 📁 Layouts dir | `~/.config/crex/layouts/` |
-| 📝 Workspace file | `~/.config/crex/workspaces.md` |
+| 📝 Workspace Blueprint | `~/.config/crex/workspaces.md` |
 
 Override with flags: `crex --config /path/to/config.toml --layouts-dir /path/to/layouts list`
 

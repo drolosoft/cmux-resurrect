@@ -74,11 +74,11 @@ func styledHelp() string {
 
 	b.WriteString(headingStyle.Render("WORKSPACE COMMANDS"))
 	b.WriteString("\n")
-	writeCmd(&b, "import-from-md", "", "Create workspaces in cmux from a Markdown file")
-	writeCmd(&b, "export-to-md", "", "Capture live cmux state into a Markdown file")
-	writeCmd(&b, "workspace add", "<name> <path>", "Add a workspace entry to the workspace file")
-	writeCmd(&b, "workspace remove", "<name>", "Remove a workspace entry")
-	writeCmd(&b, "workspace list", "", "List workspace entries")
+	writeCmd(&b, "import-from-md", "", "Create workspaces from a Workspace Blueprint")
+	writeCmd(&b, "export-to-md", "", "Export live cmux state to a Workspace Blueprint")
+	writeCmd(&b, "workspace add", "<name> <path>", "Add a workspace entry to the Blueprint")
+	writeCmd(&b, "workspace remove", "<name>", "Remove a workspace entry from the Blueprint")
+	writeCmd(&b, "workspace list", "", "List workspace entries in the Blueprint")
 	writeCmd(&b, "workspace toggle", "<name>", "Enable/disable a workspace entry")
 
 	b.WriteString(headingStyle.Render("OTHER"))
@@ -97,7 +97,7 @@ func styledHelp() string {
 	writeExample(&b, "crex restore demo", "Try the included demo layout")
 	writeExample(&b, "crex save work", "Snapshot current layout as 'work'")
 	writeExample(&b, "crex restore work --dry-run", "Preview restore without executing")
-	writeExample(&b, "crex import-from-md", "Create workspaces from the Markdown workspace file")
+	writeExample(&b, "crex import-from-md", "Create workspaces from the Workspace Blueprint")
 	writeExample(&b, "crex workspace add api ~/projects/api -t dev", "Add workspace entry with dev template")
 	b.WriteString("\n")
 
