@@ -11,21 +11,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var syncDryRun bool
+var importDryRun bool
 
-var syncCmd = &cobra.Command{
-	Use:   "sync",
-	Short: "Reconcile workspace file with live cmux",
-	Long:  "Reads the workspace MD file, compares with running cmux, creates missing workspaces, and reports status.",
-	RunE:  runSync,
+var importFromMDCmd = &cobra.Command{
+	Use:   "import-from-md",
+	Short: "Create cmux workspaces from a Markdown workspace file",
+	Long:  "Reads the workspace Markdown file, resolves templates, and creates any workspaces that don't already exist in cmux.",
+	RunE:  runImportFromMD,
 }
 
 func init() {
-	syncCmd.Flags().BoolVar(&syncDryRun, "dry-run", false, "show what would happen without executing")
-	rootCmd.AddCommand(syncCmd)
+	importFromMDCmd.Flags().BoolVar(&importDryRun, "dry-run", false, "show what would happen without executing")
+	rootCmd.AddCommand(importFromMDCmd)
 }
 
-func runSync(cmd *cobra.Command, args []string) error {
+func runImportFromMD(cmd *cobra.Command, args []string) error {
 	cl := newClient()
 	wsFile := cfg.WorkspaceFile
 
@@ -34,19 +34,19 @@ func runSync(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("parse workspace file: %w", err)
 	}
 
-	if err := cl.Ping(); err != nil && !syncDryRun {
+	if err := cl.Ping(); err != nil && !importDryRun {
 		return fmt.Errorf("cmux not reachable: %w", err)
 	}
 
 	enabled := wf.EnabledProjects()
 	if len(enabled) == 0 {
-		fmt.Println("No enabled projects in workspace file.")
+		fmt.Println("No enabled workspaces in workspace file.")
 		return nil
 	}
 
 	// Get current workspaces to avoid duplicates.
 	var existingTitles map[string]bool
-	if !syncDryRun {
+	if !importDryRun {
 		existing, err := cl.ListWorkspaces()
 		if err != nil {
 			return fmt.Errorf("list workspaces: %w", err)
@@ -65,7 +65,7 @@ func runSync(cmd *cobra.Command, args []string) error {
 		expandedPath := config.ExpandHome(p.Path)
 		panes := wf.ResolveTemplate(p.Template)
 
-		if syncDryRun {
+		if importDryRun {
 			pin := ""
 			if p.Pin {
 				pin = " [pin]"
@@ -157,10 +157,10 @@ func runSync(cmd *cobra.Command, args []string) error {
 		created++
 	}
 
-	if syncDryRun {
+	if importDryRun {
 		fmt.Fprintf(os.Stderr, "\nDry-run: would create %d workspaces\n", created)
 	} else {
-		fmt.Fprintf(os.Stderr, "\nSync complete: %d created, %d skipped\n", created, skipped)
+		fmt.Fprintf(os.Stderr, "\nImport complete: %d created, %d skipped\n", created, skipped)
 	}
 	return nil
 }

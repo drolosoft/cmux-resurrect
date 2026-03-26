@@ -10,11 +10,21 @@ LDFLAGS := -ldflags "-s -w -X github.com/drolosoft/cmux-resurrect/cmd.Version=$(
 build:
 	go build $(LDFLAGS) -o bin/$(BINARY) .
 
+LAYOUTS_DIR := $(HOME)/.config/crex/layouts
+
 # Install as 'crex' (short name, default)
-install: build
+install: build install-demo
 	@echo "Installing as '$(BINARY)' → /usr/local/bin/$(BINARY)"
 	cp bin/$(BINARY) /usr/local/bin/$(BINARY)
 	@echo "✓ Run with: crex"
+
+# Copy demo layout if it doesn't exist yet
+install-demo:
+	@mkdir -p $(LAYOUTS_DIR)
+	@if [ ! -f $(LAYOUTS_DIR)/demo.toml ]; then \
+		cp testdata/layouts/demo.toml $(LAYOUTS_DIR)/demo.toml; \
+		echo "✓ Demo layout installed — try: crex restore demo"; \
+	fi
 
 # Install as 'cmux-resurrect' (long name)
 install-long: build

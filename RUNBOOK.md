@@ -31,24 +31,24 @@ Three workspace files in `testdata/workspaces/`:
 
 | File | Projects | Templates | Tests |
 |------|----------|-----------|-------|
-| `minimal.md` | 2 single-pane | single | Basic sync, pin |
+| `minimal.md` | 2 single-pane | single | Basic import, pin |
 | `splits.md` | 2 enabled + 1 disabled | dev, monitor | Splits, disabled skip |
 | `full.md` | 3 enabled + 1 disabled | dev (3 panes), go, single | Multi-split, numbering |
 
 ---
 
-## Test 1: sync (minimal)
+## Test 1: import-from-md (minimal)
 
 ```sh
 # Dry-run first
-crex sync --config /dev/null --workspace-file testdata/workspaces/minimal.md --dry-run
+crex import-from-md --config /dev/null --workspace-file testdata/workspaces/minimal.md --dry-run
 
 # Expected: CREATE 2 workspaces (test-alpha pinned, test-beta unpinned)
 ```
 
 ```sh
-# Real sync
-crex sync
+# Real import
+crex import-from-md
 
 # Verify
 cmux list-workspaces
@@ -71,10 +71,10 @@ cmux close-workspace --workspace workspace:YY
 
 ---
 
-## Test 2: sync with splits
+## Test 2: import-from-md with splits
 
 ```sh
-crex sync --config /dev/null --workspace-file testdata/workspaces/splits.md --dry-run
+crex import-from-md --config /dev/null --workspace-file testdata/workspaces/splits.md --dry-run
 
 # Expected: CREATE 2 workspaces (test-disabled is [ ] so skipped)
 #   test-dev: 2 panes (main + split right)
@@ -82,7 +82,7 @@ crex sync --config /dev/null --workspace-file testdata/workspaces/splits.md --dr
 ```
 
 ```sh
-crex sync
+crex import-from-md
 cmux list-workspaces
 ```
 
@@ -96,10 +96,10 @@ cmux list-workspaces
 
 ---
 
-## Test 3: sync with full (multi-split + numbering)
+## Test 3: import-from-md with full (multi-split + numbering)
 
 ```sh
-crex sync --config /dev/null --workspace-file testdata/workspaces/full.md --dry-run
+crex import-from-md --config /dev/null --workspace-file testdata/workspaces/full.md --dry-run
 ```
 
 **Check:**
@@ -114,8 +114,8 @@ crex sync --config /dev/null --workspace-file testdata/workspaces/full.md --dry-
 ## Test 4: save
 
 ```sh
-# First create some workspaces via sync
-crex sync --config /dev/null --workspace-file testdata/workspaces/splits.md
+# First create some workspaces via import
+crex import-from-md --config /dev/null --workspace-file testdata/workspaces/splits.md
 ```
 
 ```sh
@@ -190,11 +190,11 @@ cmux list-workspaces
 
 ---
 
-## Test 8: export
+## Test 8: export-to-md
 
 ```sh
 # With workspaces running, export to a temp file
-crex export --workspace-file /tmp/crex-test/exported.md
+crex export-to-md --workspace-file /tmp/crex-test/exported.md
 
 cat /tmp/crex-test/exported.md
 # Expected: valid workspace MD with current cmux state
@@ -202,7 +202,7 @@ cat /tmp/crex-test/exported.md
 
 **Check:**
 - [ ] Markdown file created
-- [ ] Projects section lists current workspaces
+- [ ] Workspaces section lists current workspaces
 - [ ] Paths are correct
 
 ---
@@ -228,10 +228,10 @@ crex list
 
 ---
 
-## Test 10: project management
+## Test 10: workspace management
 
 ```sh
-WF=/tmp/crex-test/project-test.md
+WF=/tmp/crex-test/workspace-test.md
 
 # Start fresh
 echo '## Projects
@@ -242,52 +242,52 @@ echo '## Projects
 ### single
 - [x] main (focused)' > $WF
 
-# Add projects
-crex project add "web" ~/projects/web -i "W" -t dev --workspace-file $WF
-crex project add "api" ~/projects/api -i "A" -t go --workspace-file $WF
-crex project add "docs" ~/docs -i "D" -t single --disabled --workspace-file $WF
+# Add workspaces
+crex workspace add "web" ~/projects/web -i "W" -t dev --workspace-file $WF
+crex workspace add "api" ~/projects/api -i "A" -t go --workspace-file $WF
+crex workspace add "docs" ~/docs -i "D" -t single --disabled --workspace-file $WF
 ```
 
 ```sh
-WF=/tmp/crex-test/project-test.md
+WF=/tmp/crex-test/workspace-test.md
 
 # List enabled
-crex project list --workspace-file $WF
+crex workspace list --workspace-file $WF
 # Expected: web, api (enabled)
 ```
 
 ```sh
-WF=/tmp/crex-test/project-test.md
+WF=/tmp/crex-test/workspace-test.md
 
 # List all
-crex project list --all --workspace-file $WF
+crex workspace list --all --workspace-file $WF
 # Expected: web, api, docs (docs disabled)
 ```
 
 ```sh
-WF=/tmp/crex-test/project-test.md
+WF=/tmp/crex-test/workspace-test.md
 
 # Toggle
-crex project toggle "docs" --workspace-file $WF
-crex project list --workspace-file $WF
+crex workspace toggle "docs" --workspace-file $WF
+crex workspace list --workspace-file $WF
 # Expected: web, api, docs (all enabled)
 ```
 
 ```sh
-WF=/tmp/crex-test/project-test.md
+WF=/tmp/crex-test/workspace-test.md
 
 # Remove
-crex project remove "api" --workspace-file $WF
-crex project list --all --workspace-file $WF
+crex workspace remove "api" --workspace-file $WF
+crex workspace list --all --workspace-file $WF
 # Expected: web, docs
 ```
 
 **Check:**
-- [ ] `add` creates entries in MD file
-- [ ] `list` shows only enabled
-- [ ] `list --all` shows all
-- [ ] `toggle` flips enabled state
-- [ ] `remove` deletes entry
+- [ ] `workspace add` creates entries in MD file
+- [ ] `workspace list` shows only enabled
+- [ ] `workspace list --all` shows all
+- [ ] `workspace toggle` flips enabled state
+- [ ] `workspace remove` deletes entry
 
 ---
 
@@ -322,21 +322,21 @@ crex version
 
 ---
 
-## Test 13: re-sync idempotency
+## Test 13: import idempotency
 
 ```sh
-# Sync once
-crex sync
+# Import once
+crex import-from-md
 ```
 
 ```sh
-# Sync again -- should skip existing
-crex sync
+# Import again -- should skip existing
+crex import-from-md
 # Expected: all SKIP (already exists)
 ```
 
 **Check:**
-- [ ] Second sync shows SKIP for all workspaces
+- [ ] Second import shows SKIP for all workspaces
 - [ ] No duplicates created
 
 ---

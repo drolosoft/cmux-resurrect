@@ -8,15 +8,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var projectToggleCmd = &cobra.Command{
+var wsToggleCmd = &cobra.Command{
 	Use:   "toggle <name>",
-	Short: "Toggle a project between enabled and disabled",
+	Short: "Toggle a workspace entry between enabled and disabled",
 	Args:  cobra.ExactArgs(1),
 	RunE:  runProjectToggle,
 }
 
 func init() {
-	projectCmd.AddCommand(projectToggleCmd)
+	workspaceCmd.AddCommand(wsToggleCmd)
 }
 
 func runProjectToggle(cmd *cobra.Command, args []string) error {

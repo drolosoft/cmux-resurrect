@@ -9,18 +9,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var exportCmd = &cobra.Command{
-	Use:   "export",
-	Short: "Export live cmux state to the workspace file",
-	Long:  "Captures current cmux workspaces and writes them to the workspace MD file with default templates.",
-	RunE:  runExport,
+var exportToMDCmd = &cobra.Command{
+	Use:   "export-to-md",
+	Short: "Export live cmux state to a Markdown workspace file",
+	Long:  "Captures current cmux workspaces and writes them to the workspace Markdown file with default templates.",
+	RunE:  runExportToMD,
 }
 
 func init() {
-	rootCmd.AddCommand(exportCmd)
+	rootCmd.AddCommand(exportToMDCmd)
 }
 
-func runExport(cmd *cobra.Command, args []string) error {
+func runExportToMD(cmd *cobra.Command, args []string) error {
 	cl := newClient()
 	wsFile := cfg.WorkspaceFile
 

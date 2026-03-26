@@ -129,6 +129,11 @@ func (c *CLIClient) PinWorkspace(ref string) error {
 	return err
 }
 
+func (c *CLIClient) CloseWorkspace(ref string) error {
+	_, err := c.run("close-workspace", "--workspace", ref)
+	return err
+}
+
 func (c *CLIClient) NewSplit(direction, workspaceRef string) error {
 	args := []string{"new-split", direction}
 	if workspaceRef != "" {

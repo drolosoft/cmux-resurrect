@@ -10,6 +10,16 @@ import (
 	"github.com/drolosoft/cmux-resurrect/internal/persist"
 )
 
+// RestoreMode determines how restore interacts with existing workspaces.
+type RestoreMode int
+
+const (
+	// RestoreModeReplace closes all existing workspaces before restoring.
+	RestoreModeReplace RestoreMode = iota
+	// RestoreModeAdd adds restored workspaces on top of existing ones.
+	RestoreModeAdd
+)
+
 // Restorer recreates a saved layout in cmux.
 type Restorer struct {
 	Client client.CmuxClient
@@ -18,16 +28,17 @@ type Restorer struct {
 
 // RestoreResult reports what happened during restore.
 type RestoreResult struct {
-	LayoutName      string
-	WorkspacesTotal int
-	WorkspacesOK    int
-	Errors          []string
-	DryRun          bool
-	Commands        []string // populated in dry-run mode
+	LayoutName       string
+	WorkspacesTotal  int
+	WorkspacesOK     int
+	WorkspacesClosed int
+	Errors           []string
+	DryRun           bool
+	Commands         []string // populated in dry-run mode
 }
 
 // Restore loads a layout and recreates it in cmux.
-func (r *Restorer) Restore(name string, dryRun bool) (*RestoreResult, error) {
+func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode) (*RestoreResult, error) {
 	layout, err := r.Store.Load(name)
 	if err != nil {
 		return nil, fmt.Errorf("load layout: %w", err)
@@ -43,6 +54,27 @@ func (r *Restorer) Restore(name string, dryRun bool) (*RestoreResult, error) {
 		LayoutName:      layout.Name,
 		WorkspacesTotal: len(layout.Workspaces),
 		DryRun:          dryRun,
+	}
+
+	// In replace mode, close all existing workspaces first.
+	if mode == RestoreModeReplace && !dryRun {
+		existing, err := r.Client.ListWorkspaces()
+		if err != nil {
+			return nil, fmt.Errorf("list existing workspaces: %w", err)
+		}
+		for _, ws := range existing {
+			if err := r.Client.CloseWorkspace(ws.Ref); err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("close %q: %v", ws.Title, err))
+			} else {
+				result.WorkspacesClosed++
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+		if result.WorkspacesClosed > 0 {
+			time.Sleep(300 * time.Millisecond)
+		}
+	} else if mode == RestoreModeReplace && dryRun {
+		result.Commands = append(result.Commands, "# Close all existing workspaces")
 	}
 
 	// Sort workspaces by index.

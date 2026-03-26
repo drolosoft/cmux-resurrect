@@ -8,16 +8,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var projectRemoveCmd = &cobra.Command{
+var wsRemoveCmd = &cobra.Command{
 	Use:     "remove <name>",
-	Short:   "Remove a project from the workspace file",
+	Short:   "Remove a workspace entry from the workspace file",
 	Aliases: []string{"rm"},
 	Args:    cobra.ExactArgs(1),
 	RunE:    runProjectRemove,
 }
 
 func init() {
-	projectCmd.AddCommand(projectRemoveCmd)
+	workspaceCmd.AddCommand(wsRemoveCmd)
 }
 
 func runProjectRemove(cmd *cobra.Command, args []string) error {

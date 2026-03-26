@@ -73,17 +73,17 @@ Type "crex restore work"
 Enter
 Sleep 2s
 
-# --- Scene 7: Project management ---
+# --- Scene 7: Workspace management ---
 
-Type "# Add a project to your workspace file"
+Type "# Add a workspace entry to your workspace file"
 Enter
 Sleep 400ms
 
-Type 'crex project add api ~/projects/api -t dev --icon "gear"'
+Type 'crex workspace add api ~/projects/api -t dev --icon "gear"'
 Enter
 Sleep 1.5s
 
-Type "crex project list"
+Type "crex workspace list"
 Enter
 Sleep 2s
 

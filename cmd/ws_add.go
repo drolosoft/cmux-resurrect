@@ -16,19 +16,19 @@ var (
 	addDisabled bool
 )
 
-var projectAddCmd = &cobra.Command{
+var wsAddCmd = &cobra.Command{
 	Use:   "add <name> <path>",
-	Short: "Add a project to the workspace file",
+	Short: "Add a workspace entry to the workspace file",
 	Args:  cobra.ExactArgs(2),
 	RunE:  runProjectAdd,
 }
 
 func init() {
-	projectAddCmd.Flags().StringVarP(&addIcon, "icon", "i", "📁", "project icon emoji")
-	projectAddCmd.Flags().StringVarP(&addTemplate, "template", "t", "dev", "template name (dev, go, single, monitor)")
-	projectAddCmd.Flags().BoolVar(&addPin, "pin", true, "pin workspace in sidebar")
-	projectAddCmd.Flags().BoolVar(&addDisabled, "disabled", false, "add as disabled (unchecked)")
-	projectCmd.AddCommand(projectAddCmd)
+	wsAddCmd.Flags().StringVarP(&addIcon, "icon", "i", "📁", "workspace icon emoji")
+	wsAddCmd.Flags().StringVarP(&addTemplate, "template", "t", "dev", "template name (dev, go, single, monitor)")
+	wsAddCmd.Flags().BoolVar(&addPin, "pin", true, "pin workspace in sidebar")
+	wsAddCmd.Flags().BoolVar(&addDisabled, "disabled", false, "add as disabled (unchecked)")
+	workspaceCmd.AddCommand(wsAddCmd)
 }
 
 func runProjectAdd(cmd *cobra.Command, args []string) error {

@@ -21,6 +21,7 @@ var rootCmd = &cobra.Command{
 	Short: "Resurrect your cmux sessions",
 	Long:  "cmux-resurrect (crex) saves/restores cmux layouts and manages workspaces from an Obsidian-friendly markdown file.",
 	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Print(banner())
 		fmt.Print(styledHelp())
 	},
 }
@@ -38,6 +39,7 @@ func init() {
 	defaultHelp := rootCmd.HelpFunc()
 	rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
 		if cmd.Name() == rootCmd.Name() && cmd.Parent() == nil {
+			fmt.Print(banner())
 			fmt.Print(styledHelp())
 		} else {
 			// For subcommands, use cobra's default help.

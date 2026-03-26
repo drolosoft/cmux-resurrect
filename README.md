@@ -20,6 +20,7 @@ cmux is a Ghostty-based terminal multiplexer with 9.3K+ stars — but **sessions
 ## 📑 Table of Contents
 
 - [✨ Features](#-features)
+- [🔑 Two Workflows](#-two-workflows)
 - [🚀 Quick Start](#-quick-start)
 - [👁️ Dry-Run Preview](#️-dry-run-preview)
 - [📖 Commands](#-commands)
@@ -39,14 +40,62 @@ cmux is a Ghostty-based terminal multiplexer with 9.3K+ stars — but **sessions
 | 💾 | **Full layout capture** | Saves workspaces, splits, CWDs, pinned state, active tab |
 | 🔄 | **One-command restore** | Recreates workspaces, splits, sends startup commands |
 | 👁️ | **Dry-run mode** | Preview every command before executing anything |
-| 📝 | **Markdown workspace file** | Declare projects with checkboxes, icons, templates |
+| 📝 | **Markdown workspace file** | Declare workspaces with checkboxes, icons, templates |
 | 🧩 | **Reusable templates** | Define pane layouts once (`dev`, `go`, `monitor`), reuse everywhere |
-| 🔀 | **Sync from Markdown** | Reads workspace file → creates missing workspaces in cmux |
+| 📥 | **Import from Markdown** | Reads workspace file → creates missing workspaces in cmux |
 | 📤 | **Export to Markdown** | Captures live cmux state → writes it to the workspace file |
 | ⏱️ | **Auto-save (watch)** | Periodic saves with content-hash deduplication |
 | 🍎 | **launchd integration** | macOS auto-save tied to cmux socket availability |
 | ✏️ | **Edit in $EDITOR** | TOML files are human-readable and hand-editable |
-| 📋 | **Project management** | `add`, `remove`, `toggle`, `list` projects from CLI |
+| 📋 | **Workspace management** | `add`, `remove`, `toggle`, `list` workspace entries from CLI |
+
+---
+
+## 🔑 Two Workflows
+
+crex offers two distinct ways to manage your cmux workspaces. Understanding the difference is key.
+
+### 💾 Save / Restore — Session Recovery
+
+**Use case**: cmux crashed, your machine rebooted, or you want to switch between layouts.
+
+`save` takes an exact snapshot of your running cmux session — every workspace, split, CWD, pinned state, and active tab — and writes it to a TOML file. `restore` reads that TOML and recreates everything exactly as it was.
+
+```sh
+# End of day: snapshot your layout
+crex save work
+
+# Next morning: bring it all back
+crex restore work
+```
+
+Think of it as **backup and recovery**. The TOML file is a photograph of your session at a point in time.
+
+### 📥 Import from Markdown — Workspace as Code
+
+**Use case**: you maintain a Markdown file describing your ideal workspace setup, and you want cmux to match it.
+
+`import-from-md` reads a declarative Markdown file (compatible with Obsidian), resolves templates into pane layouts, and creates only the workspaces that **don't already exist** in cmux. Running it twice does nothing the second time — it's idempotent.
+
+```sh
+# Define your workspaces in a .md file, then:
+crex import-from-md
+
+# Add a new workspace entry, then import again:
+crex workspace add api ~/projects/api -t dev --icon "⚙️"
+crex import-from-md
+```
+
+Think of it as **infrastructure as code** for your terminal. The Markdown file is the source of truth; `import-from-md` makes cmux match it. The reverse operation, `export-to-md`, captures your live cmux state back into the Markdown file.
+
+### Side by Side
+
+| | Save / Restore | Import from Markdown |
+|---|---|---|
+| Source | TOML file (auto-generated snapshot) | Markdown file (hand-written or managed via CLI) |
+| Creates | Everything, every time | Only what's missing (idempotent) |
+| Pane layout | Captured from live session | Defined by templates (`dev`, `go`, `monitor`) |
+| Best for | Crash recovery, switching contexts | Standardized workspace setup, onboarding |
 
 ---
 
@@ -67,6 +116,17 @@ make install        # → /usr/local/bin/crex           (short name)
 make install-long   # → /usr/local/bin/cmux-resurrect (long name)
 make install-both   # → both names (crex + cmux-resurrect)
 ```
+
+### 🎯 Try the demo
+
+A demo layout is included with the install. Try it right away:
+
+```sh
+crex restore demo --dry-run   # preview what it does
+crex restore demo             # run it (choose 'a' to add, 'r' to replace)
+```
+
+It creates 3 workspaces: **System** (top + disk usage), **Files** (directory listings), and **Network** (hostname, interfaces, environment). Safe, read-only commands you can inspect before running.
 
 ### 💾 Save your layout
 
@@ -134,13 +194,13 @@ Every `cmux` command listed. Nothing executed. Inspect, verify, **then** run wit
 | `crex show <name>` | | 🔍 Display layout details (`--raw` for TOML) |
 | `crex edit <name>` | | ✏️ Open layout in `$EDITOR` |
 | `crex delete <name>` | `rm` | 🗑️ Delete a saved layout |
-| `crex sync` | | 🔀 Reconcile Markdown workspace file → cmux |
-| `crex export` | | 📤 Export live cmux state → Markdown file |
+| `crex import-from-md` | | 📥 Create workspaces in cmux from a Markdown file |
+| `crex export-to-md` | | 📤 Export live cmux state to a Markdown file |
 | `crex watch [name]` | | ⏱️ Auto-save at interval (default: 5m) |
-| `crex project add` | `p add` | ➕ Add project to workspace file |
-| `crex project remove` | `p rm` | ➖ Remove project from workspace file |
-| `crex project list` | `p ls` | 📋 List projects in workspace file |
-| `crex project toggle` | `p toggle` | 🔘 Enable/disable a project |
+| `crex workspace add` | `ws add` | ➕ Add workspace entry to workspace file |
+| `crex workspace remove` | `ws rm` | ➖ Remove workspace entry from workspace file |
+| `crex workspace list` | `ws ls` | 📋 List workspace entries in workspace file |
+| `crex workspace toggle` | `ws toggle` | 🔘 Enable/disable a workspace entry |
 | `crex version` | | ℹ️ Print version, commit, build date |
 
 ### 🏴 Key Flags
@@ -149,9 +209,9 @@ Every `cmux` command listed. Nothing executed. Inspect, verify, **then** run wit
 crex save -d "Friday standup layout"                   # 💬 attach a description
 crex restore work --dry-run                            # 👁️ preview without executing
 crex watch autosave --interval 2m                      # ⏱️ custom interval
-crex project add api ~/projects/api -t dev --icon "⚙️"  # ➕ with template + icon
-crex project add notes ~/docs -t single --disabled     # ➕ disabled by default
-crex project list --all                                # 📋 include disabled projects
+crex workspace add api ~/projects/api -t dev --icon "⚙️"  # ➕ with template + icon
+crex workspace add notes ~/docs -t single --disabled     # ➕ disabled by default
+crex workspace list --all                                # 📋 include disabled workspaces
 crex show work --raw                                   # 🔍 dump raw TOML
 ```
 
@@ -174,16 +234,16 @@ A Markdown document with two sections: **Projects** and **Templates**. Compatibl
 
 | Element | Meaning |
 |---------|---------|
-| `[x]` / `[ ]` | ✅ Enabled / ⬜ Disabled — controls sync behavior |
+| `[x]` / `[ ]` | ✅ Enabled / ⬜ Disabled — controls import behavior |
 | Pipe columns | 🏷️ Icon, name, template, pin status, filesystem path |
-| Unchecked project | ⏸️ Excluded from `crex sync` without deleting it |
-| Unchecked pane | ⏸️ That split is skipped during sync |
+| Unchecked workspace | ⏸️ Excluded from `crex import-from-md` without deleting it |
+| Unchecked pane | ⏸️ That split is skipped during import |
 
 ---
 
 ## 🧩 Templates
 
-Templates define reusable pane layouts. Reference them by name from any project row.
+Templates define reusable pane layouts. Reference them by name from any workspace row.
 
 ```markdown
 ## Templates

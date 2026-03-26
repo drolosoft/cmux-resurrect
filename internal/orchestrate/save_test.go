@@ -46,6 +46,7 @@ func (m *mockClient) NewSplit(dir, ref string) error          { return nil }
 func (m *mockClient) FocusPane(pane, ws string) error         { return nil }
 func (m *mockClient) Send(ws, surf, text string) error        { return nil }
 func (m *mockClient) PinWorkspace(ref string) error           { return nil }
+func (m *mockClient) CloseWorkspace(ref string) error         { return nil }
 
 func TestSave_FromFixture(t *testing.T) {
 	// Load tree fixture.

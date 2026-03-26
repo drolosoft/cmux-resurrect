@@ -11,17 +11,17 @@ import (
 
 var projectListAll bool
 
-var projectListCmd = &cobra.Command{
+var wsListCmd = &cobra.Command{
 	Use:     "list",
-	Short:   "List projects from the workspace file",
+	Short:   "List workspace entries from the workspace file",
 	Aliases: []string{"ls"},
 	Args:    cobra.NoArgs,
 	RunE:    runProjectList,
 }
 
 func init() {
-	projectListCmd.Flags().BoolVarP(&projectListAll, "all", "a", false, "show disabled projects too")
-	projectCmd.AddCommand(projectListCmd)
+	wsListCmd.Flags().BoolVarP(&projectListAll, "all", "a", false, "show disabled workspaces too")
+	workspaceCmd.AddCommand(wsListCmd)
 }
 
 func runProjectList(cmd *cobra.Command, args []string) error {

@@ -44,7 +44,7 @@ func TestRestore_DryRun(t *testing.T) {
 	mc := &mockClient{sidebarCWDs: map[string]string{}}
 	restorer := &Restorer{Client: mc, Store: store}
 
-	result, err := restorer.Restore("dry-test", true)
+	result, err := restorer.Restore("dry-test", true, RestoreModeAdd)
 	if err != nil {
 		t.Fatalf("restore dry-run: %v", err)
 	}
@@ -108,7 +108,7 @@ func TestRestore_LayoutNotFound(t *testing.T) {
 	mc := &mockClient{}
 
 	restorer := &Restorer{Client: mc, Store: store}
-	_, err := restorer.Restore("nonexistent", false)
+	_, err := restorer.Restore("nonexistent", false, RestoreModeAdd)
 	if err == nil {
 		t.Error("expected error for nonexistent layout")
 	}

@@ -7,54 +7,33 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// -- Color palette (simple: green, bold, dim) --------------------------------
+// -- Minimal palette: green banner, bold headings, dim descriptions ----------
 
 var (
 	colorGreen = lipgloss.Color("#5FFF87")
 	colorDim   = lipgloss.Color("#6C6C6C")
-	colorWhite = lipgloss.Color("#FFFFFF")
 )
-
-// -- Reusable styles ---------------------------------------------------------
 
 var (
-	headingStyle = lipgloss.NewStyle().
-			Bold(true).
-			MarginTop(1)
-
-	cmdNameStyle = lipgloss.NewStyle().
-			Bold(true)
-
-	dimStyle = lipgloss.NewStyle().
-			Foreground(colorDim)
+	headingStyle = lipgloss.NewStyle().Bold(true).MarginTop(1)
+	cmdNameStyle = lipgloss.NewStyle().Bold(true)
+	dimStyle     = lipgloss.NewStyle().Foreground(colorDim)
 )
 
-// -- ASCII banner ------------------------------------------------------------
+// -- ASCII banner (only shown on `crex version`) ----------------------------
 
 func banner() string {
 	art := []string{
-		` ▄████▄   ███▄ ▄███▓ █    ██ ▒██   ██▒ ██▀███  ▓█████   ██████  █    ██  ██▀███   ██▀███  ▓█████  ▄████▄  ▄▄▄█████▓`,
-		`▒██▀ ▀█  ▓██▒▀█▀ ██▒ ██  ▓██▒▒▒ █ █ ▒░▓██ ▒ ██▒▓█   ▀ ▒██    ▒  ██  ▓██▒▓██ ▒ ██▒▓██ ▒ ██▒▓█   ▀ ▒██▀ ▀█  ▓  ██▒ ▓▒`,
-		`▒▓█    ▄ ▓██    ▓██░▓██  ▒██░░░  █   ░▓██ ░▄█ ▒▒███   ░ ▓██▄   ▓██  ▒██░▓██ ░▄█ ▒▓██ ░▄█ ▒▒███   ▒▓█    ▄ ▒ ▓██░ ▒░`,
-		`▒▓▓▄ ▄██▒▒██    ▒██ ▓▓█  ░██░ ░ █ █ ▒ ▒██▀▀█▄  ▒▓█  ▄   ▒   ██▒▓▓█  ░██░▒██▀▀█▄  ▒██▀▀█▄  ▒▓█  ▄ ▒▓▓▄ ▄██▒░ ▓██▓ ░`,
-		`▒ ▓███▀ ░▒██▒   ░██▒▒▒█████▓ ▒██▒ ▒██▒░██▓ ▒██▒░▒████▒▒██████▒▒▒▒█████▓ ░██▓ ▒██▒░██▓ ▒██▒░▒████▒▒ ▓███▀ ░  ▒██▒ ░`,
-		`░ ░▒ ▒  ░░ ▒░   ░  ░░▒▓▒ ▒ ▒ ▒▒ ░ ░▓ ░░ ▒▓ ░▒▓░░░ ▒░ ░▒ ▒▓▒ ▒ ░░▒▓▒ ▒ ▒ ░ ▒▓ ░▒▓░░ ▒▓ ░▒▓░░░ ▒░ ░░ ░▒ ▒  ░  ▒ ░░`,
-		`  ░  ▒   ░  ░      ░░░▒░ ░ ░ ░░   ░▒ ░  ░▒ ░ ▒░ ░ ░  ░░ ░▒  ░ ░░░▒░ ░ ░   ░▒ ░ ▒░  ░▒ ░ ▒░ ░ ░  ░  ░  ▒       ░`,
-		`░        ░      ░    ░░░ ░ ░  ░    ░    ░░   ░    ░   ░  ░  ░   ░░░ ░ ░   ░░   ░   ░░   ░    ░   ░          ░`,
-		`░ ░             ░      ░      ░    ░     ░        ░  ░      ░     ░        ░        ░        ░  ░░ ░`,
-		`░                                                                                                ░`,
+		`                                                                        _   `,
+		`  ___ _ __ ___  _   ___  __     _ __ ___  ___ _   _ _ __ _ __ ___  ___| |_ `,
+		` / __| '_ ` + "`" + ` _ \| | | \ \/ /____| '__/ _ \/ __| | | | '__| '__/ _ \/ __| __|`,
+		`| (__| | | | | | |_| |>  <_____| | |  __/\__ \ |_| | |  | | |  __/ (__| |_ `,
+		` \___|_| |_| |_|\__,_/_/\_\    |_|  \___||___/\__,_|_|  |_|  \___|\___|\__|`,
 	}
 
-	bannerStyle := lipgloss.NewStyle().
-		Foreground(colorGreen).
-		Bold(true)
-
-	tagStyle := lipgloss.NewStyle().
-		Foreground(colorDim).
-		Italic(true)
-
-	verStyle := lipgloss.NewStyle().
-		Foreground(colorDim)
+	bannerStyle := lipgloss.NewStyle().Foreground(colorGreen).Bold(true)
+	tagStyle := lipgloss.NewStyle().Foreground(colorDim).Italic(true)
+	verStyle := lipgloss.NewStyle().Foreground(colorDim)
 
 	var b strings.Builder
 	for _, line := range art {
@@ -65,69 +44,61 @@ func banner() string {
 	b.WriteString("\n")
 	b.WriteString(verStyle.Render(fmt.Sprintf("  v%s (%s) built %s", Version, Commit, Date)))
 	b.WriteString("\n")
-
 	return b.String()
 }
 
-// -- Help template -----------------------------------------------------------
+// -- Help (shown on `crex` with no args, or `crex --help`) -------------------
 
 func styledHelp() string {
 	var b strings.Builder
 
-	b.WriteString(banner())
+	b.WriteString(headingStyle.Render("cmux-resurrect (crex)"))
+	b.WriteString("\n")
+	b.WriteString(dimStyle.Render("  Session persistence for cmux — save, restore, and manage your workspaces."))
 	b.WriteString("\n")
 
-	// Usage
 	b.WriteString(headingStyle.Render("USAGE"))
 	b.WriteString("\n")
 	b.WriteString("  " + cmdNameStyle.Render("crex") + " " + dimStyle.Render("<command> [flags]"))
 	b.WriteString("\n")
 
-	// Core commands
-	b.WriteString(headingStyle.Render("CORE COMMANDS"))
+	b.WriteString(headingStyle.Render("LAYOUT COMMANDS"))
 	b.WriteString("\n")
-	writeCmd(&b, "save", "[name]", "Capture current cmux layout to TOML")
-	writeCmd(&b, "restore", "<name>", "Recreate workspaces, splits, and commands")
-	writeCmd(&b, "list", "", "List saved layouts with workspace count")
+	writeCmd(&b, "save", "[name]", "Snapshot live cmux state to a TOML layout file")
+	writeCmd(&b, "restore", "<name>", "Recreate workspaces, panes, and commands from a layout")
+	writeCmd(&b, "list", "", "List saved layouts")
 	writeCmd(&b, "show", "<name>", "Display layout details (--raw for TOML)")
 	writeCmd(&b, "edit", "<name>", "Open layout in $EDITOR")
 	writeCmd(&b, "delete", "<name>", "Delete a saved layout")
+	writeCmd(&b, "watch", "[name]", "Auto-save layout on a timer")
 
-	// Workspace commands
 	b.WriteString(headingStyle.Render("WORKSPACE COMMANDS"))
 	b.WriteString("\n")
-	writeCmd(&b, "sync", "", "Reconcile Markdown workspace file with cmux")
-	writeCmd(&b, "export", "", "Export live cmux state to workspace file")
-	writeCmd(&b, "watch", "[name]", "Auto-save layout periodically")
+	writeCmd(&b, "import-from-md", "", "Create workspaces in cmux from a Markdown file")
+	writeCmd(&b, "export-to-md", "", "Capture live cmux state into a Markdown file")
+	writeCmd(&b, "workspace add", "<name> <path>", "Add a workspace entry to the workspace file")
+	writeCmd(&b, "workspace remove", "<name>", "Remove a workspace entry")
+	writeCmd(&b, "workspace list", "", "List workspace entries")
+	writeCmd(&b, "workspace toggle", "<name>", "Enable/disable a workspace entry")
 
-	// Project commands
-	b.WriteString(headingStyle.Render("PROJECT COMMANDS"))
-	b.WriteString("\n")
-	writeCmd(&b, "project add", "<name> <path>", "Add project to workspace file")
-	writeCmd(&b, "project remove", "<name>", "Remove project from workspace file")
-	writeCmd(&b, "project list", "", "List projects in workspace file")
-	writeCmd(&b, "project toggle", "<name>", "Enable/disable a project")
-
-	// Other
 	b.WriteString(headingStyle.Render("OTHER"))
 	b.WriteString("\n")
 	writeCmd(&b, "version", "", "Print version, commit, build date")
 	writeCmd(&b, "help", "[command]", "Help about any command")
 
-	// Global flags
 	b.WriteString(headingStyle.Render("GLOBAL FLAGS"))
 	b.WriteString("\n")
 	writeFlag(&b, "--config", "string", "Config file (default ~/.config/crex/config.toml)")
 	writeFlag(&b, "--layouts-dir", "string", "Layouts directory (default ~/.config/crex/layouts)")
 	writeFlag(&b, "-h, --help", "", "Help for crex")
 
-	// Examples
 	b.WriteString(headingStyle.Render("EXAMPLES"))
 	b.WriteString("\n")
-	writeExample(&b, "crex save work", "Save current layout as 'work'")
+	writeExample(&b, "crex restore demo", "Try the included demo layout")
+	writeExample(&b, "crex save work", "Snapshot current layout as 'work'")
 	writeExample(&b, "crex restore work --dry-run", "Preview restore without executing")
-	writeExample(&b, "crex project add api ~/code/api -t dev", "Add project with dev template")
-	writeExample(&b, "crex watch autosave -i 2m", "Auto-save every 2 minutes")
+	writeExample(&b, "crex import-from-md", "Create workspaces from the Markdown workspace file")
+	writeExample(&b, "crex workspace add api ~/projects/api -t dev", "Add workspace entry with dev template")
 	b.WriteString("\n")
 
 	return b.String()
