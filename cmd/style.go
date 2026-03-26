@@ -42,7 +42,7 @@ func banner() string {
 	}
 	b.WriteString(tagStyle.Render("  Session persistence for cmux — your terminal workspaces, resurrected."))
 	b.WriteString("\n")
-	b.WriteString(verStyle.Render(fmt.Sprintf("  v%s (%s) built %s", Version, Commit, Date)))
+	b.WriteString(verStyle.Render(fmt.Sprintf("  %s (%s) built %s", Version, Commit, Date)))
 	b.WriteString("\n")
 	return b.String()
 }
