@@ -188,7 +188,7 @@ func (c *CLIClient) NewSplit(direction, workspaceRef string) (string, error) {
 		}
 	}
 
-	return "", nil // split created but couldn't determine new surface ref
+	return "", fmt.Errorf("split created but could not determine new surface ref")
 }
 
 func (c *CLIClient) FocusPane(paneRef, workspaceRef string) error {

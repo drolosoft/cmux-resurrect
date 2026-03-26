@@ -110,7 +110,7 @@ func AddProject(path string, p model.Project) error {
 	// Check for duplicate.
 	for _, existing := range wf.Projects {
 		if strings.EqualFold(existing.Name, p.Name) {
-			return fmt.Errorf("project %q already exists", p.Name)
+			return fmt.Errorf("workspace %q already exists", p.Name)
 		}
 	}
 
@@ -135,7 +135,7 @@ func RemoveProject(path string, name string) error {
 		kept = append(kept, p)
 	}
 	if !found {
-		return fmt.Errorf("project %q not found", name)
+		return fmt.Errorf("workspace %q not found", name)
 	}
 
 	wf.Projects = kept
@@ -160,7 +160,7 @@ func ToggleProject(path string, name string) (bool, error) {
 		}
 	}
 	if !found {
-		return false, fmt.Errorf("project %q not found", name)
+		return false, fmt.Errorf("workspace %q not found", name)
 	}
 
 	return newState, Write(path, wf)

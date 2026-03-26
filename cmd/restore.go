@@ -11,22 +11,29 @@ import (
 )
 
 var restoreDryRun bool
+var restoreMode string
 
 var restoreCmd = &cobra.Command{
 	Use:   "restore <name>",
 	Short: "Restore a saved cmux layout",
-	Long:  "Recreates workspaces, splits, and sends commands from a saved layout.\n\nYou will be asked whether to replace your current workspaces or add to them.",
+	Long:  "Recreates workspaces, splits, and sends commands from a saved layout.\n\nYou will be asked whether to replace your current workspaces or add to them.\nUse --mode to skip the interactive prompt (useful for scripts).",
 	Args:  cobra.ExactArgs(1),
 	RunE:  runRestore,
 }
 
 func init() {
 	restoreCmd.Flags().BoolVar(&restoreDryRun, "dry-run", false, "show commands without executing")
+	restoreCmd.Flags().StringVar(&restoreMode, "mode", "", "restore mode: \"replace\" or \"add\" (skip interactive prompt)")
 	rootCmd.AddCommand(restoreCmd)
 }
 
 func runRestore(cmd *cobra.Command, args []string) error {
 	name := args[0]
+
+	// Validate --mode flag value early.
+	if restoreMode != "" && restoreMode != "replace" && restoreMode != "add" {
+		return fmt.Errorf("invalid --mode %q: must be \"replace\" or \"add\"", restoreMode)
+	}
 
 	cl := newClient()
 	store, err := newStore()
@@ -37,8 +44,17 @@ func runRestore(cmd *cobra.Command, args []string) error {
 	restorer := &orchestrate.Restorer{Client: cl, Store: store}
 
 	// Determine restore mode.
-	mode := orchestrate.RestoreModeReplace
-	if !restoreDryRun {
+	var mode orchestrate.RestoreMode
+	switch {
+	case restoreMode == "replace":
+		mode = orchestrate.RestoreModeReplace
+	case restoreMode == "add":
+		mode = orchestrate.RestoreModeAdd
+	case restoreDryRun:
+		// Dry-run without explicit --mode defaults to "add" (non-destructive preview).
+		mode = orchestrate.RestoreModeAdd
+	default:
+		// Interactive prompt.
 		mode, err = askRestoreMode()
 		if err != nil {
 			return err

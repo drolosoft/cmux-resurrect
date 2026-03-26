@@ -14,7 +14,7 @@ type Config struct {
 	WorkspaceFile    string        `toml:"workspace_file"`
 	WatchInterval    time.Duration `toml:"-"`
 	WatchIntervalStr string        `toml:"watch_interval"`
-	MaxAutosaves     int           `toml:"max_autosaves"`
+	MaxAutosaves     int           `toml:"max_autosaves"` // TODO: not yet enforced — rotation not implemented
 }
 
 // DefaultConfig returns the default configuration.

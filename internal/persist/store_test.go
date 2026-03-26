@@ -1,6 +1,7 @@
 package persist
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -183,6 +184,85 @@ func TestFileStore_LoadFromFixture(t *testing.T) {
 	}
 	if layout.Workspaces[0].Title != "0 main" {
 		t.Errorf("Title = %q", layout.Workspaces[0].Title)
+	}
+}
+
+func TestValidateName_RejectsTraversal(t *testing.T) {
+	bad := []string{
+		"../../etc/config",
+		"../secret",
+		"foo/bar",
+		"foo/../bar",
+		"",
+	}
+	for _, name := range bad {
+		err := validateName(name)
+		if err == nil {
+			t.Errorf("validateName(%q) should have failed", name)
+		}
+		if err != nil && !errors.Is(err, ErrInvalidName) {
+			t.Errorf("validateName(%q) error = %v, want ErrInvalidName", name, err)
+		}
+	}
+
+	good := []string{"my-layout", "dev_session", "project.2026"}
+	for _, name := range good {
+		if err := validateName(name); err != nil {
+			t.Errorf("validateName(%q) unexpected error: %v", name, err)
+		}
+	}
+}
+
+func TestFileStore_TraversalBlocked(t *testing.T) {
+	dir := t.TempDir()
+	store, err := NewFileStore(dir)
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+
+	layout := &model.Layout{Name: "x", Version: 1, SavedAt: time.Now().UTC()}
+
+	// Save with traversal name must fail.
+	if err := store.Save("../../etc/evil", layout); err == nil {
+		t.Fatal("Save should reject traversal name")
+	}
+
+	// Load with traversal name must fail.
+	if _, err := store.Load("../secret"); err == nil {
+		t.Fatal("Load should reject traversal name")
+	}
+
+	// Delete with traversal name must fail.
+	if err := store.Delete("foo/bar"); err == nil {
+		t.Fatal("Delete should reject traversal name")
+	}
+
+	// Exists with traversal name must return false.
+	if store.Exists("../../etc/passwd") {
+		t.Fatal("Exists should return false for traversal name")
+	}
+}
+
+func TestFileStore_SaveFilePermissions(t *testing.T) {
+	dir := t.TempDir()
+	store, err := NewFileStore(dir)
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+
+	layout := &model.Layout{Name: "perms", Version: 1, SavedAt: time.Now().UTC()}
+	if err := store.Save("perms", layout); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+
+	info, err := os.Stat(store.Path("perms"))
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	// File should be 0600 (owner read/write only).
+	perm := info.Mode().Perm()
+	if perm != 0o600 {
+		t.Errorf("file permission = %o, want 0600", perm)
 	}
 }
 

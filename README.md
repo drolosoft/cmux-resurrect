@@ -9,9 +9,8 @@
 cmux is a Ghostty-based terminal multiplexer with 9.3K+ stars — but **sessions don't survive restarts**. `crex` fixes that.
 
 <!-- 🎬 Demo GIF — run ./scripts/record-demo.sh to generate -->
+<!-- <p align="center"><img src="assets/demo.gif" alt="crex demo" width="800"></p> -->
 <p align="center">
-  <em>🎬 Demo coming soon — <code>./scripts/record-demo.sh</code> to record</em>
-  <br><br>
   <strong>💾 Save → 👁️ Preview → 🔄 Restore</strong> — your entire workspace in seconds
 </p>
 

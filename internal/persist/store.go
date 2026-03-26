@@ -1,6 +1,7 @@
 package persist
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +11,23 @@ import (
 	"github.com/drolosoft/cmux-resurrect/internal/model"
 	toml "github.com/pelletier/go-toml/v2"
 )
+
+// ErrInvalidName is returned when a layout name contains path separators or traversal sequences.
+var ErrInvalidName = errors.New("invalid layout name")
+
+// validateName rejects names that contain path separators or ".." to prevent
+// path traversal outside the layouts directory.
+func validateName(name string) error {
+	if name == "" {
+		return fmt.Errorf("%w: name must not be empty", ErrInvalidName)
+	}
+	if strings.Contains(name, "..") ||
+		strings.Contains(name, "/") ||
+		strings.Contains(name, string(filepath.Separator)) {
+		return fmt.Errorf("%w: %q contains path separator or '..'", ErrInvalidName, name)
+	}
+	return nil
+}
 
 // Store defines the interface for layout persistence.
 type Store interface {
@@ -45,12 +63,19 @@ func (s *FileStore) Path(name string) string {
 }
 
 func (s *FileStore) Exists(name string) bool {
+	if validateName(name) != nil {
+		return false
+	}
 	_, err := os.Stat(s.Path(name))
 	return err == nil
 }
 
 // Save writes a layout to a TOML file atomically (temp + rename).
 func (s *FileStore) Save(name string, layout *model.Layout) error {
+	if err := validateName(name); err != nil {
+		return err
+	}
+
 	data, err := toml.Marshal(layout)
 	if err != nil {
 		return fmt.Errorf("marshal layout: %w", err)
@@ -64,7 +89,7 @@ func (s *FileStore) Save(name string, layout *model.Layout) error {
 	// Atomic write: temp file + rename
 	target := s.Path(name)
 	tmp := target + ".tmp"
-	if err := os.WriteFile(tmp, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(tmp, []byte(content), 0o600); err != nil {
 		return fmt.Errorf("write temp file: %w", err)
 	}
 	if err := os.Rename(tmp, target); err != nil {
@@ -76,6 +101,10 @@ func (s *FileStore) Save(name string, layout *model.Layout) error {
 
 // Load reads and parses a layout TOML file.
 func (s *FileStore) Load(name string) (*model.Layout, error) {
+	if err := validateName(name); err != nil {
+		return nil, err
+	}
+
 	data, err := os.ReadFile(s.Path(name))
 	if err != nil {
 		return nil, fmt.Errorf("read layout %q: %w", name, err)
@@ -123,6 +152,9 @@ func (s *FileStore) List() ([]model.LayoutMeta, error) {
 
 // Delete removes a layout file.
 func (s *FileStore) Delete(name string) error {
+	if err := validateName(name); err != nil {
+		return err
+	}
 	if !s.Exists(name) {
 		return fmt.Errorf("layout %q not found", name)
 	}

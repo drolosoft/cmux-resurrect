@@ -20,7 +20,7 @@ var wsAddCmd = &cobra.Command{
 	Use:   "add <name> <path>",
 	Short: "Add a workspace entry to the Workspace Blueprint",
 	Args:  cobra.ExactArgs(2),
-	RunE:  runProjectAdd,
+	RunE:  runWorkspaceAdd,
 }
 
 func init() {
@@ -31,7 +31,7 @@ func init() {
 	workspaceCmd.AddCommand(wsAddCmd)
 }
 
-func runProjectAdd(cmd *cobra.Command, args []string) error {
+func runWorkspaceAdd(cmd *cobra.Command, args []string) error {
 	name := args[0]
 	path := args[1]
 

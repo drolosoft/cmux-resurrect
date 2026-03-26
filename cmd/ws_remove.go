@@ -13,14 +13,14 @@ var wsRemoveCmd = &cobra.Command{
 	Short:   "Remove a workspace entry from the Workspace Blueprint",
 	Aliases: []string{"rm"},
 	Args:    cobra.ExactArgs(1),
-	RunE:    runProjectRemove,
+	RunE:    runWorkspaceRemove,
 }
 
 func init() {
 	workspaceCmd.AddCommand(wsRemoveCmd)
 }
 
-func runProjectRemove(cmd *cobra.Command, args []string) error {
+func runWorkspaceRemove(cmd *cobra.Command, args []string) error {
 	name := args[0]
 	wsFile := cfg.WorkspaceFile
 

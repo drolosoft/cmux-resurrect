@@ -9,22 +9,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var projectListAll bool
+var wsListAll bool
 
 var wsListCmd = &cobra.Command{
 	Use:     "list",
 	Short:   "List workspace entries from the Workspace Blueprint",
 	Aliases: []string{"ls"},
 	Args:    cobra.NoArgs,
-	RunE:    runProjectList,
+	RunE:    runWorkspaceList,
 }
 
 func init() {
-	wsListCmd.Flags().BoolVarP(&projectListAll, "all", "a", false, "show disabled workspaces too")
+	wsListCmd.Flags().BoolVarP(&wsListAll, "all", "a", false, "show disabled workspaces too")
 	workspaceCmd.AddCommand(wsListCmd)
 }
 
-func runProjectList(cmd *cobra.Command, args []string) error {
+func runWorkspaceList(cmd *cobra.Command, args []string) error {
 	wsFile := cfg.WorkspaceFile
 	wf, err := mdfile.Parse(wsFile)
 	if err != nil {
@@ -35,7 +35,7 @@ func runProjectList(cmd *cobra.Command, args []string) error {
 	fmt.Fprintln(w, "  \tICON\tNAME\tTEMPLATE\tPIN\tPATH")
 
 	for _, p := range wf.Projects {
-		if !projectListAll && !p.Enabled {
+		if !wsListAll && !p.Enabled {
 			continue
 		}
 		check := "[x]"

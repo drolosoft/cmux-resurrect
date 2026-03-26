@@ -89,7 +89,7 @@ type CmuxClient interface {
     NewWorkspace(opts NewWorkspaceOpts) (string, error)
     RenameWorkspace(ref, title string) error
     SelectWorkspace(ref string) error
-    NewSplit(direction, workspaceRef string) error
+    NewSplit(direction, workspaceRef string) (string, error)  // returns new surface ref
     FocusPane(paneRef, workspaceRef string) error
     Send(workspaceRef, surfaceRef, text string) error
     CloseWorkspace(ref string) error

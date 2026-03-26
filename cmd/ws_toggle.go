@@ -12,14 +12,14 @@ var wsToggleCmd = &cobra.Command{
 	Use:   "toggle <name>",
 	Short: "Toggle a workspace entry between enabled and disabled",
 	Args:  cobra.ExactArgs(1),
-	RunE:  runProjectToggle,
+	RunE:  runWorkspaceToggle,
 }
 
 func init() {
 	workspaceCmd.AddCommand(wsToggleCmd)
 }
 
-func runProjectToggle(cmd *cobra.Command, args []string) error {
+func runWorkspaceToggle(cmd *cobra.Command, args []string) error {
 	name := args[0]
 	wsFile := cfg.WorkspaceFile
 
