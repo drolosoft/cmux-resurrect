@@ -11,9 +11,10 @@ import (
 )
 
 var (
-	cfgFile    string
-	layoutsDir string
-	cfg        *config.Config
+	cfgFile       string
+	layoutsDir    string
+	workspaceFile string
+	cfg           *config.Config
 )
 
 var rootCmd = &cobra.Command{
@@ -34,6 +35,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default ~/.config/crex/config.toml)")
 	rootCmd.PersistentFlags().StringVar(&layoutsDir, "layouts-dir", "", "layouts directory (default ~/.config/crex/layouts)")
+	rootCmd.PersistentFlags().StringVar(&workspaceFile, "workspace-file", "", "Workspace Blueprint path (default ~/.config/crex/workspaces.md)")
 
 	// Override the default help command to use our styled output for the root.
 	defaultHelp := rootCmd.HelpFunc()
@@ -61,6 +63,9 @@ func initConfig() {
 	}
 	if layoutsDir != "" {
 		cfg.LayoutsDir = layoutsDir
+	}
+	if workspaceFile != "" {
+		cfg.WorkspaceFile = config.ExpandHome(workspaceFile)
 	}
 }
 

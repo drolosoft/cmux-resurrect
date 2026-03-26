@@ -90,6 +90,7 @@ func styledHelp() string {
 	b.WriteString("\n")
 	writeFlag(&b, "--config", "string", "Config file (default ~/.config/crex/config.toml)")
 	writeFlag(&b, "--layouts-dir", "string", "Layouts directory (default ~/.config/crex/layouts)")
+	writeFlag(&b, "--workspace-file", "string", "Workspace Blueprint path (default ~/.config/crex/workspaces.md)")
 	writeFlag(&b, "-h, --help", "", "Help for crex")
 
 	b.WriteString(headingStyle.Render("EXAMPLES"))

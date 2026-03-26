@@ -24,7 +24,7 @@ This section should be preserved on every write.
 ### Commands
 | Command | What |
 |---------|------|
-| cmx sync | sync stuff |
+| crex import-from-md | import workspaces |
 
 ### Notes
 Some user notes here.
