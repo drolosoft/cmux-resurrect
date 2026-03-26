@@ -121,7 +121,7 @@ func runImportFromMD(cmd *cobra.Command, args []string) error {
 		for j, pane := range panes {
 			if j == 0 {
 				if pane.Command != "" {
-					cl.Send(ref, "", pane.Command+"\n")
+					cl.Send(ref, "", pane.Command+"\\n")
 				}
 				continue
 			}
@@ -129,13 +129,15 @@ func runImportFromMD(cmd *cobra.Command, args []string) error {
 			if split == "" {
 				split = "right"
 			}
-			if err := cl.NewSplit(split, ref); err != nil {
+			surfaceRef, err := cl.NewSplit(split, ref)
+			if err != nil {
 				fmt.Fprintf(os.Stderr, "  WARN  %s pane %d: split failed: %v\n", title, j, err)
 				continue
 			}
-			time.Sleep(200 * time.Millisecond)
+			// Wait for shell to fully initialize in the new pane.
+			time.Sleep(500 * time.Millisecond)
 			if pane.Command != "" {
-				cl.Send(ref, "", pane.Command+"\n")
+				cl.Send(ref, surfaceRef, pane.Command+"\\n")
 			}
 		}
 

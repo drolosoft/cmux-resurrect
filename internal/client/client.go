@@ -24,8 +24,8 @@ type CmuxClient interface {
 	// SelectWorkspace makes a workspace the active/visible one.
 	SelectWorkspace(ref string) error
 
-	// NewSplit creates a new split pane in a workspace.
-	NewSplit(direction, workspaceRef string) error
+	// NewSplit creates a new split pane in a workspace, returning the new surface ref.
+	NewSplit(direction, workspaceRef string) (string, error)
 
 	// FocusPane focuses a specific pane in a workspace.
 	FocusPane(paneRef, workspaceRef string) error

@@ -56,23 +56,33 @@ func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode) (*Restore
 		DryRun:          dryRun,
 	}
 
-	// Remember the caller's workspace so we can return focus to it at the end.
+	// Remember the caller's workspace and snapshot existing workspace refs.
 	var callerRef string
+	var oldRefs []string
 	if !dryRun {
 		if tree, err := r.Client.Tree(); err == nil && tree.Caller != nil {
 			callerRef = tree.Caller.WorkspaceRef
 		}
+		if mode == RestoreModeReplace {
+			if existing, err := r.Client.ListWorkspaces(); err == nil {
+				for _, ws := range existing {
+					oldRefs = append(oldRefs, ws.Ref)
+				}
+			}
+		}
+	} else if mode == RestoreModeReplace {
+		result.Commands = append(result.Commands, "# Close all existing workspaces (except caller)")
 	}
 
-	// In replace mode, close all existing workspaces first.
+	// In replace mode, close old workspaces BEFORE creating new ones.
+	// Skip the caller's workspace so the running terminal survives.
 	if mode == RestoreModeReplace && !dryRun {
-		existing, err := r.Client.ListWorkspaces()
-		if err != nil {
-			return nil, fmt.Errorf("list existing workspaces: %w", err)
-		}
-		for _, ws := range existing {
-			if err := r.Client.CloseWorkspace(ws.Ref); err != nil {
-				result.Errors = append(result.Errors, fmt.Sprintf("close %q: %v", ws.Title, err))
+		for _, ref := range oldRefs {
+			if ref == callerRef {
+				continue
+			}
+			if err := r.Client.CloseWorkspace(ref); err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("close old %s: %v", ref, err))
 			} else {
 				result.WorkspacesClosed++
 			}
@@ -81,8 +91,6 @@ func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode) (*Restore
 		if result.WorkspacesClosed > 0 {
 			time.Sleep(300 * time.Millisecond)
 		}
-	} else if mode == RestoreModeReplace && dryRun {
-		result.Commands = append(result.Commands, "# Close all existing workspaces")
 	}
 
 	// Sort workspaces by index.
@@ -92,6 +100,7 @@ func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode) (*Restore
 		return workspaces[i].Index < workspaces[j].Index
 	})
 
+	// Create new workspaces.
 	for _, ws := range workspaces {
 		_, err := r.restoreWorkspace(ws, dryRun, result)
 		if err != nil {
@@ -134,12 +143,12 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 	}
 	time.Sleep(100 * time.Millisecond)
 
-	// 3. Create additional panes (splits).
+	// 3. Create additional panes (splits) and send commands.
 	for i, pane := range ws.Panes {
 		if i == 0 {
 			// First pane is the default one created with the workspace.
 			if pane.Command != "" {
-				if err := r.Client.Send(ref, "", pane.Command+"\n"); err != nil {
+				if err := r.Client.Send(ref, "", pane.Command+"\\n"); err != nil {
 					result.Errors = append(result.Errors, fmt.Sprintf("  pane %d send command: %v", i, err))
 				}
 			}
@@ -150,15 +159,18 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 		if direction == "" {
 			direction = "right"
 		}
-		if err := r.Client.NewSplit(direction, ref); err != nil {
+		surfaceRef, err := r.Client.NewSplit(direction, ref)
+		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("  pane %d split: %v", i, err))
 			continue
 		}
 
-		time.Sleep(200 * time.Millisecond)
+		// Wait for the shell in the new pane to fully initialize.
+		time.Sleep(500 * time.Millisecond)
 
 		if pane.Command != "" {
-			if err := r.Client.Send(ref, "", pane.Command+"\n"); err != nil {
+			// Send to the specific surface — without --surface, cmux defaults to pane 0.
+			if err := r.Client.Send(ref, surfaceRef, pane.Command+"\\n"); err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("  pane %d send command: %v", i, err))
 			}
 		}
