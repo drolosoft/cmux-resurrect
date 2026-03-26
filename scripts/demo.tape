@@ -10,11 +10,11 @@
 # Configuration
 Output assets/demo.gif
 Set FontSize 14
-Set Width 920
-Set Height 540
+Set Width 1000
+Set Height 600
 Set Theme "Catppuccin Mocha"
 Set Padding 20
-Set TypingSpeed 40ms
+Set TypingSpeed 35ms
 Set CursorBlink false
 
 # --- Scene 1: Banner & Help ---
@@ -23,63 +23,39 @@ Type "crex"
 Enter
 Sleep 3s
 
-# --- Scene 2: Save ---
-
-Type "# Save your current cmux layout"
-Enter
-Sleep 400ms
-
-Type "crex save work"
-Enter
-Sleep 1.5s
-
-# --- Scene 3: List ---
-
-Type "# See what you've saved"
-Enter
-Sleep 400ms
+# --- Scene 2: List saved layouts ---
 
 Type "crex list"
 Enter
 Sleep 1.5s
 
-# --- Scene 4: Show ---
+# --- Scene 3: Dry-run restore (works without running cmux) ---
 
-Type "# Inspect a layout"
+Type "# Preview restore -- see every command before executing"
 Enter
 Sleep 400ms
 
-Type "crex show work"
-Enter
-Sleep 2s
-
-# --- Scene 5: Dry-run ---
-
-Type "# Preview restore (nothing is executed)"
-Enter
-Sleep 400ms
-
-Type "crex restore work --dry-run"
+Type "crex restore demo --dry-run"
 Enter
 Sleep 3s
 
-# --- Scene 6: Restore ---
+# --- Scene 4: Import from Workspace Blueprint (dry-run) ---
 
-Type "# Restore! All workspaces come back"
+Type "# Import workspaces from a Workspace Blueprint"
 Enter
 Sleep 400ms
 
-Type "crex restore work"
+Type "crex import-from-md --dry-run"
 Enter
 Sleep 2s
 
-# --- Scene 7: Workspace management ---
+# --- Scene 5: Workspace Blueprint management ---
 
-Type "# Add a workspace entry to your Workspace Blueprint"
+Type "# Manage workspace entries in your Blueprint"
 Enter
 Sleep 400ms
 
-Type 'crex workspace add api ~/projects/api -t dev --icon "gear"'
+Type 'crex workspace add api ~/projects/api -t dev --icon "⚙️"'
 Enter
 Sleep 1.5s
 
@@ -87,7 +63,13 @@ Type "crex workspace list"
 Enter
 Sleep 2s
 
-# --- Scene 8: Version ---
+# --- Scene 6: Show a layout ---
+
+Type "crex show demo"
+Enter
+Sleep 2.5s
+
+# --- Scene 7: Version ---
 
 Type "crex version"
 Enter
