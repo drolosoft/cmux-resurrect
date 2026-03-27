@@ -5,10 +5,18 @@ COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS := -ldflags "-s -w -X github.com/drolosoft/cmux-resurrect/cmd.Version=$(VERSION) -X github.com/drolosoft/cmux-resurrect/cmd.Commit=$(COMMIT) -X github.com/drolosoft/cmux-resurrect/cmd.Date=$(DATE)"
 
-.PHONY: build test test-integration install install-long install-both clean lint fmt
+.PHONY: build build-all test test-integration install install-long install-both clean lint fmt
 
 build:
 	go build $(LDFLAGS) -o bin/$(BINARY) .
+
+# Cross-compile for macOS (Intel + Apple Silicon) and Linux
+build-all:
+	CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build $(LDFLAGS) -o bin/$(BINARY)-darwin-arm64  .
+	CGO_ENABLED=0 GOOS=darwin  GOARCH=amd64 go build $(LDFLAGS) -o bin/$(BINARY)-darwin-amd64  .
+	CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 go build $(LDFLAGS) -o bin/$(BINARY)-linux-amd64   .
+	CGO_ENABLED=0 GOOS=linux   GOARCH=arm64 go build $(LDFLAGS) -o bin/$(BINARY)-linux-arm64   .
+	@echo "✓ Built 4 binaries in bin/"
 
 LAYOUTS_DIR := $(HOME)/.config/crex/layouts
 
@@ -71,7 +79,8 @@ help:
 	@echo "  cmux-resurrect — Build & Install"
 	@echo "  ─────────────────────────────────"
 	@echo ""
-	@echo "  make build          Build the binary"
+	@echo "  make build          Build the binary (current platform)"
+	@echo "  make build-all      Cross-compile for macOS + Linux"
 	@echo "  make install        Install as 'crex' (short name)"
 	@echo "  make install-long   Install as 'cmux-resurrect' (long name)"
 	@echo "  make install-both   Install both names (crex + cmux-resurrect)"
