@@ -90,11 +90,11 @@ func (c *CLIClient) NewWorkspace(opts NewWorkspaceOpts) (string, error) {
 
 	// Poll list-workspaces and find the NEW ref (not in the before set).
 	var ref string
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(NewWorkspaceDeadline)
 	for time.Now().Before(deadline) {
 		ws, err := c.ListWorkspaces()
 		if err != nil {
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(PollInterval)
 			continue
 		}
 		for _, w := range ws {
@@ -106,7 +106,7 @@ func (c *CLIClient) NewWorkspace(opts NewWorkspaceOpts) (string, error) {
 		if ref != "" {
 			break
 		}
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(PollInterval)
 	}
 	if ref == "" {
 		return "", fmt.Errorf("new workspace created but could not determine ref")
@@ -164,9 +164,9 @@ func (c *CLIClient) NewSplit(direction, workspaceRef string) (string, error) {
 
 	// Find the new surface by diffing against the snapshot.
 	if workspaceRef != "" {
-		deadline := time.Now().Add(3 * time.Second)
+		deadline := time.Now().Add(NewSplitDeadline)
 		for time.Now().Before(deadline) {
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(PollInterval)
 			tree, err := c.Tree()
 			if err != nil {
 				continue

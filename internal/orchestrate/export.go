@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/drolosoft/cmux-resurrect/internal/client"
-	"github.com/drolosoft/cmux-resurrect/internal/config"
 	"github.com/drolosoft/cmux-resurrect/internal/mdfile"
 	"github.com/drolosoft/cmux-resurrect/internal/model"
 )
@@ -121,9 +120,4 @@ func AbbreviateHome(path string) string {
 		return "~" + path[len(home):]
 	}
 	return path
-}
-
-// ExpandHome delegates to config.ExpandHome for path expansion.
-func ExpandHome(path string) string {
-	return config.ExpandHome(path)
 }

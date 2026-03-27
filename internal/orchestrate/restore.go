@@ -98,10 +98,10 @@ func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode) (*Restore
 			} else {
 				result.WorkspacesClosed++
 			}
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(DelayAfterClose)
 		}
 		if result.WorkspacesClosed > 0 {
-			time.Sleep(300 * time.Millisecond)
+			time.Sleep(DelayAfterCloseAll)
 		}
 	}
 
@@ -169,14 +169,14 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 	}
 
 	// Small delay after creation.
-	time.Sleep(300 * time.Millisecond)
+	time.Sleep(DelayAfterCreate)
 
 	// 2. Select workspace to ensure splits target the correct one.
 	// Rename is deferred to after all workspaces are created (shell prompt overwrites title).
 	if err := r.Client.SelectWorkspace(ref); err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("select workspace: %v", err))
 	}
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(DelayAfterSelect)
 
 	// 3. Create additional panes (splits) and send commands.
 	for i, pane := range ws.Panes {
@@ -201,7 +201,7 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 		}
 
 		// Wait for the shell in the new pane to fully initialize.
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(DelayAfterSplit)
 
 		if pane.Command != "" {
 			// Send to the specific surface — without --surface, cmux defaults to pane 0.
@@ -222,7 +222,7 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 
 	// 5. Wait for shell to settle, then rename.
 	// Shell prompt sets terminal title on startup; renaming too early gets overwritten.
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(DelayBeforeRename)
 	if err := r.Client.RenameWorkspace(ref, ws.Title); err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("rename %q: %v", ws.Title, err))
 	}

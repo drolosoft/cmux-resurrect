@@ -237,25 +237,30 @@ echo ""
 
 # ── Scene 6: Restore layout ────────────────────────────────
 
-echo "📋 Scene 6: Restore layout (--mode add)"
+# Close workspaces created by import so restore creates them fresh (mirrors demo.tape).
+echo "📋 Scene 6: Close import workspaces + Restore layout"
+for ref in "${CLEANUP_REFS[@]}"; do
+    cmux close-workspace --workspace "$ref" 2>/dev/null || true
+    sleep 0.3
+done
+CLEANUP_REFS=()
+sleep 1
+
 RESTORE_OUTPUT=$($CREX restore demo --mode add 2>&1)
 
 assert_contains "$RESTORE_OUTPUT" "Adding from" "adding header shown"
 assert_contains "$RESTORE_OUTPUT" "demo" "layout name shown"
-assert_contains "$RESTORE_OUTPUT" "webapp" "webapp mentioned"
-assert_contains "$RESTORE_OUTPUT" "api" "api mentioned"
-assert_contains "$RESTORE_OUTPUT" "docs" "docs mentioned"
-assert_contains "$RESTORE_OUTPUT" "skipped" "duplicate detection: skip message"
+assert_contains "$RESTORE_OUTPUT" "webapp" "webapp created"
+assert_contains "$RESTORE_OUTPUT" "api" "api created"
+assert_contains "$RESTORE_OUTPUT" "docs" "docs created"
+assert_not_contains "$RESTORE_OUTPUT" "SKIP" "no SKIPs — all created fresh"
 assert_contains "$RESTORE_OUTPUT" "Restored" "restore summary shown"
-
-# Narrative consistency: webapp and api should be SKIPPED (already exist from import).
-assert_contains "$RESTORE_OUTPUT" "SKIP" "SKIP label present for duplicates"
 
 # Track new workspaces for cleanup.
 cmux list-workspaces 2>/dev/null | grep -o 'workspace:[0-9]*' | sort > "$DEMO_DIR/after_restore.txt" || true
 while IFS= read -r ref; do
     CLEANUP_REFS+=("$ref")
-done < <(comm -13 "$DEMO_DIR/after_import.txt" "$DEMO_DIR/after_restore.txt")
+done < <(comm -13 "$DEMO_DIR/before.txt" "$DEMO_DIR/after_restore.txt")
 
 echo ""
 

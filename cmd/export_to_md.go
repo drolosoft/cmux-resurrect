@@ -32,7 +32,8 @@ func runExportToMD(cmd *cobra.Command, args []string) error {
 	// Read back for the report.
 	wf, err := mdfile.Parse(wsFile)
 	if err != nil {
-		return nil // export succeeded, just can't report
+		fmt.Fprintf(os.Stderr, "warning: could not re-read exported file: %v\n", err)
+		return nil
 	}
 
 	fmt.Fprintf(os.Stderr, "Exported %d workspaces to %s\n", len(wf.Projects), wsFile)

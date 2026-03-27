@@ -63,7 +63,7 @@ internal/
   config/               → TOML config loading, default paths
   model/                → Layout, Workspace, Pane structs + merge logic
   mdfile/               → Workspace Blueprint (.md) parser + writer
-  orchestrate/          → Business logic: save, restore, watch, export
+  orchestrate/          → Business logic: save, restore, import, watch, export
   persist/              → TOML file store (read/write layouts)
 ```
 
@@ -98,3 +98,41 @@ type CmuxClient interface {
 ```
 
 The CLI backend can be swapped for a direct socket connection without touching any business logic.
+
+## Ref Detection Strategy
+
+cmux's `new-workspace` and `new-split` commands do not return the ref of the newly created resource. To discover it, the CLIClient uses a snapshot-and-diff strategy:
+
+1. List existing workspace/surface refs before creation
+2. Execute the creation command
+3. Poll `list-workspaces` or `tree` until a new ref appears (not in the original snapshot)
+4. Return the new ref
+
+Polling uses `client.PollInterval` (100ms) with deadlines of 5s for workspaces and 3s for splits.
+
+## Timing Budget
+
+cmux processes commands asynchronously. Orchestrators insert deliberate pauses between operations to avoid race conditions:
+
+| Constant | Value | Used after |
+|----------|-------|-----------|
+| `DelayAfterCreate` | 300ms | `cmux new-workspace` |
+| `DelayAfterSelect` | 100ms | `cmux select-workspace` |
+| `DelayAfterSplit` | 500ms | `cmux new-split` |
+| `DelayBeforeRename` | 500ms | Before `cmux rename-workspace` |
+| `DelayAfterClose` | 100ms | `cmux close-workspace` |
+| `DelayAfterCloseAll` | 300ms | After a batch of workspace closes |
+
+These values are empirically determined. Changing them may cause race conditions on slower machines.
+
+## Blueprint Tail Preservation
+
+The Markdown parser preserves everything after the Templates section as opaque text. Users may have documentation, notes, or other sections in their Blueprint file — these are written back verbatim on save.
+
+## Known Limitations
+
+| Limitation | Reason |
+|-----------|--------|
+| Split direction not captured from live state | cmux tree JSON doesn't expose it; defaults to "right", editable in TOML |
+| Pane CWD not per-pane | cmux sidebar-state returns one CWD per workspace, not per pane |
+| Autosave rotation not implemented | `max_autosaves` config field exists but rotation logic is pending |

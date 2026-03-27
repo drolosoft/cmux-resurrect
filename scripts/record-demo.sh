@@ -22,13 +22,13 @@
 #   1. Help          — show commands + quick start examples
 #   2. Blueprint     — bat workspaces.md (webapp + api)
 #   3. Import        — import-from-md creates webapp + api
-#   4. List          — demo layout has 3 workspaces (webapp + api + docs)
-#   5. Restore       — SKIP webapp + api (already exist), OK docs
-#   6. Workspace     — add notes, list shows webapp + api + notes
+#   4. Save          — crex save demo (visible, then hidden swap to clean demo.toml)
+#   5. List          — demo layout has 3 workspaces (webapp + api + docs)
+#   6. Restore       — hidden close of import workspaces, then OK all 3 (fresh)
+#   7. Workspace     — add notes, list shows webapp + api + notes
 #
-# IMPORTANT: demo.toml must contain the same workspace names as the blueprint
-# (webapp, api) plus extras (docs) so restore can demonstrate duplicate
-# detection (SKIP) alongside actual creation (OK).
+# IMPORTANT: Between list and restore, a hidden step closes workspaces
+# created during import so restore shows all 3 being created fresh.
 #
 # Prerequisites:
 #   brew install vhs    # charmbracelet/vhs — terminal GIF recorder

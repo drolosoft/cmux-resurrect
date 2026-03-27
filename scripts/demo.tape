@@ -87,7 +87,7 @@ Enter
 Sleep 1s
 Show
 
-# ── Scene 5: List saved layouts ────────────────────────────
+# ── Scene 5: List saved layouts ───────────────────────────
 
 Type "# List saved layouts"
 Enter
@@ -96,9 +96,13 @@ Type "crex list"
 Enter
 Sleep 4s
 
-# ── Scene 5: Restore layout (real) ────────────────────────
+# ── Scene 6: Restore layout (real) ────────────────────────
 
+# Hidden: close workspaces created by import so restore creates them fresh (no SKIPs).
 Hide
+Type "cmux list-workspaces 2>/dev/null | grep -E 'webapp|api' | grep -o 'workspace:[0-9]*' | while read ref; do cmux close-workspace --workspace $ref; sleep 0.3; done"
+Enter
+Sleep 2s
 Type "clear"
 Enter
 Sleep 1s
@@ -114,7 +118,7 @@ Type "# Workspaces are now live in cmux"
 Enter
 Sleep 4s
 
-# ── Scene 6: Add workspace to Blueprint ───────────────────
+# ── Scene 7: Add workspace to Blueprint ───────────────────
 
 Hide
 Type "clear"
