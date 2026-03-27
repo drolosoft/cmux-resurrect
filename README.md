@@ -3,6 +3,7 @@
 [![CI](https://github.com/drolosoft/cmux-resurrect/actions/workflows/ci.yml/badge.svg)](https://github.com/drolosoft/cmux-resurrect/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/drolosoft/cmux-resurrect)](https://goreportcard.com/report/github.com/drolosoft/cmux-resurrect)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Homebrew](https://img.shields.io/badge/Homebrew-tap-orange.svg)](https://github.com/drolosoft/homebrew-tap)
 
 > **Session persistence for [cmux](https://github.com/manaflow-ai/cmux) — your terminal workspaces, resurrected.**
 
@@ -116,7 +117,16 @@ Think of it as **infrastructure as code** for your terminal. The Workspace Bluep
 
 ## 🚀 Quick Start
 
-### Install
+### Install with Homebrew (recommended)
+
+```sh
+brew tap drolosoft/tap
+brew install cmux-resurrect
+```
+
+That's it — `crex` is ready to use. No Go toolchain required.
+
+### Install from source
 
 ```sh
 git clone https://github.com/drolosoft/cmux-resurrect.git

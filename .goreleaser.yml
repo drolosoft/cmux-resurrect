@@ -1,0 +1,55 @@
+version: 2
+
+project_name: cmux-resurrect
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: crex
+    binary: crex
+    main: .
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/drolosoft/cmux-resurrect/cmd.Version={{.Version}}
+      - -X github.com/drolosoft/cmux-resurrect/cmd.Commit={{.ShortCommit}}
+      - -X github.com/drolosoft/cmux-resurrect/cmd.Date={{.Date}}
+
+archives:
+  - id: default
+    formats: ['tar.gz']
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+brews:
+  - repository:
+      owner: drolosoft
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    name: cmux-resurrect
+    homepage: "https://github.com/drolosoft/cmux-resurrect"
+    description: "Session persistence for cmux — save, restore, and manage your terminal workspaces"
+    license: "MIT"
+    install: |
+      bin.install "crex"
+    test: |
+      system "#{bin}/crex", "version"
