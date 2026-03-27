@@ -30,6 +30,9 @@ __debug_bin*
 *.tmp
 crex
 
-# Claude Code — development process is private
+# Release artifacts
+dist/
+
+# Private
 CLAUDE.md
 .claude/

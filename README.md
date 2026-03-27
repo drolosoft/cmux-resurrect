@@ -214,7 +214,7 @@ Every `cmux` command listed. Nothing executed. Inspect, verify, **then** run wit
 | Command | Alias | Description |
 |---------|-------|-------------|
 | `crex save [name]` | | 💾 Capture current layout to TOML |
-| `crex restore <name>` | | 🔄 Recreate workspaces, splits, and commands |
+| `crex restore [name]` | | 🔄 Recreate workspaces, splits, and commands |
 | `crex list` | `ls` | 📋 List saved layouts with workspace count |
 | `crex show <name>` | | 🔍 Display layout details (`--raw` for TOML) |
 | `crex edit <name>` | | ✏️ Open layout in `$EDITOR` |

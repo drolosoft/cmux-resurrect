@@ -78,7 +78,7 @@ func runShow(cmd *cobra.Command, args []string) error {
 			// Build pane description
 			var desc string
 			if p.Split != "" {
-				desc = magentaStyle.Render("→" + p.Split) + " "
+				desc = magentaStyle.Render("→"+p.Split) + " "
 			}
 			if p.Command != "" {
 				cmd := p.Command
