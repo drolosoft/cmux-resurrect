@@ -4,8 +4,8 @@ version = 1
 saved_at = 2026-03-26T00:00:00Z
 
 [[workspace]]
-title = "1 🖥️ System"
-cwd = "~"
+title = "🌐 webapp"
+cwd = "~/projects/webapp"
 pinned = true
 index = 0
 active = true
@@ -13,46 +13,33 @@ active = true
   [[workspace.pane]]
   type = "terminal"
   focus = true
-  command = "top"
 
   [[workspace.pane]]
   type = "terminal"
   split = "right"
-  command = "df -h && echo '---' && uptime"
+  command = "npm run dev"
 
 [[workspace]]
-title = "2 📂 Files"
-cwd = "~"
+title = "⚙️ api"
+cwd = "~/projects/api"
 pinned = true
 index = 1
 
   [[workspace.pane]]
   type = "terminal"
   focus = true
-  command = "ls -la ~"
 
   [[workspace.pane]]
   type = "terminal"
   split = "right"
-  command = "ls -la ~/Documents 2>/dev/null || ls -la ~"
+  command = "go test ./..."
 
 [[workspace]]
-title = "3 🌐 Network"
-cwd = "~"
+title = "📓 docs"
+cwd = "~/docs"
 pinned = false
 index = 2
 
   [[workspace.pane]]
   type = "terminal"
   focus = true
-  command = "echo '=== Hostname ===' && hostname && echo && echo '=== Network Interfaces ===' && ifconfig | head -30"
-
-  [[workspace.pane]]
-  type = "terminal"
-  split = "right"
-  command = "echo '=== Environment ===' && env | sort | head -20"
-
-  [[workspace.pane]]
-  type = "terminal"
-  split = "down"
-  command = "echo '=== Disk Usage ===' && du -sh ~ 2>/dev/null; echo && echo '=== Recent Files ===' && ls -lt ~ | head -10"

@@ -7,20 +7,29 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// -- Minimal palette: green banner, bold headings, dim descriptions ----------
+// -- Color palette -----------------------------------------------------------
 
 var (
-	colorGreen = lipgloss.Color("#5FFF87")
-	colorDim   = lipgloss.Color("#6C6C6C")
+	colorGreen   = lipgloss.Color("#5FFF87")
+	colorDim     = lipgloss.Color("#6C6C6C")
+	colorCyan    = lipgloss.Color("#87D7FF")
+	colorYellow  = lipgloss.Color("#FFD787")
+	colorMagenta = lipgloss.Color("#D787FF")
 )
+
+// -- Shared styles -----------------------------------------------------------
 
 var (
 	headingStyle = lipgloss.NewStyle().Bold(true).MarginTop(1)
 	cmdNameStyle = lipgloss.NewStyle().Bold(true)
 	dimStyle     = lipgloss.NewStyle().Foreground(colorDim)
+	cyanStyle    = lipgloss.NewStyle().Foreground(colorCyan)
+	yellowStyle  = lipgloss.NewStyle().Foreground(colorYellow)
+	greenStyle   = lipgloss.NewStyle().Foreground(colorGreen)
+	magentaStyle = lipgloss.NewStyle().Foreground(colorMagenta)
 )
 
-// -- ASCII banner (only shown on `crex version`) ----------------------------
+// -- ASCII banner ------------------------------------------------------------
 
 func banner() string {
 	art := []string{
@@ -47,81 +56,53 @@ func banner() string {
 	return b.String()
 }
 
-// -- Help (shown on `crex` with no args, or `crex --help`) -------------------
+// -- Compact Help (fits on one screen with the banner) -----------------------
 
 func styledHelp() string {
 	var b strings.Builder
 
-	b.WriteString(headingStyle.Render("cmux-resurrect (crex)"))
 	b.WriteString("\n")
-	b.WriteString(dimStyle.Render("  Session persistence for cmux — save, restore, and manage your workspaces."))
-	b.WriteString("\n")
+	helpCmd(&b, "save", "[name]", "Snapshot current layout")
+	helpCmd(&b, "restore", "[name]", "Recreate workspaces from layout")
+	helpCmd(&b, "list", "", "List saved layouts")
+	helpCmd(&b, "show", "<name>", "Display layout details")
+	helpCmd(&b, "edit", "<name>", "Open in $EDITOR")
+	helpCmd(&b, "delete", "<name>", "Delete a layout")
+	helpCmd(&b, "watch", "[name]", "Auto-save on a timer")
+	helpCmd(&b, "import-from-md", "", "Import from Workspace Blueprint")
+	helpCmd(&b, "export-to-md", "", "Export to Workspace Blueprint")
+	helpCmd(&b, "workspace", "<cmd>", "Manage Blueprint (add|remove|list|toggle)")
+	helpCmd(&b, "version", "", "Version info")
 
-	b.WriteString(headingStyle.Render("USAGE"))
 	b.WriteString("\n")
-	b.WriteString("  " + cmdNameStyle.Render("crex") + " " + dimStyle.Render("<command> [flags]"))
+	b.WriteString(dimStyle.Render("  Quick start:"))
 	b.WriteString("\n")
-
-	b.WriteString(headingStyle.Render("LAYOUT COMMANDS"))
+	helpExample(&b, "crex import-from-md", "create workspaces from Blueprint")
+	helpExample(&b, "crex save work", "save current layout")
+	helpExample(&b, "crex list", "list saved layouts")
+	helpExample(&b, "crex restore work --mode add", "restore a saved layout")
+	helpExample(&b, "crex workspace add notes ~/docs", "add workspace to Blueprint")
 	b.WriteString("\n")
-	writeCmd(&b, "save", "[name]", "Snapshot live cmux state to a TOML layout file")
-	writeCmd(&b, "restore", "<name>", "Recreate workspaces, panes, and commands from a layout")
-	writeCmd(&b, "list", "", "List saved layouts")
-	writeCmd(&b, "show", "<name>", "Display layout details (--raw for TOML)")
-	writeCmd(&b, "edit", "<name>", "Open layout in $EDITOR")
-	writeCmd(&b, "delete", "<name>", "Delete a saved layout")
-	writeCmd(&b, "watch", "[name]", "Auto-save layout on a timer")
-
-	b.WriteString(headingStyle.Render("WORKSPACE COMMANDS"))
-	b.WriteString("\n")
-	writeCmd(&b, "import-from-md", "", "Create workspaces from a Workspace Blueprint")
-	writeCmd(&b, "export-to-md", "", "Export live cmux state to a Workspace Blueprint")
-	writeCmd(&b, "workspace add", "<name> <path>", "Add a workspace entry to the Blueprint")
-	writeCmd(&b, "workspace remove", "<name>", "Remove a workspace entry from the Blueprint")
-	writeCmd(&b, "workspace list", "", "List workspace entries in the Blueprint")
-	writeCmd(&b, "workspace toggle", "<name>", "Enable/disable a workspace entry")
-
-	b.WriteString(headingStyle.Render("OTHER"))
-	b.WriteString("\n")
-	writeCmd(&b, "version", "", "Print version, commit, build date")
-	writeCmd(&b, "help", "[command]", "Help about any command")
-
-	b.WriteString(headingStyle.Render("GLOBAL FLAGS"))
-	b.WriteString("\n")
-	writeFlag(&b, "--config", "string", "Config file (default ~/.config/crex/config.toml)")
-	writeFlag(&b, "--layouts-dir", "string", "Layouts directory (default ~/.config/crex/layouts)")
-	writeFlag(&b, "--workspace-file", "string", "Workspace Blueprint path (default ~/.config/crex/workspaces.md)")
-	writeFlag(&b, "-h, --help", "", "Help for crex")
-
-	b.WriteString(headingStyle.Render("EXAMPLES"))
-	b.WriteString("\n")
-	writeExample(&b, "crex restore demo", "Try the included demo layout")
-	writeExample(&b, "crex save work", "Snapshot current layout as 'work'")
-	writeExample(&b, "crex restore work --dry-run", "Preview restore without executing")
-	writeExample(&b, "crex import-from-md", "Create workspaces from the Workspace Blueprint")
-	writeExample(&b, "crex workspace add api ~/projects/api -t dev", "Add workspace entry with dev template")
+	b.WriteString(dimStyle.Render("  crex <command> --help for flags and details"))
 	b.WriteString("\n")
 
 	return b.String()
 }
 
-func writeCmd(b *strings.Builder, name, args, desc string) {
-	nameRendered := cmdNameStyle.Render(fmt.Sprintf("  %-18s", name))
-	argsRendered := dimStyle.Render(fmt.Sprintf("%-16s", args))
-	descRendered := dimStyle.Render(desc)
-	b.WriteString(fmt.Sprintf("%s %s %s\n", nameRendered, argsRendered, descRendered))
+func helpCmd(b *strings.Builder, name, args, desc string) {
+	nameRendered := greenStyle.Render(fmt.Sprintf("  %-18s", name))
+	argsRendered := dimStyle.Render(fmt.Sprintf("%-12s", args))
+	b.WriteString(fmt.Sprintf("%s %s %s\n", nameRendered, argsRendered, desc))
 }
 
-func writeFlag(b *strings.Builder, flag, typeName, desc string) {
-	flagRendered := cmdNameStyle.Render(fmt.Sprintf("  %-18s", flag))
-	typeRendered := dimStyle.Render(fmt.Sprintf("%-8s", typeName))
-	descRendered := dimStyle.Render(desc)
-	b.WriteString(fmt.Sprintf("%s %s %s\n", flagRendered, typeRendered, descRendered))
+func helpExample(b *strings.Builder, cmd, desc string) {
+	b.WriteString(fmt.Sprintf("    %s  %s\n", cyanStyle.Render(cmd), dimStyle.Render(desc)))
 }
 
-func writeExample(b *strings.Builder, example, desc string) {
-	b.WriteString("  " + cmdNameStyle.Render("$ "+example))
-	b.WriteString("\n")
-	b.WriteString("    " + dimStyle.Render(desc))
-	b.WriteString("\n")
+// padTitle inserts an extra space after any variation selector (U+FE0F) in a
+// title. Some terminals miscalculate emoji width when VS16 is present (e.g.,
+// ⚙️ renders narrower than expected), causing the next character to overlap.
+// By replacing "VS16 " with "VS16  " the icon-to-name gap stays visible.
+func padTitle(title string) string {
+	return strings.ReplaceAll(title, "\uFE0F ", "\uFE0F  ")
 }

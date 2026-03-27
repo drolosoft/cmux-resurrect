@@ -8,11 +8,7 @@
 
 cmux is a Ghostty-based terminal multiplexer with 9.3K+ stars — but **sessions don't survive restarts**. `crex` fixes that.
 
-<!-- 🎬 Demo GIF — run ./scripts/record-demo.sh to generate -->
-<!-- <p align="center"><img src="assets/demo.gif" alt="crex demo" width="800"></p> -->
-<p align="center">
-  <strong>💾 Save → 👁️ Preview → 🔄 Restore</strong> — your entire workspace in seconds
-</p>
+<p align="center"><img src="assets/demo.gif" alt="crex demo" width="800"></p>
 
 ---
 
@@ -125,7 +121,7 @@ crex restore demo --dry-run   # preview what it does
 crex restore demo             # run it (choose 'a' to add, 'r' to replace)
 ```
 
-It creates 3 workspaces: **System** (top + disk usage), **Files** (directory listings), and **Network** (hostname, interfaces, environment). Safe, read-only commands you can inspect before running.
+It restores 3 workspaces from the included demo layout: **webapp**, **api**, and **docs** — skipping any that already exist in your session.
 
 ### 💾 Save your layout
 

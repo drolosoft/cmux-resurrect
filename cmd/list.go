@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"text/tabwriter"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -32,24 +32,32 @@ func runList(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(metas) == 0 {
-		fmt.Println("No saved layouts. Use 'crex save <name>' to save one.")
+		fmt.Println(dimStyle.Render("  No saved layouts. Use 'crex save <name>' to create one."))
 		return nil
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)
-	fmt.Fprintln(w, "NAME\tWORKSPACES\tSAVED\tDESCRIPTION")
+	fmt.Fprintln(os.Stderr, headingStyle.Render("💾 Saved Layouts"))
+	fmt.Fprintln(os.Stderr)
+
 	for _, m := range metas {
-		desc := m.Description
-		if len(desc) > 50 {
-			desc = desc[:47] + "..."
+		name := greenStyle.Render(fmt.Sprintf("%-16s", m.Name))
+		ws := cyanStyle.Render(fmt.Sprintf("%d workspaces", m.WorkspaceCount))
+		date := dimStyle.Render(m.SavedAt.Local().Format("Jan 02 15:04"))
+
+		var parts []string
+		parts = append(parts, ws, date)
+		if m.Description != "" {
+			desc := m.Description
+			if len(desc) > 40 {
+				desc = desc[:37] + "..."
+			}
+			parts = append(parts, desc)
 		}
-		fmt.Fprintf(w, "%s\t%d\t%s\t%s\n",
-			m.Name,
-			m.WorkspaceCount,
-			m.SavedAt.Local().Format("2006-01-02 15:04"),
-			desc,
-		)
+
+		fmt.Fprintf(os.Stderr, "  %s %s\n", name, strings.Join(parts, dimStyle.Render(" · ")))
 	}
-	w.Flush()
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, dimStyle.Render(fmt.Sprintf("  %d layout(s)", len(metas))))
 	return nil
 }

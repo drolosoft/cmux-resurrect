@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"text/tabwriter"
+	"strings"
 
 	"github.com/drolosoft/cmux-resurrect/internal/mdfile"
 	"github.com/spf13/cobra"
@@ -31,24 +31,54 @@ func runWorkspaceList(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("read Workspace Blueprint: %w", err)
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)
-	fmt.Fprintln(w, "  \tICON\tNAME\tTEMPLATE\tPIN\tPATH")
+	fmt.Fprintln(os.Stderr, headingStyle.Render("📝 Workspace Blueprint"))
+	fmt.Fprintln(os.Stderr)
+
+	enabled := 0
+	disabled := 0
+	shown := 0
 
 	for _, p := range wf.Projects {
 		if !wsListAll && !p.Enabled {
+			disabled++
 			continue
 		}
-		check := "[x]"
+
+		check := greenStyle.Render("✅")
 		if !p.Enabled {
-			check = "[ ]"
+			check = dimStyle.Render("⬜")
+			disabled++
+		} else {
+			enabled++
 		}
-		pin := "yes"
-		if !p.Pin {
-			pin = "no"
+
+		name := greenStyle.Render(fmt.Sprintf("%-14s", p.Name))
+		tmpl := cyanStyle.Render(fmt.Sprintf("%-10s", p.Template))
+		path := dimStyle.Render(p.Path)
+
+		pin := ""
+		if p.Pin {
+			pin = " 📌"
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
-			check, p.Icon, p.Name, p.Template, pin, p.Path)
+
+		icon := p.Icon
+		if strings.Contains(icon, "\uFE0F") {
+			icon += " "
+		}
+		fmt.Fprintf(os.Stderr, "  %s %s %s %s %s%s\n", check, icon, name, tmpl, path, pin)
+		shown++
 	}
-	w.Flush()
+
+	if shown == 0 {
+		fmt.Fprintln(os.Stderr, dimStyle.Render("  No workspace entries found."))
+	}
+
+	fmt.Fprintln(os.Stderr)
+	total := enabled + disabled
+	if wsListAll && disabled > 0 {
+		fmt.Fprintln(os.Stderr, dimStyle.Render(fmt.Sprintf("  %d entries (%d enabled, %d disabled)", total, enabled, disabled)))
+	} else {
+		fmt.Fprintln(os.Stderr, dimStyle.Render(fmt.Sprintf("  %d entries", shown)))
+	}
 	return nil
 }

@@ -42,39 +42,61 @@ func runShow(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("Layout: %s\n", layout.Name)
+	// Header
+	fmt.Fprintf(os.Stderr, "\n%s\n", headingStyle.Render("📦 "+layout.Name))
 	if layout.Description != "" {
-		fmt.Printf("Description: %s\n", layout.Description)
+		fmt.Fprintf(os.Stderr, "   %s\n", dimStyle.Render(layout.Description))
 	}
-	fmt.Printf("Saved: %s\n", layout.SavedAt.Local().Format("2006-01-02 15:04:05"))
-	fmt.Printf("Workspaces: %d\n\n", len(layout.Workspaces))
+	saved := layout.SavedAt.Local().Format("Jan 02, 2006 15:04")
+	fmt.Fprintf(os.Stderr, "   %s\n", dimStyle.Render(fmt.Sprintf("Saved %s · %d workspaces", saved, len(layout.Workspaces))))
+	fmt.Fprintln(os.Stderr)
 
 	for _, ws := range layout.Workspaces {
-		pin := " "
+		// Workspace title with badges
+		title := greenStyle.Render(ws.Title)
+		badges := ""
 		if ws.Pinned {
-			pin = "pin"
+			badges += " " + cyanStyle.Render("📌")
 		}
-		active := ""
 		if ws.Active {
-			active = " [active]"
+			badges += " " + yellowStyle.Render("◀ active")
 		}
-		fmt.Printf("  [%d] %s  (%s)%s\n", ws.Index, ws.Title, pin, active)
-		fmt.Printf("      cwd: %s\n", ws.CWD)
+		fmt.Fprintf(os.Stderr, "   %s%s\n", title, badges)
+
+		// CWD
+		fmt.Fprintf(os.Stderr, "   %s\n", dimStyle.Render("cwd "+ws.CWD))
+
+		// Panes as a tree
 		for i, p := range ws.Panes {
-			split := ""
+			isLast := i == len(ws.Panes)-1
+			prefix := "├──"
+			if isLast {
+				prefix = "└──"
+			}
+			prefix = dimStyle.Render(prefix)
+
+			// Build pane description
+			var desc string
 			if p.Split != "" {
-				split = fmt.Sprintf(" split=%s", p.Split)
+				desc = magentaStyle.Render("→" + p.Split) + " "
 			}
-			command := ""
 			if p.Command != "" {
-				command = fmt.Sprintf(" cmd=%q", p.Command)
+				cmd := p.Command
+				if len(cmd) > 50 {
+					cmd = cmd[:47] + "..."
+				}
+				desc += cyanStyle.Render(cmd)
+			} else {
+				desc += dimStyle.Render("shell")
 			}
-			focus := ""
 			if p.Focus {
-				focus = " *"
+				desc += " " + yellowStyle.Render("★")
 			}
-			fmt.Printf("      pane %d: %s%s%s%s\n", i, p.Type, split, command, focus)
+
+			fmt.Fprintf(os.Stderr, "   %s %s\n", prefix, desc)
 		}
+		fmt.Fprintln(os.Stderr)
 	}
+
 	return nil
 }

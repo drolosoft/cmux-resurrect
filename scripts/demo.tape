@@ -1,80 +1,137 @@
-# cmux-resurrect demo -- recorded with github.com/charmbracelet/vhs
+# cmux-resurrect demo — recorded with github.com/charmbracelet/vhs
 #
-# This tape file produces the demo.gif shown in the README.
-# Edit timings and commands below, then run: vhs scripts/demo.tape
-#
-# Prerequisites:
-#   brew install vhs       # charmbracelet/vhs -- terminal GIF recorder
-#   make build && make install
+# Run via: ./scripts/record-demo.sh (needs cmux running)
 
-# Configuration
 Output assets/demo.gif
 Set FontSize 14
 Set Width 1000
 Set Height 600
 Set Theme "Catppuccin Mocha"
 Set Padding 20
-Set TypingSpeed 35ms
+Set TypingSpeed 20ms
 Set CursorBlink false
+Set Shell "bash"
 
-# --- Scene 1: Banner & Help ---
+# Hidden setup: alias crex + enable bash comments
+Hide
+Type "alias crex='crex --config /tmp/crex-demo/config.toml'"
+Enter
+Sleep 500ms
+Type "clear"
+Enter
+Sleep 1s
+Show
 
+# ── Scene 1: Help ──────────────────────────────────────────
+
+Type "# Show available commands"
+Enter
+Sleep 500ms
 Type "crex"
 Enter
+Sleep 4s
+
+# ── Scene 2: Show the Workspace Blueprint ──────────────────
+
+Hide
+Type "clear"
+Enter
+Sleep 1s
+Show
+
+Type "# View the Workspace Blueprint"
+Enter
+Sleep 500ms
+Type "bat --style=plain /tmp/crex-demo/workspaces.md"
+Enter
+Sleep 4s
+
+# ── Scene 3: Import from Blueprint (real) ──────────────────
+
+Hide
+Type "clear"
+Enter
+Sleep 1s
+Show
+
+Type "# Create workspaces from the Blueprint"
+Enter
+Sleep 500ms
+Type "crex import-from-md --workspace-file /tmp/crex-demo/workspaces.md"
+Enter
+Sleep 10s
+
+# ── Scene 4: Save current layout ─────────────────────────
+
+Hide
+Type "clear"
+Enter
+Sleep 1s
+Show
+
+Type "# Save current workspaces as a layout"
+Enter
+Sleep 500ms
+Type "crex save demo"
+Enter
 Sleep 3s
 
-# --- Scene 2: List saved layouts ---
+# Hidden: replace saved file with clean demo.toml (save captures ALL cmux
+# workspaces including the user's real ones — we swap in the curated version).
+Hide
+Type "cp /tmp/crex-demo/demo-clean.toml /tmp/crex-demo/layouts/demo.toml"
+Enter
+Sleep 500ms
+Type "clear"
+Enter
+Sleep 1s
+Show
 
+# ── Scene 5: List saved layouts ────────────────────────────
+
+Type "# List saved layouts"
+Enter
+Sleep 500ms
 Type "crex list"
 Enter
-Sleep 1.5s
+Sleep 4s
 
-# --- Scene 3: Dry-run restore (works without running cmux) ---
+# ── Scene 5: Restore layout (real) ────────────────────────
 
-Type "# Preview restore -- see every command before executing"
+Hide
+Type "clear"
 Enter
-Sleep 400ms
+Sleep 1s
+Show
 
-Type "crex restore demo --dry-run"
+Type "# Restore a saved layout"
 Enter
-Sleep 3s
-
-# --- Scene 4: Import from Workspace Blueprint (dry-run) ---
-
-Type "# Import workspaces from a Workspace Blueprint"
+Sleep 500ms
+Type "crex restore demo --mode add"
 Enter
-Sleep 400ms
+Sleep 10s
+Type "# Workspaces are now live in cmux"
+Enter
+Sleep 4s
 
-Type "crex import-from-md --dry-run"
+# ── Scene 6: Add workspace to Blueprint ───────────────────
+
+Hide
+Type "clear"
+Enter
+Sleep 1s
+Show
+
+Type "# Add a workspace and list all"
+Enter
+Sleep 500ms
+Type 'crex workspace add notes ~/docs -t single --icon "📓"'
 Enter
 Sleep 2s
-
-# --- Scene 5: Workspace Blueprint management ---
-
-Type "# Manage workspace entries in your Blueprint"
-Enter
-Sleep 400ms
-
-Type 'crex workspace add api ~/projects/api -t dev --icon "⚙️"'
-Enter
-Sleep 1.5s
-
 Type "crex workspace list"
 Enter
+Sleep 4s
+
+# ── End ───────────────────────────────────────────────────
+
 Sleep 2s
-
-# --- Scene 6: Show a layout ---
-
-Type "crex show demo"
-Enter
-Sleep 2.5s
-
-# --- Scene 7: Version ---
-
-Type "crex version"
-Enter
-Sleep 2s
-
-# --- End ---
-
-Sleep 1s

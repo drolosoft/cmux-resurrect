@@ -49,11 +49,19 @@ func runWorkspaceAdd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	state := "enabled"
+	fmt.Fprintln(os.Stderr)
+	check := greenStyle.Render("✅")
 	if addDisabled {
-		state = "disabled"
+		check = dimStyle.Render("⬜")
 	}
-	fmt.Fprintf(os.Stderr, "Added %s %s (%s, %s, template=%s) to %s\n",
-		p.Icon, p.Name, state, path, p.Template, wsFile)
+	fmt.Fprintf(os.Stderr, "  %s %s %s  %s  %s\n",
+		check,
+		p.Icon,
+		greenStyle.Render(p.Name),
+		cyanStyle.Render("template="+p.Template),
+		dimStyle.Render(path))
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintf(os.Stderr, "%s\n\n",
+		greenStyle.Render("✅ Added to Workspace Blueprint"))
 	return nil
 }

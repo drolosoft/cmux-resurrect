@@ -28,10 +28,12 @@ func runWorkspaceToggle(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	state := "disabled"
+	fmt.Fprintln(os.Stderr)
 	if newState {
-		state = "enabled"
+		fmt.Fprintf(os.Stderr, "  %s %s\n", greenStyle.Render("✅"), greenStyle.Render(name+" enabled"))
+	} else {
+		fmt.Fprintf(os.Stderr, "  %s %s\n", dimStyle.Render("⬜"), dimStyle.Render(name+" disabled"))
 	}
-	fmt.Fprintf(os.Stderr, "%s is now %s\n", name, state)
+	fmt.Fprintln(os.Stderr)
 	return nil
 }

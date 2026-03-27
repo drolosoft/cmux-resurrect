@@ -29,3 +29,7 @@ __debug_bin*
 # Temporary
 *.tmp
 crex
+
+# Claude Code — development process is private
+CLAUDE.md
+.claude/

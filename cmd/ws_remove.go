@@ -28,6 +28,8 @@ func runWorkspaceRemove(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Fprintf(os.Stderr, "Removed %q from %s\n", name, wsFile)
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintf(os.Stderr, "%s\n\n",
+		greenStyle.Render(fmt.Sprintf("✅ Removed %q from Workspace Blueprint", name)))
 	return nil
 }

@@ -37,23 +37,34 @@ func runSave(cmd *cobra.Command, args []string) error {
 
 	saver := &orchestrate.Saver{Client: cl, Store: store}
 
-	fmt.Fprintf(os.Stderr, "Saving layout %q...\n", name)
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintf(os.Stderr, "%s %s\n", yellowStyle.Render("💾 Saving layout"), greenStyle.Render(name))
+
 	layout, err := saver.Save(name, saveDescription)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(os.Stderr, "Saved %d workspaces to %s\n", len(layout.Workspaces), store.Path(name))
+	fmt.Fprintln(os.Stderr)
 	for _, ws := range layout.Workspaces {
-		pin := " "
+		pin := ""
 		if ws.Pinned {
-			pin = "📌"
+			pin = " 📌"
 		}
 		panes := ""
 		if len(ws.Panes) > 1 {
 			panes = fmt.Sprintf(" (%d panes)", len(ws.Panes))
 		}
-		fmt.Fprintf(os.Stderr, "  %s %s  %s%s\n", pin, ws.Title, ws.CWD, panes)
+		fmt.Fprintf(os.Stderr, "  %s  %s%s%s\n",
+			greenStyle.Render("OK"),
+			padTitle(ws.Title),
+			dimStyle.Render(panes),
+			pin)
 	}
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintf(os.Stderr, "%s\n",
+		greenStyle.Render(fmt.Sprintf("✅ Saved %d workspaces to %s", len(layout.Workspaces), store.Path(name))))
+	fmt.Fprintln(os.Stderr)
 	return nil
 }

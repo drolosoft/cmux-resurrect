@@ -40,7 +40,7 @@ func runImportFromMD(cmd *cobra.Command, args []string) error {
 
 	enabled := wf.EnabledProjects()
 	if len(enabled) == 0 {
-		fmt.Println("No enabled workspaces in Workspace Blueprint.")
+		fmt.Fprintln(os.Stderr, dimStyle.Render("  No enabled workspaces in Workspace Blueprint."))
 		return nil
 	}
 
@@ -57,6 +57,14 @@ func runImportFromMD(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	fmt.Fprintln(os.Stderr)
+	if importDryRun {
+		fmt.Fprintf(os.Stderr, "%s %s\n", yellowStyle.Render("👁️  Dry-run import from"), dimStyle.Render(wsFile))
+	} else {
+		fmt.Fprintf(os.Stderr, "%s %s\n", greenStyle.Render("📥 Importing from"), dimStyle.Render(wsFile))
+	}
+	fmt.Fprintln(os.Stderr)
+
 	created := 0
 	skipped := 0
 
@@ -68,36 +76,59 @@ func runImportFromMD(cmd *cobra.Command, args []string) error {
 		if importDryRun {
 			pin := ""
 			if p.Pin {
-				pin = " [pin]"
+				pin = " 📌"
 			}
-			fmt.Printf("CREATE  %s  cwd=%s  template=%s  panes=%d%s\n",
-				title, expandedPath, p.Template, len(panes), pin)
+
+			// Workspace header
+			fmt.Fprintf(os.Stderr, "  %s %s%s\n",
+				greenStyle.Render("CREATE"),
+				greenStyle.Render(padTitle(title)),
+				pin)
+
+			// Details
+			fmt.Fprintf(os.Stderr, "         %s  %s  %s\n",
+				dimStyle.Render("cwd="+expandedPath),
+				cyanStyle.Render("template="+p.Template),
+				dimStyle.Render(fmt.Sprintf("panes=%d", len(panes))))
+
+			// Pane tree
 			for j, pane := range panes {
+				isLast := j == len(panes)-1
+				prefix := dimStyle.Render("         ├──")
+				if isLast {
+					prefix = dimStyle.Render("         └──")
+				}
+
 				if j == 0 {
 					desc := "main"
 					if pane.Command != "" {
-						desc += fmt.Sprintf(" cmd=%q", pane.Command)
+						desc += " " + cyanStyle.Render(pane.Command)
 					}
-					fmt.Printf("        pane %d: %s\n", j, desc)
+					fmt.Fprintf(os.Stderr, "%s %s\n", prefix, desc)
 				} else {
 					split := pane.Split
 					if split == "" {
 						split = "right"
 					}
-					desc := fmt.Sprintf("split %s", split)
+					desc := magentaStyle.Render("→" + split)
 					if pane.Command != "" {
-						desc += fmt.Sprintf(" cmd=%q", pane.Command)
+						desc += " " + cyanStyle.Render(pane.Command)
 					}
-					fmt.Printf("        pane %d: %s\n", j, desc)
+					fmt.Fprintf(os.Stderr, "%s %s\n", prefix, desc)
 				}
 			}
+
+			fmt.Fprintln(os.Stderr)
 			created++
 			continue
 		}
 
 		// Skip if workspace with this title already exists.
 		if existingTitles[title] {
-			fmt.Fprintf(os.Stderr, "  SKIP  %s (already exists)\n", title)
+			fmt.Fprintf(os.Stderr, "  %s  %s %s\n",
+				dimStyle.Render("SKIP"),
+				padTitle(title),
+				dimStyle.Render("(already exists)"))
 			skipped++
 			continue
 		}
@@ -105,7 +136,7 @@ func runImportFromMD(cmd *cobra.Command, args []string) error {
 		// 1. Create workspace.
 		ref, err := cl.NewWorkspace(client.NewWorkspaceOpts{CWD: expandedPath})
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "  FAIL  %s: %v\n", title, err)
+			fmt.Fprintf(os.Stderr, "  %s  %s: %v\n", yellowStyle.Render("FAIL"), title, err)
 			continue
 		}
 
@@ -113,7 +144,7 @@ func runImportFromMD(cmd *cobra.Command, args []string) error {
 
 		// 2. Select workspace to ensure splits target the correct one.
 		if err := cl.SelectWorkspace(ref); err != nil {
-			fmt.Fprintf(os.Stderr, "  WARN  %s: select failed: %v\n", title, err)
+			fmt.Fprintf(os.Stderr, "  %s  %s: select failed: %v\n", yellowStyle.Render("WARN"), title, err)
 		}
 		time.Sleep(100 * time.Millisecond)
 
@@ -131,7 +162,7 @@ func runImportFromMD(cmd *cobra.Command, args []string) error {
 			}
 			surfaceRef, err := cl.NewSplit(split, ref)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "  WARN  %s pane %d: split failed: %v\n", title, j, err)
+				fmt.Fprintf(os.Stderr, "  %s  %s pane %d: split failed: %v\n", yellowStyle.Render("WARN"), title, j, err)
 				continue
 			}
 			// Wait for shell to fully initialize in the new pane.
@@ -142,27 +173,29 @@ func runImportFromMD(cmd *cobra.Command, args []string) error {
 		}
 
 		// 4. Wait for shell to settle, then rename.
-		// Shell prompt sets terminal title on startup; renaming too early gets overwritten.
 		time.Sleep(500 * time.Millisecond)
 		if err := cl.RenameWorkspace(ref, title); err != nil {
-			fmt.Fprintf(os.Stderr, "  WARN  %s: rename failed: %v\n", title, err)
+			fmt.Fprintf(os.Stderr, "  %s  %s: rename failed: %v\n", yellowStyle.Render("WARN"), title, err)
 		}
 
 		// 5. Pin if requested.
 		if p.Pin {
 			if err := cl.PinWorkspace(ref); err != nil {
-				fmt.Fprintf(os.Stderr, "  WARN  %s: pin failed: %v\n", title, err)
+				fmt.Fprintf(os.Stderr, "  %s  %s: pin failed: %v\n", yellowStyle.Render("WARN"), title, err)
 			}
 		}
 
-		fmt.Fprintf(os.Stderr, "  OK    %s (%d panes)\n", title, len(panes))
+		fmt.Fprintf(os.Stderr, "  %s  %s (%d panes)\n", greenStyle.Render("OK"), padTitle(title), len(panes))
 		created++
 	}
 
 	if importDryRun {
-		fmt.Fprintf(os.Stderr, "\nDry-run: would create %d workspaces\n", created)
+		fmt.Fprintf(os.Stderr, "%s\n\n",
+			greenStyle.Render(fmt.Sprintf("✅ Would create %d workspaces", created)))
 	} else {
-		fmt.Fprintf(os.Stderr, "\nImport complete: %d created, %d skipped\n", created, skipped)
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintf(os.Stderr, "%s\n\n",
+			greenStyle.Render(fmt.Sprintf("✅ Import complete: %d created, %d skipped", created, skipped)))
 	}
 	return nil
 }

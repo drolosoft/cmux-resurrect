@@ -14,10 +14,10 @@ var restoreDryRun bool
 var restoreMode string
 
 var restoreCmd = &cobra.Command{
-	Use:   "restore <name>",
+	Use:   "restore [name]",
 	Short: "Restore a saved cmux layout",
-	Long:  "Recreates workspaces, splits, and sends commands from a saved layout.\n\nYou will be asked whether to replace your current workspaces or add to them.\nUse --mode to skip the interactive prompt (useful for scripts).",
-	Args:  cobra.ExactArgs(1),
+	Long:  "Recreates workspaces, splits, and sends commands from a saved layout.\n\nYou will be asked whether to replace your current workspaces or add to them.\nUse --mode to skip the interactive prompt (useful for scripts).\n\nIf no layout name is given, an interactive picker is shown.",
+	Args:  cobra.MaximumNArgs(1),
 	RunE:  runRestore,
 }
 
@@ -28,7 +28,29 @@ func init() {
 }
 
 func runRestore(cmd *cobra.Command, args []string) error {
-	name := args[0]
+	var name string
+	if len(args) == 1 {
+		name = args[0]
+	} else {
+		// Interactive picker.
+		store, err := newStore()
+		if err != nil {
+			return err
+		}
+		metas, err := store.List()
+		if err != nil {
+			return err
+		}
+		if len(metas) == 0 {
+			fmt.Fprintln(os.Stderr, dimStyle.Render("  No saved layouts. Use 'crex save <name>' to create one."))
+			return nil
+		}
+		picked, err := pickLayout(metas)
+		if err != nil {
+			return err
+		}
+		name = picked
+	}
 
 	// Validate --mode flag value early.
 	if restoreMode != "" && restoreMode != "replace" && restoreMode != "add" {
@@ -41,7 +63,23 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	restorer := &orchestrate.Restorer{Client: cl, Store: store}
+	restorer := &orchestrate.Restorer{
+		Client: cl,
+		Store:  store,
+		OnProgress: func(title string, panes int, err error) {
+			t := padTitle(title)
+			if err != nil {
+				errMsg := err.Error()
+				if strings.Contains(errMsg, "skipped") {
+					fmt.Fprintf(os.Stderr, "  %s  %s %s\n", dimStyle.Render("SKIP"), t, dimStyle.Render("("+errMsg+")"))
+				} else {
+					fmt.Fprintf(os.Stderr, "  %s  %s: %v\n", yellowStyle.Render("FAIL"), t, err)
+				}
+			} else {
+				fmt.Fprintf(os.Stderr, "  %s  %s (%d panes)\n", greenStyle.Render("OK"), t, panes)
+			}
+		},
+	}
 
 	// Determine restore mode.
 	var mode orchestrate.RestoreMode
@@ -62,13 +100,15 @@ func runRestore(cmd *cobra.Command, args []string) error {
 	}
 
 	if restoreDryRun {
-		fmt.Fprintf(os.Stderr, "Dry-run restore of %q:\n\n", name)
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintf(os.Stderr, "%s %s\n", yellowStyle.Render("👁️  Dry-run restore of"), greenStyle.Render(name))
 	} else {
-		action := "Replacing"
+		action := "🔄 Replacing with"
 		if mode == orchestrate.RestoreModeAdd {
-			action = "Adding to"
+			action = "➕ Adding from"
 		}
-		fmt.Fprintf(os.Stderr, "%s current workspaces with layout %q...\n", action, name)
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintf(os.Stderr, "%s %s\n", yellowStyle.Render(action), greenStyle.Render(name))
 	}
 
 	result, err := restorer.Restore(name, restoreDryRun, mode)
@@ -77,32 +117,66 @@ func runRestore(cmd *cobra.Command, args []string) error {
 	}
 
 	if restoreDryRun {
+		fmt.Fprintln(os.Stderr)
 		for _, c := range result.Commands {
-			fmt.Println(c)
+			switch {
+			case c == "":
+				fmt.Println()
+			case strings.HasPrefix(c, "#"):
+				fmt.Println(yellowStyle.Render(c))
+			default:
+				// Color the cmux prefix dim, highlight the action
+				parts := strings.SplitN(c, " ", 3)
+				if len(parts) >= 2 {
+					fmt.Printf("%s %s", dimStyle.Render(parts[0]), cyanStyle.Render(parts[1]))
+					if len(parts) == 3 {
+						fmt.Printf(" %s", dimStyle.Render(parts[2]))
+					}
+					fmt.Println()
+				} else {
+					fmt.Println(c)
+				}
+			}
 		}
-		fmt.Fprintf(os.Stderr, "\n%d commands for %d workspaces\n", len(result.Commands), result.WorkspacesTotal)
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintf(os.Stderr, "%s\n\n",
+			greenStyle.Render(fmt.Sprintf("✅ %d commands for %d workspaces", len(result.Commands)-countBlanks(result.Commands), result.WorkspacesTotal)))
 		return nil
 	}
 
+	fmt.Fprintln(os.Stderr)
 	if result.WorkspacesClosed > 0 {
-		fmt.Fprintf(os.Stderr, "Closed %d existing workspaces\n", result.WorkspacesClosed)
+		fmt.Fprintf(os.Stderr, "%s\n", dimStyle.Render(fmt.Sprintf("  Closed %d existing workspaces", result.WorkspacesClosed)))
 	}
-	fmt.Fprintf(os.Stderr, "Restored %d/%d workspaces\n", result.WorkspacesOK, result.WorkspacesTotal)
+	fmt.Fprintf(os.Stderr, "%s\n\n",
+		greenStyle.Render(fmt.Sprintf("✅ Restored %d/%d workspaces", result.WorkspacesOK, result.WorkspacesTotal)))
 	if len(result.Errors) > 0 {
-		fmt.Fprintf(os.Stderr, "Errors:\n")
+		fmt.Fprintf(os.Stderr, "%s\n", yellowStyle.Render("⚠️  Errors:"))
 		for _, e := range result.Errors {
-			fmt.Fprintf(os.Stderr, "  - %s\n", e)
+			fmt.Fprintf(os.Stderr, "  %s\n", dimStyle.Render("• "+e))
 		}
+		fmt.Fprintln(os.Stderr)
 	}
 	return nil
 }
 
+func countBlanks(cmds []string) int {
+	n := 0
+	for _, c := range cmds {
+		if c == "" || strings.HasPrefix(c, "#") {
+			n++
+		}
+	}
+	return n
+}
+
 // askRestoreMode prompts the user to choose between replacing or adding workspaces.
 func askRestoreMode() (orchestrate.RestoreMode, error) {
-	fmt.Fprintf(os.Stderr, "\nHow do you want to restore?\n")
-	fmt.Fprintf(os.Stderr, "  [r] Replace — close all current workspaces, then restore\n")
-	fmt.Fprintf(os.Stderr, "  [a] Add     — keep current workspaces, add restored ones\n")
-	fmt.Fprintf(os.Stderr, "\nChoice [r/a]: ")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintf(os.Stderr, "%s\n", headingStyle.Render("How do you want to restore?"))
+	fmt.Fprintf(os.Stderr, "  %s  %s\n", cyanStyle.Render("[r]"), "Replace — close all current workspaces, then restore")
+	fmt.Fprintf(os.Stderr, "  %s  %s\n", cyanStyle.Render("[a]"), "Add     — keep current workspaces, add restored ones")
+	fmt.Fprintf(os.Stderr, "\n%s ", dimStyle.Render("Choice [r/a]:"))
 
 	reader := bufio.NewReader(os.Stdin)
 	input, err := reader.ReadString('\n')
