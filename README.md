@@ -4,12 +4,15 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/drolosoft/cmux-resurrect)](https://goreportcard.com/report/github.com/drolosoft/cmux-resurrect)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Homebrew](https://img.shields.io/badge/Homebrew-tap-orange.svg)](https://github.com/drolosoft/homebrew-tap)
+[![cmux](https://img.shields.io/badge/cmux-ecosystem-blueviolet.svg)](https://github.com/manaflow-ai/cmux)
 
 > **Session persistence for [cmux](https://github.com/manaflow-ai/cmux) — your terminal workspaces, resurrected.**
 
-If you've ever lost a carefully arranged [cmux](https://github.com/manaflow-ai/cmux) session to a reboot or a crash, you know the pain. Recreating workspaces, splits, and startup commands by hand is tedious and error-prone. **crex** saves your entire cmux layout and brings it back in one command.
+[cmux](https://github.com/manaflow-ai/cmux) is the fastest-growing terminal multiplexer in the Ghostty ecosystem (12K+ stars), but it doesn't persist sessions across restarts — its [most requested missing feature](https://github.com/manaflow-ai/cmux/issues/1984). **crex** fixes that.
 
-Inspired by [tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect) — the beloved session-saver for tmux — crex brings the same peace of mind to the cmux ecosystem, and takes it further with **Workspace Blueprints**: define your ideal terminal setup in a Markdown file (Obsidian-compatible), version it, share it with your team, and let crex build it for you.
+One command saves your entire cmux layout. One command brings it back — workspaces, splits, CWDs, pinned state, startup commands, everything.
+
+Inspired by [tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect) — the beloved session-saver for tmux (12.6K stars) — crex brings the same peace of mind to the cmux ecosystem, and takes it further with **Workspace Blueprints**: define your ideal terminal setup in a Markdown file (Obsidian-compatible), version it, share it with your team, and let crex build it for you.
 
 <p align="center"><img src="assets/demo.gif" alt="crex demo" width="800"></p>
 
@@ -30,12 +33,13 @@ Inspired by [tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect) —
 - [🔨 Building from Source](#-building-from-source)
 - [🖥️ Platform Compatibility](#️-platform-compatibility)
 - [📜 License & Philosophy](#-license--philosophy)
+- [🌟 Contributing](#-contributing)
 
 ---
 
 ## ✨ Why crex?
 
-[tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect) proved that session persistence is essential for any serious terminal multiplexer workflow. crex applies that same philosophy to cmux — and extends it:
+[tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect) proved that session persistence is essential for any serious terminal multiplexer workflow. Every multiplexer eventually gets one — crex is that tool for cmux.
 
 | | tmux-resurrect | crex |
 |:---:|---|---|
@@ -125,6 +129,12 @@ brew install cmux-resurrect
 ```
 
 That's it — `crex` is ready to use. No Go toolchain required.
+
+### Install with `go install`
+
+```sh
+go install github.com/drolosoft/cmux-resurrect@latest
+```
 
 ### Install from source
 
@@ -380,6 +390,14 @@ The binary is pure Go with zero CGO dependencies, which means it compiles native
 `make build-all` produces binaries for all four targets in `bin/`.
 
 > 📐 For architecture details and internal design, see [ARCHITECTURE.md](ARCHITECTURE.md).
+
+---
+
+## 🌟 Contributing
+
+crex is open source and contributions are welcome. Whether it's a bug fix, a new template, or a feature idea — open an issue or submit a PR.
+
+If crex saves your sessions, consider giving it a ⭐ on GitHub — it helps others discover the project.
 
 ---
 
