@@ -1,4 +1,4 @@
-# ⚡️🔄✨🖥️ cmux-resurrect
+# 🔄✨🖥️ cmux-resurrect
 
 [![CI](https://github.com/drolosoft/cmux-resurrect/actions/workflows/ci.yml/badge.svg)](https://github.com/drolosoft/cmux-resurrect/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/drolosoft/cmux-resurrect)](https://goreportcard.com/report/github.com/drolosoft/cmux-resurrect)
@@ -10,7 +10,7 @@
 
 [cmux](https://github.com/manaflow-ai/cmux) is the fastest-growing terminal multiplexer in the Ghostty ecosystem (12K+ stars), but it doesn't persist sessions across restarts — its [most requested missing feature](https://github.com/manaflow-ai/cmux/issues/1984). **crex** fixes that.
 
-One command saves your entire cmux layout. One command brings it back — workspaces, splits, CWDs, pinned state, startup commands, everything.
+⚡️ One command saves your entire cmux layout. One command brings it back — workspaces, splits, CWDs, pinned state, startup commands, everything.
 
 Inspired by [tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect) — the beloved session-saver for tmux (12.6K stars) — crex brings the same peace of mind to the cmux ecosystem, and takes it further with **Workspace Blueprints**: define your ideal terminal setup in a Markdown file (Obsidian-compatible), version it, share it with your team, and let crex build it for you.
 
