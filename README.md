@@ -112,7 +112,7 @@ If crex saves your sessions, consider giving it a ⭐ on GitHub — it helps oth
 
 If crex saved you time or made your workflow easier, consider buying me a coffee — it keeps the next one coming!
 
-<a href="https://buymeacoffee.com/drolosoft"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="50"></a>
+<a href="https://buymeacoffee.com/juan.andres.morenorub.io"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="50"></a>
 
 <img src="assets/bmc-qr.png" alt="Buy Me A Coffee QR" width="150">
 
