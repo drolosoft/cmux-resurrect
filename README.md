@@ -108,6 +108,8 @@ crex import-from-md
 
 Think of it as **infrastructure as code** for your terminal. The Workspace Blueprint is the source of truth; `import-from-md` makes cmux match it. The reverse operation, `export-to-md`, captures your live cmux state back into the Blueprint.
 
+<p align="center"><img src="assets/import-success.png" alt="crex import-from-md in action" width="800"></p>
+
 ### Side by Side
 
 | | Save / Restore | Import from Markdown |
