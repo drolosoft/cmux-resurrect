@@ -8,7 +8,7 @@
 
 > **Session persistence for [cmux](https://github.com/manaflow-ai/cmux) — your terminal workspaces, resurrected.**
 
-[cmux](https://github.com/manaflow-ai/cmux) is the fastest-growing terminal multiplexer in the Ghostty ecosystem (12K+ stars), but it doesn't persist sessions across restarts — its [most requested missing feature](https://github.com/manaflow-ai/cmux/issues/1984). **crex** fixes that.
+[cmux](https://github.com/manaflow-ai/cmux) is the fastest-growing terminal multiplexer in the Ghostty ecosystem (12K+ stars). It handles session restoration well most of the time, but crashes, forced updates, and unexpected reboots can still wipe your workspace. **crex** is a safety net for those moments.
 
 ⚡️ One command saves your entire cmux layout. One command brings it back — workspaces, splits, CWDs, pinned state, startup commands, everything.
 
