@@ -408,6 +408,14 @@ If crex saves your sessions, consider giving it a ⭐ on GitHub — it helps oth
 
 ---
 
+## ☕ Support
+
+If crex saved you time or made your workflow easier, consider buying me a coffee — it keeps the next one coming!
+
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/drolosoft)
+
+---
+
 ## 📜 License & Philosophy
 
 **MIT License** — free to use, modify, and distribute.
