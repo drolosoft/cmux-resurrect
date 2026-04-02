@@ -9,7 +9,7 @@ before:
 builds:
   - id: crex
     binary: crex
-    main: .
+    main: ./cmd/crex
     env:
       - CGO_ENABLED=0
     goos:

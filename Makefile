@@ -8,14 +8,14 @@ LDFLAGS := -ldflags "-s -w -X github.com/drolosoft/cmux-resurrect/cmd.Version=$(
 .PHONY: build build-all test test-integration install install-long install-both clean lint fmt
 
 build:
-	go build $(LDFLAGS) -o bin/$(BINARY) .
+	go build $(LDFLAGS) -o bin/$(BINARY) ./cmd/crex
 
 # Cross-compile for macOS (Intel + Apple Silicon) and Linux
 build-all:
-	CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build $(LDFLAGS) -o bin/$(BINARY)-darwin-arm64  .
-	CGO_ENABLED=0 GOOS=darwin  GOARCH=amd64 go build $(LDFLAGS) -o bin/$(BINARY)-darwin-amd64  .
-	CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 go build $(LDFLAGS) -o bin/$(BINARY)-linux-amd64   .
-	CGO_ENABLED=0 GOOS=linux   GOARCH=arm64 go build $(LDFLAGS) -o bin/$(BINARY)-linux-arm64   .
+	CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build $(LDFLAGS) -o bin/$(BINARY)-darwin-arm64  ./cmd/crex
+	CGO_ENABLED=0 GOOS=darwin  GOARCH=amd64 go build $(LDFLAGS) -o bin/$(BINARY)-darwin-amd64  ./cmd/crex
+	CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 go build $(LDFLAGS) -o bin/$(BINARY)-linux-amd64   ./cmd/crex
+	CGO_ENABLED=0 GOOS=linux   GOARCH=arm64 go build $(LDFLAGS) -o bin/$(BINARY)-linux-arm64   ./cmd/crex
 	@echo "✓ Built 4 binaries in bin/"
 
 LAYOUTS_DIR := $(HOME)/.config/crex/layouts
