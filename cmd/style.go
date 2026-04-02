@@ -77,6 +77,13 @@ func styledHelp() string {
 	b.WriteString("\n")
 	b.WriteString(dimStyle.Render("  Quick start:"))
 	b.WriteString("\n")
+	b.WriteString(fmt.Sprintf("    %s%s%s%s%s\n",
+		dimStyle.Render("(Both "),
+		greenStyle.Render("crex"),
+		dimStyle.Render(" and "),
+		greenStyle.Render("cmux-resurrect"),
+		dimStyle.Render(" work as command names)")))
+	b.WriteString("\n")
 	helpExample(&b, "crex import-from-md", "create workspaces from Blueprint")
 	helpExample(&b, "crex save work", "save current layout")
 	helpExample(&b, "crex list", "list saved layouts")
