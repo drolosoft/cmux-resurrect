@@ -56,5 +56,7 @@ brews:
     license: "MIT"
     install: |
       bin.install "crex"
+      bin.install_symlink "crex" => "cmux-resurrect"
     test: |
       system "#{bin}/crex", "version"
+      system "#{bin}/cmux-resurrect", "version"

@@ -128,7 +128,7 @@ brew tap drolosoft/tap
 brew install cmux-resurrect
 ```
 
-That's it — `crex` is ready to use. No Go toolchain required.
+That's it — both `crex` and `cmux-resurrect` are ready to use. No Go toolchain required.
 
 ### Install with `go install`
 
@@ -137,6 +137,8 @@ go install github.com/drolosoft/cmux-resurrect/cmd/crex@latest
 ```
 
 Requires Go 1.26+. Installs as `crex` in your `$GOPATH/bin`.
+
+> **Both names work**: All install methods provide both `crex` (short) and `cmux-resurrect` (full name). Use whichever you prefer.
 
 ### Install from source
 
