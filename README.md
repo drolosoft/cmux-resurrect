@@ -114,6 +114,8 @@ If crex saved you time or made your workflow easier, consider buying me a coffee
 
 <a href="https://buymeacoffee.com/drolosoft"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="50"></a>
 
+<img src="assets/bmc-qr.png" alt="Buy Me A Coffee QR" width="150">
+
 ---
 
 ## 📜 License
