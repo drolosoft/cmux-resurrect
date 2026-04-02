@@ -134,11 +134,12 @@ That's it — both `crex` and `cmux-resurrect` are ready to use. No Go toolchain
 
 ```sh
 go install github.com/drolosoft/cmux-resurrect/cmd/crex@latest
+ln -s $(go env GOPATH)/bin/crex $(go env GOPATH)/bin/cmux-resurrect
 ```
 
-Requires Go 1.26+. Installs as `crex` in your `$GOPATH/bin`.
+Requires Go 1.26+. The first command installs `crex`, the second adds the `cmux-resurrect` alias.
 
-> **Both names work**: All install methods provide both `crex` (short) and `cmux-resurrect` (full name). Use whichever you prefer.
+> **Both names work**: Homebrew and `make install-both` provide both names automatically. With `go install`, the symlink step above adds the long name.
 
 ### Install from source
 
