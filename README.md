@@ -133,10 +133,10 @@ That's it — `crex` is ready to use. No Go toolchain required.
 ### Install with `go install`
 
 ```sh
-go install github.com/drolosoft/cmux-resurrect/cmd/crex@latest
+go install github.com/drolosoft/cmux-resurrect@latest
 ```
 
-Requires Go 1.26+. The binary is installed as `crex` in your `$GOPATH/bin`.
+Requires Go 1.26+. Installs as `cmux-resurrect` in your `$GOPATH/bin`.
 
 ### Install from source
 
