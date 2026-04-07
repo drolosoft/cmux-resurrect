@@ -44,8 +44,8 @@ go install github.com/drolosoft/cmux-resurrect/cmd/crex@latest
 ### Try it
 
 ```sh
-crex restore demo --dry-run   # preview what it does
-crex restore demo             # run it
+crex restore my-day --dry-run   # preview what it does
+crex restore my-day             # run it
 ```
 
 ---
@@ -53,8 +53,8 @@ crex restore demo             # run it
 ## 💾 Save & Restore
 
 ```sh
-crex save work                # snapshot your layout
-crex restore work             # bring it all back
+crex save my-day              # snapshot your layout
+crex restore my-day           # bring it all back
 ```
 
 Every workspace, split, CWD, pinned state, and startup command — captured and restored.

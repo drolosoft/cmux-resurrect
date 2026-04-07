@@ -1,5 +1,5 @@
-name = "demo"
-description = "Example layout — try: crex restore demo"
+name = "my-day"
+description = "Example layout — try: crex restore my-day"
 version = 1
 saved_at = 2026-03-26T00:00:00Z
 

@@ -25,21 +25,21 @@
 
 ```sh
 crex save -d "Friday standup layout"                   # 💬 attach a description
-crex restore work --dry-run                            # 👁️ preview without executing
+crex restore my-day --dry-run                          # 👁️ preview without executing
 crex watch autosave --interval 2m                      # ⏱️ custom interval
 crex workspace add api ~/projects/api -t dev --icon "⚙️"  # ➕ with template + icon
 crex workspace add notes ~/docs -t single --disabled     # ➕ disabled by default
 crex workspace list --all                                # 📋 include disabled workspaces
-crex show work --raw                                   # 🔍 dump raw TOML
+crex show my-day --raw                                 # 🔍 dump raw TOML
 ```
 
 ## Common Recipes
 
 ### Save before a reboot
 ```sh
-crex save work
+crex save my-day
 # reboot, then:
-crex restore work
+crex restore my-day
 ```
 
 ### Set up a new machine from a Blueprint
@@ -50,9 +50,9 @@ crex import-from-md --workspace-file ~/workspaces.md
 
 ### Preview before restoring
 ```sh
-crex restore work --dry-run
+crex restore my-day --dry-run
 # Review the output, then:
-crex restore work
+crex restore my-day
 ```
 
 ### Auto-save every 2 minutes

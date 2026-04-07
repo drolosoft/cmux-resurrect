@@ -12,10 +12,10 @@ crex offers two distinct ways to manage your cmux workspaces.
 
 ```sh
 # End of day: snapshot your layout
-crex save work
+crex save my-day
 
 # Next morning: bring it all back
-crex restore work
+crex restore my-day
 ```
 
 Think of it as **backup and recovery**. The TOML file is a photograph of your session at a point in time.
@@ -51,11 +51,11 @@ Think of it as **infrastructure as code** for your terminal. The Workspace Bluep
 See exactly what will happen **before** it happens:
 
 ```sh
-crex restore work --dry-run
+crex restore my-day --dry-run
 ```
 
 ```
-Dry-run restore of "work":
+Dry-run restore of "my-day":
 
 cmux new-workspace --cwd "/home/user/projects/webapp"
 cmux rename-workspace --workspace workspace:new_0 "0 webapp"

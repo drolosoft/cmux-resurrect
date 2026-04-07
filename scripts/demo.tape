@@ -72,14 +72,14 @@ Show
 Type "# Save current workspaces as a layout"
 Enter
 Sleep 500ms
-Type "crex save demo"
+Type "crex save my-day"
 Enter
 Sleep 3s
 
-# Hidden: replace saved file with clean demo.toml (save captures ALL cmux
+# Hidden: replace saved file with clean my-day.toml (save captures ALL cmux
 # workspaces including the user's real ones — we swap in the curated version).
 Hide
-Type "cp /tmp/crex-demo/demo-clean.toml /tmp/crex-demo/layouts/demo.toml"
+Type "cp /tmp/crex-demo/my-day-clean.toml /tmp/crex-demo/layouts/my-day.toml"
 Enter
 Sleep 500ms
 Type "clear"
@@ -111,7 +111,7 @@ Show
 Type "# Restore a saved layout"
 Enter
 Sleep 500ms
-Type "crex restore demo --mode add"
+Type "crex restore my-day --mode add"
 Enter
 Sleep 10s
 Type "# Workspaces are now live in cmux"

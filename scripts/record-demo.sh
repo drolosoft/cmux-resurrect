@@ -15,15 +15,15 @@
 #   scripts/demo.tape           — VHS recording script (scenes, timing, commands)
 #   scripts/record-demo.sh      — this file (setup, record, cleanup)
 #   scripts/validate-demo.sh    — post-recording validation (56 assertions)
-#   testdata/layouts/demo.toml  — pre-made layout used in list/restore scenes
+#   testdata/layouts/my-day.toml — pre-made layout used in list/restore scenes
 #   assets/demo.gif             — output GIF
 #
 # DEMO NARRATIVE (scenes must be consistent):
 #   1. Help          — show commands + quick start examples
 #   2. Blueprint     — bat workspaces.md (webapp + api)
 #   3. Import        — import-from-md creates webapp + api
-#   4. Save          — crex save demo (visible, then hidden swap to clean demo.toml)
-#   5. List          — demo layout has 3 workspaces (webapp + api + docs)
+#   4. Save          — crex save my-day (visible, then hidden swap to clean my-day.toml)
+#   5. List          — my-day layout has 3 workspaces (webapp + api + docs)
 #   6. Restore       — hidden close of import workspaces, then OK all 3 (fresh)
 #   7. Workspace     — add notes, list shows webapp + api + notes
 #
@@ -80,9 +80,9 @@ rm -rf "$DEMO_DIR"
 mkdir -p "$DEMO_DIR/layouts"
 
 # Copy the demo layout.
-cp "$PROJECT_DIR/testdata/layouts/demo.toml" "$DEMO_DIR/layouts/" 2>/dev/null || \
-    cp "$HOME/.config/crex/layouts/demo.toml" "$DEMO_DIR/layouts/" 2>/dev/null || \
-    { echo "❌ demo.toml not found"; exit 1; }
+cp "$PROJECT_DIR/testdata/layouts/my-day.toml" "$DEMO_DIR/layouts/" 2>/dev/null || \
+    cp "$HOME/.config/crex/layouts/my-day.toml" "$DEMO_DIR/layouts/" 2>/dev/null || \
+    { echo "❌ my-day.toml not found"; exit 1; }
 
 # Create a simple Workspace Blueprint for the demo.
 cat > "$DEMO_DIR/workspaces.md" << 'MDEOF'
@@ -106,10 +106,10 @@ cat > "$DEMO_DIR/workspaces.md" << 'MDEOF'
 - [x] main terminal (focused)
 MDEOF
 
-# Keep a clean copy of demo.toml — the VHS script runs 'crex save demo' which
+# Keep a clean copy of my-day.toml — the VHS script runs 'crex save my-day' which
 # overwrites it with ALL real workspaces. After save runs visibly, a hidden step
 # swaps the clean version back in so list/restore show only demo workspaces.
-cp "$DEMO_DIR/layouts/demo.toml" "$DEMO_DIR/demo-clean.toml"
+cp "$DEMO_DIR/layouts/my-day.toml" "$DEMO_DIR/my-day-clean.toml"
 
 # Create config pointing to demo files.
 cat > "$DEMO_DIR/config.toml" << TOMLEOF

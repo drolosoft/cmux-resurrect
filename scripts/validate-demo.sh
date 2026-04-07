@@ -111,9 +111,9 @@ rm -rf "$DEMO_DIR"
 mkdir -p "$DEMO_DIR/layouts"
 
 # Copy demo layout.
-cp "$PROJECT_DIR/testdata/layouts/demo.toml" "$DEMO_DIR/layouts/" 2>/dev/null || \
-    cp "$HOME/.config/crex/layouts/demo.toml" "$DEMO_DIR/layouts/" 2>/dev/null || \
-    { fail "demo.toml not found"; exit 1; }
+cp "$PROJECT_DIR/testdata/layouts/my-day.toml" "$DEMO_DIR/layouts/" 2>/dev/null || \
+    cp "$HOME/.config/crex/layouts/my-day.toml" "$DEMO_DIR/layouts/" 2>/dev/null || \
+    { fail "my-day.toml not found"; exit 1; }
 
 # Create blueprint.
 cat > "$DEMO_DIR/workspaces.md" << 'MDEOF'
@@ -162,9 +162,9 @@ assert_contains "$HELP_OUTPUT" "import-from-md" "import-from-md command listed"
 assert_contains "$HELP_OUTPUT" "workspace" "workspace command listed"
 assert_contains "$HELP_OUTPUT" "Quick start" "quick start section present"
 assert_contains "$HELP_OUTPUT" "crex import-from-md" "quick start: import-from-md example"
-assert_contains "$HELP_OUTPUT" "crex save work" "quick start: save example"
+assert_contains "$HELP_OUTPUT" "crex save my-day" "quick start: save example"
 assert_contains "$HELP_OUTPUT" "crex list" "quick start: list example"
-assert_contains "$HELP_OUTPUT" "crex restore work --mode add" "quick start: restore example"
+assert_contains "$HELP_OUTPUT" "crex restore my-day --mode add" "quick start: restore example"
 assert_contains "$HELP_OUTPUT" "crex workspace add" "quick start: workspace add example"
 
 HELP_LINES=$(echo "$HELP_OUTPUT" | wc -l)
@@ -213,14 +213,14 @@ echo ""
 # ── Scene 4: Save layout ────────────────────────────────────
 
 echo "📋 Scene 4: Save layout"
-SAVE_OUTPUT=$($CREX save demo 2>&1)
+SAVE_OUTPUT=$($CREX save my-day 2>&1)
 
 assert_contains "$SAVE_OUTPUT" "Saving layout" "saving header shown"
-assert_contains "$SAVE_OUTPUT" "demo" "layout name in output"
+assert_contains "$SAVE_OUTPUT" "my-day" "layout name in output"
 assert_contains "$SAVE_OUTPUT" "Saved" "save confirmation"
 
-# Restore the clean demo.toml (save captures all real workspaces).
-cp "$PROJECT_DIR/testdata/layouts/demo.toml" "$DEMO_DIR/layouts/"
+# Restore the clean my-day.toml (save captures all real workspaces).
+cp "$PROJECT_DIR/testdata/layouts/my-day.toml" "$DEMO_DIR/layouts/"
 
 echo ""
 
@@ -230,8 +230,8 @@ echo "📋 Scene 5: List saved layouts"
 LIST_OUTPUT=$($CREX list 2>&1)
 
 assert_contains "$LIST_OUTPUT" "Saved Layouts" "heading present"
-assert_contains "$LIST_OUTPUT" "demo" "demo layout listed"
-assert_contains "$LIST_OUTPUT" "3 workspaces" "workspace count matches demo.toml"
+assert_contains "$LIST_OUTPUT" "my-day" "my-day layout listed"
+assert_contains "$LIST_OUTPUT" "3 workspaces" "workspace count matches my-day.toml"
 
 echo ""
 
@@ -246,10 +246,10 @@ done
 CLEANUP_REFS=()
 sleep 1
 
-RESTORE_OUTPUT=$($CREX restore demo --mode add 2>&1)
+RESTORE_OUTPUT=$($CREX restore my-day --mode add 2>&1)
 
 assert_contains "$RESTORE_OUTPUT" "Adding from" "adding header shown"
-assert_contains "$RESTORE_OUTPUT" "demo" "layout name shown"
+assert_contains "$RESTORE_OUTPUT" "my-day" "layout name shown"
 assert_contains "$RESTORE_OUTPUT" "webapp" "webapp created"
 assert_contains "$RESTORE_OUTPUT" "api" "api created"
 assert_contains "$RESTORE_OUTPUT" "docs" "docs created"
@@ -287,18 +287,18 @@ echo ""
 
 echo "📋 Narrative consistency"
 
-# The demo.toml must contain the same workspace names as the blueprint.
-DEMO_TOML=$(cat "$DEMO_DIR/layouts/demo.toml")
-assert_contains "$DEMO_TOML" "webapp" "demo.toml contains webapp (matches blueprint)"
-assert_contains "$DEMO_TOML" "api" "demo.toml contains api (matches blueprint)"
-assert_contains "$DEMO_TOML" "docs" "demo.toml contains docs (extra workspace for restore)"
+# The my-day.toml must contain the same workspace names as the blueprint.
+DEMO_TOML=$(cat "$DEMO_DIR/layouts/my-day.toml")
+assert_contains "$DEMO_TOML" "webapp" "my-day.toml contains webapp (matches blueprint)"
+assert_contains "$DEMO_TOML" "api" "my-day.toml contains api (matches blueprint)"
+assert_contains "$DEMO_TOML" "docs" "my-day.toml contains docs (extra workspace for restore)"
 
-# demo.toml workspace count must match what list reports.
-TOML_WS_COUNT=$(grep -c '^\[\[workspace\]\]' "$DEMO_DIR/layouts/demo.toml")
+# my-day.toml workspace count must match what list reports.
+TOML_WS_COUNT=$(grep -c '^\[\[workspace\]\]' "$DEMO_DIR/layouts/my-day.toml")
 if [[ $TOML_WS_COUNT -eq 3 ]]; then
-    pass "demo.toml has 3 workspaces (matches list output)"
+    pass "my-day.toml has 3 workspaces (matches list output)"
 else
-    fail "demo.toml has $TOML_WS_COUNT workspaces, expected 3"
+    fail "my-day.toml has $TOML_WS_COUNT workspaces, expected 3"
 fi
 
 # Quick start examples must match the demo flow.
