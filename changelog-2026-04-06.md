@@ -15,7 +15,7 @@ Massive progress on the crex multi-platform launch campaign. This session covere
 - Submitted crex to DevHunt Launch Week (Apr 7-14, $49 paid)
 - Discovered demo video field doesn't accept GIF URLs — only YouTube or mp4
 - Converted `demo.gif` → `demo.mp4` with ffmpeg (293KB, 58s)
-- Juan uploaded to YouTube: https://youtu.be/TiXPTOv-4oM
+- Juan uploaded to YouTube: https://youtu.be/-0Z7UVtuYWU
 - Fixed YouTube description validation error (special chars `•` and `—` not accepted — replaced with ASCII)
 - **Account crisis**: submission was under `juan.andres@livgolf.com` instead of `txeo.msx@gmail.com`
   - Created Gmail draft to john@marsx.dev requesting migration

@@ -51,7 +51,7 @@ I'm building a personal DevOps dashboard at **pulse.txeo.club** to track everyth
 | **Homebrew Tap** | https://github.com/drolosoft/homebrew-tap |
 | **Demo GIF** | https://raw.githubusercontent.com/drolosoft/cmux-resurrect/main/assets/demo.gif |
 | **Import Success PNG** | https://raw.githubusercontent.com/drolosoft/cmux-resurrect/main/assets/import-success.png |
-| **YouTube Demo** | https://youtu.be/TiXPTOv-4oM |
+| **YouTube Demo** | https://youtu.be/-0Z7UVtuYWU |
 | **DevHunt Listing** | https://devhunt.org/tool/cmux-resurrect |
 | **daily.dev Post** | https://app.daily.dev/posts/SQVEaQpSA |
 | **Dev.to Profile** | https://dev.to/drolosoft |
@@ -74,7 +74,7 @@ The campaign spans April 5–23, 2026, across 12+ platforms with anti-spam pacin
 | Apr 6 | Dev.to | Account created (https://dev.to/drolosoft) | ✅ DONE | https://dev.to/drolosoft |
 | Apr 6 | Dev.to #19 | Comment on "Calyx vs cmux" article | ✅ DONE | https://dev.to/yuu1ch13/calyx-vs-cmux-choosing-the-right-ghostty-based-terminal-for-macos-26-28e7 |
 | Apr 6 | DevHunt | Full submission + Launch Week purchased ($49) | ✅ DONE | https://devhunt.org/tool/cmux-resurrect |
-| Apr 6 | YouTube | Demo video uploaded | ✅ DONE | https://youtu.be/TiXPTOv-4oM |
+| Apr 6 | YouTube | Demo video uploaded | ✅ DONE | https://youtu.be/-0Z7UVtuYWU |
 | Apr 6 | DevHunt | Account migration issue resolved | ✅ DONE | Now tied to txeo.msx@gmail.com |
 
 ### Skipped Actions (with reasons)
@@ -288,7 +288,7 @@ Build this dashboard with the following sections. Make it beautiful, data-dense,
 ### 6. CONTENT PERFORMANCE
 - daily.dev post: views, upvotes, comments (https://app.daily.dev/posts/SQVEaQpSA)
 - DevHunt: upvotes, Launch Week rank (currently #22), comments (https://devhunt.org/tool/cmux-resurrect)
-- YouTube video: views, likes (https://youtu.be/TiXPTOv-4oM)
+- YouTube video: views, likes (https://youtu.be/-0Z7UVtuYWU)
 - Dev.to comments: engagement on each posted comment
 - Reddit posts: upvotes, comments (when posted)
 - HN Show HN: points, comments (when posted)
@@ -343,7 +343,7 @@ If the dashboard supports API integrations, these are the endpoints:
 | **Google Calendar** | Google Calendar API — search events with "crex" keyword |
 | **DevHunt** | Scrape or manual update — https://devhunt.org/tool/cmux-resurrect |
 | **daily.dev** | Scrape or manual update — https://app.daily.dev/posts/SQVEaQpSA |
-| **YouTube** | YouTube Data API — video ID TiXPTOv-4oM |
+| **YouTube** | YouTube Data API — video ID -0Z7UVtuYWU |
 | **Dev.to** | Dev.to API — organization drolosoft |
 | **Reddit** | Reddit API — when posts are made |
 | **HN** | Algolia HN API — when Show HN is posted |

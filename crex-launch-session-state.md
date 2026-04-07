@@ -16,7 +16,7 @@
 | Dev.to account | DONE | https://dev.to/drolosoft created Apr 6 |
 | Dev.to comment #19 (Calyx vs cmux) | DONE | First comment posted by Juan on Apr 6 |
 | DevHunt submission | DONE ✅ | Submitted Apr 6. Account issue RESOLVED — now tied to txeo.msx@gmail.com. Launch Week Apr 7-14 paid ($49) |
-| DevHunt Launch Week | ACTIVE | Apr 7-14, 2026. $49 paid. YouTube video: https://youtu.be/TiXPTOv-4oM |
+| DevHunt Launch Week | ACTIVE | Apr 7-14, 2026. $49 paid. YouTube video: https://youtu.be/-0Z7UVtuYWU |
 | Show HN | DEFERRED | Juan has NO HN account. Strategy: build karma first by commenting on cmux-related threads, then launch Show HN later |
 | GitHub #1984 | DONE | Comment posted by Juan |
 | GitHub #1664 | SKIPPED | SSH workspaces — crex only partial solve. Two comments (#1781 + #1984) is enough; more would look spammy |
@@ -46,7 +46,7 @@
 
 **Slogan:** tmux-resurrect for cmux — save and restore your entire terminal layout
 **Categories:** CLI, Open Source, Workflow automation, DevOps
-**YouTube video:** https://youtu.be/TiXPTOv-4oM
+**YouTube video:** https://youtu.be/-0Z7UVtuYWU
 **Screenshots:** 4 uploaded from ~/Git/yo/cmux/assets/demo-screenshots/ (files 1, 2, 3, 6)
 **Pricing:** Free
 **Profile:** username=txeo, LinkedIn linked, bio filled
@@ -163,7 +163,7 @@ Live version has the corrected line: "There were workarounds, but nothing that c
 ## KEY ASSETS
 
 - **Demo GIF (372.5KB):** `https://raw.githubusercontent.com/drolosoft/cmux-resurrect/main/assets/demo.gif`
-- **Demo MP4 (293KB):** saved locally, also on YouTube: https://youtu.be/TiXPTOv-4oM
+- **Demo MP4 (293KB):** saved locally, also on YouTube: https://youtu.be/-0Z7UVtuYWU
 - **Import success PNG (209.4KB):** `https://raw.githubusercontent.com/drolosoft/cmux-resurrect/main/assets/import-success.png`
 - **Demo screenshots:** `~/Git/yo/cmux/assets/demo-screenshots/` (files 1, 2, 3, 6 used for DevHunt)
 - **Repo:** `https://github.com/drolosoft/cmux-resurrect`
@@ -208,7 +208,7 @@ All tasks have URLs, suggested text, and instructions in their Vikunja descripti
 - **HN:** NO ACCOUNT — needs creation + karma building
 - **Product Hunt:** NO ACCOUNT — needs creation
 - **Terminal Trove:** no account needed (form submission with email txeo.msx@gmail.com)
-- **YouTube:** video uploaded https://youtu.be/TiXPTOv-4oM
+- **YouTube:** video uploaded https://youtu.be/-0Z7UVtuYWU
 
 ---
 
