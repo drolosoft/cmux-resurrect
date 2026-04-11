@@ -15,7 +15,7 @@ func Parse(path string) (*model.WorkspaceFile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open Workspace Blueprint: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	wf := &model.WorkspaceFile{
 		Templates: make(map[string]*model.Template),
@@ -172,20 +172,21 @@ func parseTemplatePaneLine(line string) (model.TemplatePan, bool) {
 	rest = strings.TrimSpace(rest)
 
 	// Parse "main terminal", "split right:", etc.
-	if strings.HasPrefix(rest, "main") {
+	switch {
+	case strings.HasPrefix(rest, "main"):
 		tp.IsMain = true
 		tp.Type = "terminal"
 		remaining := strings.TrimSpace(strings.TrimPrefix(rest, "main"))
 		if remaining != "" && remaining != ":" {
 			tp.Type = strings.TrimSuffix(remaining, ":")
 		}
-	} else if strings.HasPrefix(rest, "split ") {
+	case strings.HasPrefix(rest, "split "):
 		parts := strings.Fields(rest)
 		if len(parts) >= 2 {
 			tp.Split = strings.TrimSuffix(parts[1], ":")
 		}
 		tp.Type = "terminal"
-	} else {
+	default:
 		tp.Type = "terminal"
 	}
 

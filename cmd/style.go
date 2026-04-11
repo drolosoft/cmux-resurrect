@@ -21,7 +21,6 @@ var (
 
 var (
 	headingStyle = lipgloss.NewStyle().Bold(true).MarginTop(1)
-	cmdNameStyle = lipgloss.NewStyle().Bold(true)
 	dimStyle     = lipgloss.NewStyle().Foreground(colorDim)
 	cyanStyle    = lipgloss.NewStyle().Foreground(colorCyan)
 	yellowStyle  = lipgloss.NewStyle().Foreground(colorYellow)
@@ -77,12 +76,12 @@ func styledHelp() string {
 	b.WriteString("\n")
 	b.WriteString(dimStyle.Render("  Quick start:"))
 	b.WriteString("\n")
-	b.WriteString(fmt.Sprintf("    %s%s%s%s%s\n",
+	fmt.Fprintf(&b, "    %s%s%s%s%s\n",
 		dimStyle.Render("("),
 		greenStyle.Render("crex"),
 		dimStyle.Render(" is the short name for "),
 		greenStyle.Render("cmux-resurrect"),
-		dimStyle.Render(")")))
+		dimStyle.Render(")"))
 	b.WriteString("\n")
 	helpExample(&b, "crex import-from-md", "create workspaces from Blueprint")
 	helpExample(&b, "crex save my-day", "save current layout")
@@ -99,11 +98,11 @@ func styledHelp() string {
 func helpCmd(b *strings.Builder, name, args, desc string) {
 	nameRendered := greenStyle.Render(fmt.Sprintf("  %-18s", name))
 	argsRendered := dimStyle.Render(fmt.Sprintf("%-12s", args))
-	b.WriteString(fmt.Sprintf("%s %s %s\n", nameRendered, argsRendered, desc))
+	fmt.Fprintf(b, "%s %s %s\n", nameRendered, argsRendered, desc)
 }
 
 func helpExample(b *strings.Builder, cmd, desc string) {
-	b.WriteString(fmt.Sprintf("    %s  %s\n", cyanStyle.Render(cmd), dimStyle.Render(desc)))
+	fmt.Fprintf(b, "    %s  %s\n", cyanStyle.Render(cmd), dimStyle.Render(desc))
 }
 
 // padTitle inserts an extra space after any variation selector (U+FE0F) in a

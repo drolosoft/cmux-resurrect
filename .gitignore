@@ -30,6 +30,9 @@ __debug_bin*
 *.tmp
 /crex
 
+# Coverage
+coverage.out
+
 # Release artifacts
 dist/
 

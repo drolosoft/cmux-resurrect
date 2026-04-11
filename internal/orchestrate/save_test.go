@@ -109,7 +109,7 @@ func TestSave_FromFixture(t *testing.T) {
 func TestSave_MergePreservesUserEdits(t *testing.T) {
 	data, _ := os.ReadFile("../../testdata/responses/tree-6-workspaces.json")
 	var treeResp client.TreeResponse
-	json.Unmarshal(data, &treeResp)
+	_ = json.Unmarshal(data, &treeResp)
 
 	mc := &mockClient{
 		treeResp: &treeResp,
@@ -125,7 +125,7 @@ func TestSave_MergePreservesUserEdits(t *testing.T) {
 	saver := &Saver{Client: mc, Store: store}
 
 	// First save.
-	saver.Save("merge-test", "")
+	_, _ = saver.Save("merge-test", "")
 
 	// Manually edit the saved file to add user customizations.
 	layout, _ := store.Load("merge-test")
@@ -134,7 +134,7 @@ func TestSave_MergePreservesUserEdits(t *testing.T) {
 		layout.Workspaces[0].Panes[1].Command = "make watch"
 	}
 	layout.Description = "my custom description"
-	store.Save("merge-test", layout)
+	_ = store.Save("merge-test", layout)
 
 	// Second save should preserve user edits.
 	layout2, err := saver.Save("merge-test", "")

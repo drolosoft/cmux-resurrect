@@ -39,7 +39,7 @@ func TestRestore_DryRun(t *testing.T) {
 			},
 		},
 	}
-	store.Save("dry-test", layout)
+	_ = store.Save("dry-test", layout)
 
 	mc := &mockClient{sidebarCWDs: map[string]string{}}
 	restorer := &Restorer{Client: mc, Store: store}

@@ -25,8 +25,15 @@ jobs:
       - name: Build
         run: make build
 
-      - name: Test
-        run: go test ./... -count=1
+      - name: Test with coverage
+        run: go test ./... -count=1 -coverprofile=coverage.out -covermode=atomic
+
+      - name: Upload coverage
+        if: matrix.os == 'ubuntu-latest'
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.out
+          fail_ci_if_error: false
 
       - name: Vet
         run: go vet ./...
@@ -35,3 +42,18 @@ jobs:
         run: |
           gofmt -l .
           test -z "$(gofmt -l .)"
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest

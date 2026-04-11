@@ -93,7 +93,7 @@ func (s *FileStore) Save(name string, layout *model.Layout) error {
 		return fmt.Errorf("write temp file: %w", err)
 	}
 	if err := os.Rename(tmp, target); err != nil {
-		os.Remove(tmp)
+		_ = os.Remove(tmp)
 		return fmt.Errorf("rename temp file: %w", err)
 	}
 	return nil

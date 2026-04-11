@@ -54,6 +54,7 @@ test-integration:
 
 lint:
 	go vet ./...
+	golangci-lint run
 
 clean:
 	rm -rf bin/

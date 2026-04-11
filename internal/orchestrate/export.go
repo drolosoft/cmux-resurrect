@@ -100,13 +100,14 @@ func ExtractIconAndName(title string) (string, string) {
 			}
 			return icon, name
 		}
-		if r < 0x80 {
+		switch {
+		case r < 0x80:
 			i++
-		} else if r < 0xE0 {
+		case r < 0xE0:
 			i += 2
-		} else if r < 0xF0 {
+		case r < 0xF0:
 			i += 3
-		} else {
+		default:
 			i += 4
 		}
 	}
