@@ -20,6 +20,7 @@ var saveCmd = &cobra.Command{
 
 func init() {
 	saveCmd.Flags().StringVarP(&saveDescription, "description", "d", "", "layout description")
+	saveCmd.ValidArgsFunction = completeLayoutNames
 	rootCmd.AddCommand(saveCmd)
 }
 

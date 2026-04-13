@@ -5,7 +5,7 @@ COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS := -ldflags "-s -w -X github.com/drolosoft/cmux-resurrect/cmd.Version=$(VERSION) -X github.com/drolosoft/cmux-resurrect/cmd.Commit=$(COMMIT) -X github.com/drolosoft/cmux-resurrect/cmd.Date=$(DATE)"
 
-.PHONY: build build-all test test-integration install install-long install-both clean lint fmt
+.PHONY: build build-all test test-integration install install-long install-both clean lint fmt completions
 
 build:
 	go build $(LDFLAGS) -o bin/$(BINARY) ./cmd/crex
@@ -61,6 +61,14 @@ clean:
 
 fmt:
 	go fmt ./...
+
+# Generate shell completion scripts
+completions: build
+	@mkdir -p completions
+	bin/$(BINARY) completion bash > completions/crex.bash
+	bin/$(BINARY) completion zsh  > completions/_crex
+	bin/$(BINARY) completion fish > completions/crex.fish
+	@echo "✓ Generated completions/ (bash, zsh, fish)"
 
 # launchd service management
 install-service: install

@@ -72,6 +72,7 @@ func styledHelp() string {
 	helpCmd(&b, "export-to-md", "", "Export to Workspace Blueprint")
 	helpCmd(&b, "workspace", "<cmd>", "Manage Blueprint (add|remove|list|toggle)")
 	helpCmd(&b, "version", "", "Version info")
+	helpCmd(&b, "completion", "<shell>", "Shell completions (bash|zsh|fish)")
 
 	b.WriteString("\n")
 	b.WriteString(dimStyle.Render("  Quick start:"))

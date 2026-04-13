@@ -5,6 +5,10 @@ project_name: cmux-resurrect
 before:
   hooks:
     - go mod tidy
+    - mkdir -p completions
+    - sh -c "go run ./cmd/crex completion bash > completions/crex.bash"
+    - sh -c "go run ./cmd/crex completion zsh  > completions/_crex"
+    - sh -c "go run ./cmd/crex completion fish > completions/crex.fish"
 
 builds:
   - id: crex
@@ -28,6 +32,8 @@ archives:
   - id: default
     formats: ['tar.gz']
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - completions/*
 
 checksum:
   name_template: "checksums.txt"
@@ -57,6 +63,9 @@ brews:
     install: |
       bin.install "crex"
       bin.install_symlink "crex" => "cmux-resurrect"
+      bash_completion.install "completions/crex.bash" => "crex"
+      zsh_completion.install "completions/_crex"
+      fish_completion.install "completions/crex.fish"
     test: |
       system "#{bin}/crex", "version"
       system "#{bin}/cmux-resurrect", "version"

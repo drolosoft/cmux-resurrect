@@ -17,6 +17,7 @@ var wsRemoveCmd = &cobra.Command{
 }
 
 func init() {
+	wsRemoveCmd.ValidArgsFunction = completeWorkspaceNames
 	workspaceCmd.AddCommand(wsRemoveCmd)
 }
 

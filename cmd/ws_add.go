@@ -28,6 +28,26 @@ func init() {
 	wsAddCmd.Flags().StringVarP(&addTemplate, "template", "t", "dev", "template name (dev, go, single, monitor)")
 	wsAddCmd.Flags().BoolVar(&addPin, "pin", true, "pin workspace in sidebar")
 	wsAddCmd.Flags().BoolVar(&addDisabled, "disabled", false, "add as disabled (unchecked)")
+	_ = wsAddCmd.RegisterFlagCompletionFunc("template", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{
+			"dev\tStandard development layout",
+			"go\tGo project layout",
+			"single\tSingle terminal pane",
+			"monitor\tMonitoring layout",
+		}, cobra.ShellCompDirectiveNoFileComp
+	})
+	wsAddCmd.ValidArgsFunction = func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		switch len(args) {
+		case 0:
+			// First arg = name (freeform), no file completion
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		case 1:
+			// Second arg = path, use directory completion
+			return nil, cobra.ShellCompDirectiveFilterDirs
+		default:
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+	}
 	workspaceCmd.AddCommand(wsAddCmd)
 }
 

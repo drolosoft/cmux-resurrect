@@ -20,6 +20,7 @@
 | `crex workspace list` | `ws ls` | 📋 List workspace entries in the Blueprint |
 | `crex workspace toggle` | `ws toggle` | 🔘 Enable/disable a workspace entry |
 | `crex version` | | ℹ️ Print version, commit, build date |
+| `crex completion` | | 🔤 Generate shell completion scripts (bash, zsh, fish, powershell) |
 
 ## Key Flags
 
@@ -60,6 +61,25 @@ crex restore my-day
 crex watch autosave --interval 2m
 ```
 
+## Shell Completion
+
+crex supports tab completion for commands, layout names, workspace names, and flag values.
+
+```sh
+# Zsh (add to ~/.zshrc)
+eval "$(crex completion zsh)"
+
+# Bash (add to ~/.bashrc)
+eval "$(crex completion bash)"
+
+# Fish (run once)
+crex completion fish > ~/.config/fish/completions/crex.fish
+```
+
+Homebrew users get completions automatically — no setup needed.
+
+See [Shell Completion](shell-completion.md) for the full guide.
+
 ---
 
-See also: [Workflows](workflows.md) | [Workspace Blueprints](blueprint.md) | [Configuration](configuration.md)
+See also: [Workflows](workflows.md) | [Workspace Blueprints](blueprint.md) | [Configuration](configuration.md) | [Shell Completion](shell-completion.md)

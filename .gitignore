@@ -36,6 +36,9 @@ coverage.out
 # Release artifacts
 dist/
 
+# Generated completions
+completions/
+
 # Private
 CLAUDE.md
 .claude/

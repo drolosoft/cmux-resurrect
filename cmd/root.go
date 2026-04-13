@@ -37,6 +37,11 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&layoutsDir, "layouts-dir", "", "layouts directory (default ~/.config/crex/layouts)")
 	rootCmd.PersistentFlags().StringVar(&workspaceFile, "workspace-file", "", "Workspace Blueprint path (default ~/.config/crex/workspaces.md)")
 
+	// Shell completion hints for persistent flags.
+	_ = rootCmd.MarkPersistentFlagFilename("config", "toml")
+	_ = rootCmd.MarkPersistentFlagDirname("layouts-dir")
+	_ = rootCmd.MarkPersistentFlagFilename("workspace-file", "md")
+
 	// Override the default help command to use our styled output for the root.
 	defaultHelp := rootCmd.HelpFunc()
 	rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {

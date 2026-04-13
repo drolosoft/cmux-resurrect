@@ -16,6 +16,7 @@ var wsToggleCmd = &cobra.Command{
 }
 
 func init() {
+	wsToggleCmd.ValidArgsFunction = completeWorkspaceNames
 	workspaceCmd.AddCommand(wsToggleCmd)
 }
 

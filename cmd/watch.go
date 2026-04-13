@@ -21,6 +21,10 @@ var watchCmd = &cobra.Command{
 
 func init() {
 	watchCmd.Flags().StringVarP(&watchInterval, "interval", "i", "", "save interval (default from config, e.g. 5m)")
+	watchCmd.ValidArgsFunction = completeLayoutNames
+	_ = watchCmd.RegisterFlagCompletionFunc("interval", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"1m", "5m", "10m", "30m"}, cobra.ShellCompDirectiveNoFileComp
+	})
 	rootCmd.AddCommand(watchCmd)
 }
 

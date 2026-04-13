@@ -21,6 +21,7 @@ var deleteCmd = &cobra.Command{
 
 func init() {
 	deleteCmd.Flags().BoolVarP(&deleteForce, "force", "f", false, "skip confirmation prompt")
+	deleteCmd.ValidArgsFunction = completeLayoutNames
 	rootCmd.AddCommand(deleteCmd)
 }
 

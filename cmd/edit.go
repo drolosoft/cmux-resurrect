@@ -16,6 +16,7 @@ var editCmd = &cobra.Command{
 }
 
 func init() {
+	editCmd.ValidArgsFunction = completeLayoutNames
 	rootCmd.AddCommand(editCmd)
 }
 

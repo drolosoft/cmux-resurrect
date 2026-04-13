@@ -18,6 +18,7 @@ var showCmd = &cobra.Command{
 
 func init() {
 	showCmd.Flags().BoolVar(&showRaw, "raw", false, "show raw TOML content")
+	showCmd.ValidArgsFunction = completeLayoutNames
 	rootCmd.AddCommand(showCmd)
 }
 

@@ -24,6 +24,13 @@ var restoreCmd = &cobra.Command{
 func init() {
 	restoreCmd.Flags().BoolVar(&restoreDryRun, "dry-run", false, "show commands without executing")
 	restoreCmd.Flags().StringVar(&restoreMode, "mode", "", "restore mode: \"replace\" or \"add\" (skip interactive prompt)")
+	restoreCmd.ValidArgsFunction = completeLayoutNames
+	_ = restoreCmd.RegisterFlagCompletionFunc("mode", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{
+			"replace\tClose existing workspaces first",
+			"add\tKeep existing workspaces",
+		}, cobra.ShellCompDirectiveNoFileComp
+	})
 	rootCmd.AddCommand(restoreCmd)
 }
 
