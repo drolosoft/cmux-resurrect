@@ -71,6 +71,57 @@ After adding the line, restart your shell or source the config file.
 
 ---
 
+## Troubleshooting
+
+### Completions show files/folders instead of commands
+
+**Symptom:** You type `crex <TAB>` and see directory listings instead of commands like `save`, `restore`, `list`.
+
+**Cause:** Zsh caches completion functions in `~/.zcompdump`. If crex was installed or upgraded after your shell session started, the cache doesn't include the new `_crex` completion function. Zsh falls back to its default file completion.
+
+**Fix:** Rebuild the completion cache and restart your shell:
+
+```zsh
+rm -f ~/.zcompdump*
+exec zsh
+```
+
+This deletes the stale cache and starts a fresh shell that will rebuild it with `_crex` included.
+
+### Completions don't work with carapace installed
+
+**Symptom:** You have [carapace](https://github.com/carapace-sh/carapace-bin) installed (`source <(carapace _carapace)` in your `.zshrc`) and crex completions don't appear.
+
+**Fix:** Add this line to your `~/.zshrc` **after** the carapace source line:
+
+```zsh
+source <(carapace _carapace)        # your existing carapace line
+eval "$(crex completion zsh)"       # add this AFTER carapace
+```
+
+This ensures crex's Cobra-generated completion takes priority over carapace's catch-all handler.
+
+### Verify completions are working
+
+Run the hidden `__complete` command directly to check if the Go binary is producing correct output:
+
+```zsh
+crex __complete ""
+```
+
+You should see a list of commands (save, restore, list, ...) followed by `:4` on the last line. If you see this output but TAB still doesn't work, the issue is on the shell side (stale cache — see above).
+
+### After `brew upgrade`, completions stopped working
+
+This is the same stale-cache issue. Homebrew installs the new completion file, but your running shell still uses the old cache. Run:
+
+```zsh
+rm -f ~/.zcompdump*
+exec zsh
+```
+
+---
+
 ## How It Works
 
 ### Architecture
