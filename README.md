@@ -33,7 +33,7 @@ brew tap drolosoft/tap
 brew install cmux-resurrect
 ```
 
-Both `crex` and `cmux-resurrect` are ready to use. No Go toolchain required.
+Both `crex` and `cmux-resurrect` are ready to use, with shell completions installed automatically. No Go toolchain required.
 
 ### Install with `go install`
 
@@ -42,6 +42,18 @@ go install github.com/drolosoft/cmux-resurrect/cmd/crex@latest
 ```
 
 > For building from source, see [docs/building.md](docs/building.md).
+
+### Enable Shell Completion
+
+Homebrew users get completions automatically. For manual installs, add one line to your shell config:
+
+```sh
+eval "$(crex completion zsh)"    # zsh — add to ~/.zshrc
+eval "$(crex completion bash)"   # bash — add to ~/.bashrc
+crex completion fish | source    # fish — run once
+```
+
+Now `crex <TAB>` shows all commands, `crex restore <TAB>` completes your saved layout names, and flags like `--mode` complete their values. See [docs/shell-completion.md](docs/shell-completion.md) for the full guide.
 
 ### Try it
 
@@ -89,6 +101,7 @@ crex export-to-md             # capture live state to Blueprint
 | 👁️ | Execute immediately | **Dry-run mode** — preview every command first |
 | ⏱️ | Manual saves | **Auto-save with launchd** — deduped, zero-maintenance |
 | 📋 | Edit config files | **CLI workspace management** — `add`, `remove`, `toggle` from terminal |
+| 🔤 | Basic tab completion | **Dynamic completions** — layout names, workspace names, flag values (bash/zsh/fish) |
 
 ---
 
@@ -101,6 +114,7 @@ crex export-to-md             # capture live state to Blueprint
 | [Workflows](docs/workflows.md) | Save/Restore vs Import, dry-run, side-by-side comparison |
 | [Configuration](docs/configuration.md) | config.toml reference and defaults |
 | [Auto-Save](docs/auto-save.md) | launchd integration for macOS |
+| [Shell Completion](docs/shell-completion.md) | Setup, troubleshooting, what gets completed |
 | [Building from Source](docs/building.md) | Makefile targets, cross-compilation, platform support |
 | [Architecture](ARCHITECTURE.md) | Internal design for contributors |
 
