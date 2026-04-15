@@ -91,8 +91,6 @@ func ResolveTemplate(wf *model.WorkspaceFile, name string) []model.Pane {
 }
 
 // BuildPanes converts a gallery template's TemplatePan slice into []model.Pane.
-// Note: FocusTarget is not copied to Pane because the Pane struct does not have
-// that field yet (added in Task 4).
 func BuildPanes(tmpl *model.Template) []model.Pane {
 	var panes []model.Pane
 	for i, tp := range tmpl.Panes {
@@ -100,9 +98,10 @@ func BuildPanes(tmpl *model.Template) []model.Pane {
 			continue
 		}
 		pane := model.Pane{
-			Type:    tp.Type,
-			Command: tp.Command,
-			Focus:   tp.Focus,
+			Type:        tp.Type,
+			Command:     tp.Command,
+			Focus:       tp.Focus,
+			FocusTarget: tp.FocusTarget,
 		}
 		if pane.Type == "" {
 			pane.Type = "terminal"
@@ -126,9 +125,10 @@ func buildPanesFromTemplate(tmpl *model.Template) []model.Pane {
 			continue
 		}
 		pane := model.Pane{
-			Type:    tp.Type,
-			Command: tp.Command,
-			Focus:   tp.Focus,
+			Type:        tp.Type,
+			Command:     tp.Command,
+			Focus:       tp.Focus,
+			FocusTarget: tp.FocusTarget,
 		}
 		if pane.Type == "" {
 			pane.Type = "terminal"

@@ -134,6 +134,20 @@ func (im *Importer) ImportFromMD(wf *model.WorkspaceFile, dryRun bool) (*ImportR
 				}
 				continue
 			}
+			// Focus a specific pane before splitting (for quad, etc.)
+			if pane.FocusTarget >= 0 {
+				targetRef := fmt.Sprintf("pane:%d", pane.FocusTarget)
+				if err := im.Client.FocusPane(targetRef, ref); err != nil {
+					im.emit(ImportEvent{
+						Status: ImportWarn,
+						Title:  title,
+						Panes:  panes,
+						Warn:   fmt.Sprintf("%s pane %d: focus target failed: %v", title, j, err),
+					})
+				}
+				time.Sleep(DelayAfterSelect)
+			}
+
 			split := pane.Split
 			if split == "" {
 				split = "right"

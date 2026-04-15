@@ -23,13 +23,14 @@ type Workspace struct {
 
 // Pane represents a terminal or browser pane within a workspace.
 type Pane struct {
-	Type    string `toml:"type"`
-	Split   string `toml:"split,omitempty"`
-	CWD     string `toml:"cwd,omitempty"`
-	Command string `toml:"command,omitempty"`
-	Focus   bool   `toml:"focus,omitempty"`
-	URL     string `toml:"url,omitempty"`
-	Index   int    `toml:"index,omitempty"`
+	Type        string `toml:"type"`
+	Split       string `toml:"split,omitempty"`
+	CWD         string `toml:"cwd,omitempty"`
+	Command     string `toml:"command,omitempty"`
+	Focus       bool   `toml:"focus,omitempty"`
+	URL         string `toml:"url,omitempty"`
+	Index       int    `toml:"index,omitempty"`
+	FocusTarget int    `toml:"focus_target,omitempty"`
 }
 
 // LayoutMeta holds summary info about a saved layout (for list command).

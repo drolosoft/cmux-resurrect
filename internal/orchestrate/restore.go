@@ -190,6 +190,15 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 			continue
 		}
 
+		// Focus a specific pane before splitting (for quad, etc.)
+		if pane.FocusTarget >= 0 {
+			targetRef := fmt.Sprintf("pane:%d", pane.FocusTarget)
+			if err := r.Client.FocusPane(targetRef, ref); err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("  pane %d focus target: %v", i, err))
+			}
+			time.Sleep(DelayAfterSelect)
+		}
+
 		direction := pane.Split
 		if direction == "" {
 			direction = "right"
@@ -258,6 +267,10 @@ func (r *Restorer) dryRunWorkspace(ws model.Workspace, result *RestoreResult) (s
 					fmt.Sprintf("cmux send --workspace %s %q", ref, pane.Command))
 			}
 			continue
+		}
+		if pane.FocusTarget >= 0 {
+			result.Commands = append(result.Commands,
+				fmt.Sprintf("cmux focus-pane --pane pane:%d --workspace %s", pane.FocusTarget, ref))
 		}
 		direction := pane.Split
 		if direction == "" {
