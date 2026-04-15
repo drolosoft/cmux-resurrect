@@ -9,16 +9,17 @@
   <a href="https://codecov.io/gh/drolosoft/cmux-resurrect"><img src="https://codecov.io/gh/drolosoft/cmux-resurrect/branch/main/graph/badge.svg" alt="codecov"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <a href="https://github.com/drolosoft/homebrew-tap"><img src="https://img.shields.io/badge/Homebrew-tap-orange.svg" alt="Homebrew"></a>
+  <a href="https://github.com/drolosoft/cmux-resurrect/releases"><img src="https://img.shields.io/github/v/release/drolosoft/cmux-resurrect" alt="GitHub Release"></a>
   <a href="https://github.com/manaflow-ai/cmux"><img src="https://img.shields.io/badge/cmux-ecosystem-blueviolet.svg" alt="cmux"></a>
 </p>
 
 > **Session persistence for [cmux](https://github.com/manaflow-ai/cmux) — your terminal workspaces, resurrected.**
 
-[cmux](https://github.com/manaflow-ai/cmux) is the fastest-growing terminal multiplexer in the Ghostty ecosystem (12K+ stars). It handles session restoration well most of the time, but crashes, forced updates, and unexpected reboots can still wipe your workspace. **crex** is a safety net for those moments.
+[cmux](https://github.com/manaflow-ai/cmux) is a popular terminal multiplexer in the Ghostty ecosystem (14K+ stars). It handles session restoration well most of the time, but crashes, forced updates, and unexpected reboots can still wipe your workspace. **crex** (short for cmux-resurrect) is a safety net for those moments.
 
 ⚡️ One command saves your entire cmux layout. One command brings it back — workspaces, splits, CWDs, pinned state, startup commands, everything.
 
-Inspired by [tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect) (12.6K stars) — crex brings the same peace of mind to the cmux ecosystem, and takes it further with **Workspace Blueprints**: define your ideal terminal setup in a Markdown file (Obsidian-compatible), version it, share it with your team, and let crex build it for you.
+Inspired by [tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect) (12.7K stars) — crex does for cmux what tmux-resurrect does for tmux, and takes it further with **Workspace Blueprints**: define your ideal terminal setup in a Markdown file (Obsidian-compatible), version it, share it with your team, and let crex build it for you.
 
 <p align="center"><img src="assets/demo.gif" alt="crex demo" width="800"></p>
 
@@ -29,11 +30,10 @@ Inspired by [tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect) (12
 ### Install with Homebrew (recommended)
 
 ```sh
-brew tap drolosoft/tap
-brew install cmux-resurrect
+brew install drolosoft/tap/cmux-resurrect
 ```
 
-Both `crex` and `cmux-resurrect` are ready to use, with shell completions installed automatically. No Go toolchain required.
+Both `crex` and `cmux-resurrect` are ready to use, with shell completions installed automatically. No Go toolchain required. macOS only (cmux is a macOS terminal).
 
 ### Install with `go install`
 
@@ -58,8 +58,8 @@ Now `crex <TAB>` shows all commands, `crex restore <TAB>` completes your saved l
 ### Try it
 
 ```sh
-crex restore my-day --dry-run   # preview what it does
-crex restore my-day             # run it
+crex save my-day                # snapshot your current layout
+crex save my-day --dry-run      # or preview first without saving
 ```
 
 ---
@@ -71,11 +71,29 @@ crex save my-day              # snapshot your layout
 crex restore my-day           # bring it all back
 ```
 
-Every workspace, split, CWD, pinned state, and startup command — captured and restored.
+Every workspace, split, CWD, pinned state, and startup command — captured and restored. Layouts are saved to `~/.config/crex/layouts/`.
+
+<p align="center"><img src="assets/save-my-day.png" alt="crex save my-day" width="700"></p>
 
 ## 📥 Workspace Blueprints
 
 Define your workspaces in Obsidian-compatible Markdown. Import creates only what's missing — it's idempotent.
+
+```markdown
+## Projects
+**Icon | Name | Template | Pin | Path**
+
+- [x] | 🌐 | webapp    | dev     | yes | ~/projects/webapp
+- [x] | ⚙️ | api       | dev     | yes | ~/projects/api-server
+- [x] | 🧪 | tests     | go      | yes | ~/projects/testing
+
+## Templates
+
+### dev
+- [x] main terminal (focused)
+- [x] split right: `npm run dev`
+- [x] split right: `lazygit`
+```
 
 ```sh
 crex import-from-md           # create workspaces from Blueprint
@@ -84,7 +102,7 @@ crex export-to-md             # capture live state to Blueprint
 
 <p align="center"><img src="assets/import-success.png" alt="crex import-from-md in action" width="800"></p>
 
-> For the Blueprint format, templates, and CLI management, see [docs/blueprint.md](docs/blueprint.md).
+> For the full Blueprint format, templates, and CLI management, see [docs/blueprint.md](docs/blueprint.md).
 
 ---
 
@@ -94,7 +112,6 @@ crex export-to-md             # capture live state to Blueprint
 
 | | tmux-resurrect | crex |
 |:---:|---|---|
-| 🎯 | Saves/restores tmux sessions | Saves/restores cmux sessions |
 | 📝 | Plugin configuration | **Workspace Blueprint** — Markdown files, Obsidian-compatible |
 | 🧩 | Manual pane recreation | **Reusable templates** (`dev`, `go`, `monitor`) |
 | 📥 | One-way restore | **Bidirectional** — import from and export to Markdown |
