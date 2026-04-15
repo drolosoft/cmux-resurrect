@@ -162,6 +162,20 @@ func TestParse_ResolveTemplate(t *testing.T) {
 	}
 }
 
+func TestParseTemplatePaneLine_FocusTargetDefault(t *testing.T) {
+	wf, err := Parse("../../testdata/workspaces/minimal.md")
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	for name, tmpl := range wf.Templates {
+		for i, tp := range tmpl.Panes {
+			if tp.FocusTarget != -1 {
+				t.Errorf("template %q pane %d: FocusTarget = %d, want -1", name, i, tp.FocusTarget)
+			}
+		}
+	}
+}
+
 func TestParse_NonexistentFile(t *testing.T) {
 	_, err := Parse("/tmp/does-not-exist-cmx.md")
 	if err == nil {

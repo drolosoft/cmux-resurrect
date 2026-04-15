@@ -139,6 +139,7 @@ func parseProjectLine(line string) (model.Project, bool) {
 //   - [ ] split down: `lazygit`
 func parseTemplatePaneLine(line string) (model.TemplatePan, bool) {
 	var tp model.TemplatePan
+	tp.FocusTarget = -1
 
 	if !strings.HasPrefix(line, "- [") {
 		return tp, false
