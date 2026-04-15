@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/drolosoft/cmux-resurrect/internal/gallery"
 	"github.com/drolosoft/cmux-resurrect/internal/mdfile"
 	"github.com/spf13/cobra"
 )
@@ -31,6 +32,19 @@ func completeLayoutNames(cmd *cobra.Command, args []string, toComplete string) (
 			desc = fmt.Sprintf("%d workspaces", m.WorkspaceCount)
 		}
 		names = append(names, fmt.Sprintf("%s\t%s", m.Name, desc))
+	}
+	return names, cobra.ShellCompDirectiveNoFileComp
+}
+
+// completeTemplateNames provides dynamic completion of gallery template names.
+// Used by: template show.
+func completeTemplateNames(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) > 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	var names []string
+	for _, tmpl := range gallery.List() {
+		names = append(names, fmt.Sprintf("%s\t%s %s", tmpl.Name, tmpl.Icon, tmpl.Description))
 	}
 	return names, cobra.ShellCompDirectiveNoFileComp
 }
