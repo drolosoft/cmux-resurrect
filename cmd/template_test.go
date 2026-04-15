@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"os"
 	"strings"
 	"testing"
 
@@ -358,5 +359,114 @@ func TestTemplateUse_TplAlias(t *testing.T) {
 
 	if !strings.Contains(output, "new-workspace") {
 		t.Error("tpl alias: dry-run output missing 'new-workspace'")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// template customize tests
+// ---------------------------------------------------------------------------
+
+func TestTemplateCustomize_CopiesToBlueprint(t *testing.T) {
+	_, wsFile := setupTestConfig(t)
+
+	// Create a minimal workspace file so Parse works.
+	content := "## Projects\n**Icon | Name | Template | Pin | Path**\n\n## Templates\n\n### dev\n- [x] main (focused)\n"
+	if err := os.WriteFile(wsFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("write workspace file: %v", err)
+	}
+
+	output := executeTemplateCmd(t, "--workspace-file", wsFile, "template", "customize", "claude")
+
+	// Verify success message.
+	if !strings.Contains(output, "claude") {
+		t.Error("output missing template name 'claude'")
+	}
+	if !strings.Contains(output, "Copied") {
+		t.Error("output missing 'Copied' success text")
+	}
+
+	// Read the file and verify it contains "### claude".
+	data, err := os.ReadFile(wsFile)
+	if err != nil {
+		t.Fatalf("read workspace file: %v", err)
+	}
+	if !strings.Contains(string(data), "### claude") {
+		t.Errorf("workspace file missing '### claude'; contents:\n%s", string(data))
+	}
+
+	// Verify panes were copied (lazygit command from claude template).
+	if !strings.Contains(string(data), "lazygit") {
+		t.Errorf("workspace file missing 'lazygit' pane command; contents:\n%s", string(data))
+	}
+}
+
+func TestTemplateCustomize_CreatesFileIfMissing(t *testing.T) {
+	_, wsFile := setupTestConfig(t)
+
+	// Don't create wsFile — it should be created automatically.
+	output := executeTemplateCmd(t, "--workspace-file", wsFile, "template", "customize", "claude")
+
+	if !strings.Contains(output, "Copied") {
+		t.Error("output missing 'Copied' success text")
+	}
+
+	data, err := os.ReadFile(wsFile)
+	if err != nil {
+		t.Fatalf("read workspace file: %v", err)
+	}
+	if !strings.Contains(string(data), "### claude") {
+		t.Errorf("workspace file missing '### claude'; contents:\n%s", string(data))
+	}
+}
+
+func TestTemplateCustomize_NonExistent(t *testing.T) {
+	_, wsFile := setupTestConfig(t)
+
+	_, err := executeTemplateCmdErr(t, "--workspace-file", wsFile, "template", "customize", "nonexistent")
+	if err == nil {
+		t.Error("expected error for nonexistent template, got nil")
+	}
+	if err != nil && !strings.Contains(err.Error(), "not found") {
+		t.Errorf("expected 'not found' in error, got: %v", err)
+	}
+}
+
+func TestTemplateCustomize_AlreadyExists(t *testing.T) {
+	_, wsFile := setupTestConfig(t)
+
+	// Create a workspace file that already has "### claude".
+	content := "## Projects\n**Icon | Name | Template | Pin | Path**\n\n## Templates\n\n### claude\n- [x] main (focused)\n"
+	if err := os.WriteFile(wsFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("write workspace file: %v", err)
+	}
+
+	_, err := executeTemplateCmdErr(t, "--workspace-file", wsFile, "template", "customize", "claude")
+	if err == nil {
+		t.Error("expected error for already existing template, got nil")
+	}
+	if err != nil && !strings.Contains(err.Error(), "already exists") {
+		t.Errorf("expected 'already exists' in error, got: %v", err)
+	}
+}
+
+func TestTemplateCustomize_StripsFocusTarget(t *testing.T) {
+	_, wsFile := setupTestConfig(t)
+
+	// Create minimal workspace file.
+	content := "## Projects\n**Icon | Name | Template | Pin | Path**\n\n## Templates\n\n### dev\n- [x] main (focused)\n"
+	if err := os.WriteFile(wsFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("write workspace file: %v", err)
+	}
+
+	executeTemplateCmd(t, "--workspace-file", wsFile, "template", "customize", "claude")
+
+	data, err := os.ReadFile(wsFile)
+	if err != nil {
+		t.Fatalf("read workspace file: %v", err)
+	}
+
+	// The output should NOT contain @focus= since FocusTarget is stripped.
+	if strings.Contains(string(data), "@focus=") {
+		t.Errorf("workspace file should not contain '@focus=' after customize; contents:\n%s", string(data))
 	}
 }
