@@ -88,6 +88,36 @@ func TestWorkspaceFile_ResolveTemplate_Unknown(t *testing.T) {
 	}
 }
 
+func TestTemplate_NewFieldsZeroValues(t *testing.T) {
+	tmpl := Template{Name: "test"}
+	if tmpl.Category != "" {
+		t.Errorf("Category should default to empty, got %q", tmpl.Category)
+	}
+	if tmpl.Icon != "" {
+		t.Errorf("Icon should default to empty, got %q", tmpl.Icon)
+	}
+	if tmpl.Description != "" {
+		t.Errorf("Description should default to empty, got %q", tmpl.Description)
+	}
+	if tmpl.Tags != nil {
+		t.Errorf("Tags should default to nil, got %v", tmpl.Tags)
+	}
+}
+
+func TestTemplatePan_FocusTargetDefault(t *testing.T) {
+	tp := TemplatePan{}
+	if tp.FocusTarget != 0 {
+		t.Errorf("Go zero value should be 0, got %d", tp.FocusTarget)
+	}
+}
+
+func TestTemplatePan_NameField(t *testing.T) {
+	tp := TemplatePan{Name: "console"}
+	if tp.Name != "console" {
+		t.Errorf("Name = %q, want %q", tp.Name, "console")
+	}
+}
+
 func TestWorkspaceFile_ResolveTemplate_AllDisabled(t *testing.T) {
 	wf := WorkspaceFile{
 		Templates: map[string]*Template{

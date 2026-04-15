@@ -14,18 +14,24 @@ type Project struct {
 
 // Template defines a reusable pane layout.
 type Template struct {
-	Name  string
-	Panes []TemplatePan
+	Name        string
+	Category    string   // "layout" or "workflow"
+	Icon        string   // display icon (▥, 🤖, etc.)
+	Description string   // one-line summary
+	Tags        []string // for filtering: ["ai", "git"], ["monitoring"], etc.
+	Panes       []TemplatePan
 }
 
 // TemplatePan is a pane definition within a template.
 type TemplatePan struct {
-	Enabled bool   // [x] or [ ]
-	IsMain  bool   // "main" keyword = first pane
-	Split   string // "right", "down", "left", "up"
-	Type    string // "terminal" (default), "browser"
-	Command string // command in backticks
-	Focus   bool   // "(focused)" suffix
+	Enabled     bool   // [x] or [ ]
+	IsMain      bool   // "main" keyword = first pane
+	Split       string // "right", "down", "left", "up"
+	Type        string // "terminal" (default), "browser"
+	Command     string // command in backticks
+	Focus       bool   // "(focused)" suffix — gets final focus
+	FocusTarget int    // pane index to focus BEFORE this split (-1 = no refocus)
+	Name        string // display label: "main", "console", "git"
 }
 
 // WorkspaceFile is the full parsed content of the MD file.
