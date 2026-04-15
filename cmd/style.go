@@ -28,6 +28,16 @@ var (
 	magentaStyle = lipgloss.NewStyle().Foreground(colorMagenta)
 )
 
+// -- Template styles ---------------------------------------------------------
+
+var (
+	templateIconStyle = lipgloss.NewStyle().Width(3)
+	templateNameStyle = lipgloss.NewStyle().Foreground(colorGreen).Bold(true).Width(14)
+	templatePaneStyle = lipgloss.NewStyle().Foreground(colorCyan).Width(5)
+	templateDescStyle = lipgloss.NewStyle().Foreground(colorDim)
+	categoryStyle     = lipgloss.NewStyle().Bold(true).Foreground(colorYellow).MarginTop(1)
+)
+
 // -- ASCII banner ------------------------------------------------------------
 
 func banner() string {
