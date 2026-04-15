@@ -139,7 +139,9 @@ func completionDirective(output string) int {
 	for _, line := range strings.Split(strings.TrimSpace(output), "\n") {
 		if strings.HasPrefix(line, ":") {
 			var d int
-			fmt.Sscanf(line, ":%d", &d)
+			if _, err := fmt.Sscanf(line, ":%d", &d); err != nil {
+				continue
+			}
 			return d
 		}
 	}
@@ -316,7 +318,7 @@ func TestCompletionCommand_GeneratesOutput(t *testing.T) {
 			err = runCompletion(nil, []string{shell})
 
 			os.Stdout = oldStdout
-			w.Close()
+			_ = w.Close()
 
 			if err != nil {
 				t.Fatalf("runCompletion(%s) error: %v", shell, err)
@@ -324,7 +326,7 @@ func TestCompletionCommand_GeneratesOutput(t *testing.T) {
 
 			buf := make([]byte, 4096)
 			n, _ := r.Read(buf)
-			r.Close()
+			_ = r.Close()
 
 			if n == 0 {
 				t.Errorf("runCompletion(%s) produced no output", shell)
@@ -388,11 +390,11 @@ func TestWiring_CommandsWithoutArgsDontNeedCompletion(t *testing.T) {
 	// These commands take no positional args — they should NOT have
 	// ValidArgsFunction (Cobra's default handles them correctly).
 	cmds := map[string]*cobra.Command{
-		"list":       listCmd,
-		"version":    versionCmd,
-		"export-to-md":  exportToMDCmd,
+		"list":           listCmd,
+		"version":        versionCmd,
+		"export-to-md":   exportToMDCmd,
 		"import-from-md": importFromMDCmd,
-		"ws list":    wsListCmd,
+		"ws list":        wsListCmd,
 	}
 	for name, cmd := range cmds {
 		t.Run(name, func(t *testing.T) {
