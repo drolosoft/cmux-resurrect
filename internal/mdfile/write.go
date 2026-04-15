@@ -166,36 +166,22 @@ func ToggleProject(path string, name string) (bool, error) {
 	return newState, Write(path, wf)
 }
 
-// DefaultTemplates returns the built-in starter templates.
-// This is the single source of truth — used by both mdfile and orchestrate.
+// DefaultTemplates returns the starter templates written to new workspace files.
+// The full gallery (16 templates) is available via gallery.ResolveTemplate().
 func DefaultTemplates() map[string]*model.Template {
 	return map[string]*model.Template{
 		"dev": {
 			Name: "dev",
 			Panes: []model.TemplatePan{
-				{Enabled: true, IsMain: true, Type: "terminal", Focus: true},
-				{Enabled: true, Split: "right", Type: "terminal", Command: "npm run dev"},
-				{Enabled: true, Split: "right", Type: "terminal", Command: "lazygit"},
-			},
-		},
-		"go": {
-			Name: "go",
-			Panes: []model.TemplatePan{
-				{Enabled: true, IsMain: true, Type: "terminal", Focus: true},
-				{Enabled: true, Split: "right", Type: "terminal", Command: "go test ./..."},
+				{Enabled: true, IsMain: true, Type: "terminal", Focus: true, FocusTarget: -1},
+				{Enabled: true, Split: "right", Type: "terminal", Command: "npm run dev", FocusTarget: -1},
+				{Enabled: true, Split: "right", Type: "terminal", Command: "lazygit", FocusTarget: -1},
 			},
 		},
 		"single": {
 			Name: "single",
 			Panes: []model.TemplatePan{
-				{Enabled: true, IsMain: true, Type: "terminal", Focus: true},
-			},
-		},
-		"monitor": {
-			Name: "monitor",
-			Panes: []model.TemplatePan{
-				{Enabled: true, IsMain: true, Type: "terminal", Command: "htop"},
-				{Enabled: true, Split: "right", Type: "terminal", Command: "tail -f /var/log/system.log"},
+				{Enabled: true, IsMain: true, Type: "terminal", Focus: true, FocusTarget: -1},
 			},
 		},
 	}
