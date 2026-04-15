@@ -25,6 +25,10 @@ func executeTemplateCmd(t *testing.T, args ...string) string {
 	tplListLayout = false
 	tplListWorkflow = false
 	tplListTag = ""
+	tplUseName = ""
+	tplUseIcon = ""
+	tplUseDryRun = false
+	tplUsePin = false
 
 	rootCmd.SetArgs(args)
 	err := rootCmd.Execute()
@@ -145,6 +149,10 @@ func executeTemplateCmdErr(t *testing.T, args ...string) (string, error) {
 	tplListLayout = false
 	tplListWorkflow = false
 	tplListTag = ""
+	tplUseName = ""
+	tplUseIcon = ""
+	tplUseDryRun = false
+	tplUsePin = false
 
 	rootCmd.SetArgs(args)
 	err := rootCmd.Execute()
@@ -272,5 +280,83 @@ func TestTemplateShow_FocusedPaneMarked(t *testing.T) {
 	// The focused pane should have a * marker.
 	if !strings.Contains(output, "*") {
 		t.Error("diagram missing focused pane marker '*'")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// template use tests
+// ---------------------------------------------------------------------------
+
+func TestTemplateUse_DryRun(t *testing.T) {
+	// Run "template use cols /tmp --dry-run"
+	// Should succeed (dry-run doesn't need cmux)
+	output := executeTemplateCmd(t, "template", "use", "cols", "/tmp", "--dry-run")
+
+	// Output should contain cmux commands.
+	if !strings.Contains(output, "new-workspace") {
+		t.Error("dry-run output missing 'new-workspace'")
+	}
+	if !strings.Contains(output, "rename-workspace") {
+		t.Error("dry-run output missing 'rename-workspace'")
+	}
+}
+
+func TestTemplateUse_NonExistentTemplate(t *testing.T) {
+	_, err := executeTemplateCmdErr(t, "template", "use", "nonexistent", "/tmp", "--dry-run")
+	if err == nil {
+		t.Error("expected error for nonexistent template, got nil")
+	}
+	if err != nil && !strings.Contains(err.Error(), "not found") {
+		t.Errorf("expected 'not found' in error, got: %v", err)
+	}
+}
+
+func TestTemplateUse_DryRunShowsCommands(t *testing.T) {
+	// Run "template use claude /tmp/test --dry-run"
+	output := executeTemplateCmd(t, "template", "use", "claude", "/tmp/test", "--dry-run")
+
+	// Output should contain cmux commands for a 3-pane template.
+	if !strings.Contains(output, "new-workspace") {
+		t.Error("dry-run output missing 'new-workspace'")
+	}
+	if !strings.Contains(output, "new-split") {
+		t.Error("dry-run output missing 'new-split'")
+	}
+	if !strings.Contains(output, "rename-workspace") {
+		t.Error("dry-run output missing 'rename-workspace'")
+	}
+}
+
+func TestTemplateUse_DryRunDefaultCWD(t *testing.T) {
+	// When no path argument is given, CWD defaults to "." (resolved to absolute).
+	output := executeTemplateCmd(t, "template", "use", "cols", "--dry-run")
+
+	if !strings.Contains(output, "new-workspace") {
+		t.Error("dry-run output missing 'new-workspace'")
+	}
+}
+
+func TestTemplateUse_DryRunWithName(t *testing.T) {
+	output := executeTemplateCmd(t, "template", "use", "cols", "/tmp", "--dry-run", "--name", "my-ws")
+
+	if !strings.Contains(output, "my-ws") {
+		t.Error("dry-run output missing custom name 'my-ws'")
+	}
+}
+
+func TestTemplateUse_DryRunWithPin(t *testing.T) {
+	output := executeTemplateCmd(t, "template", "use", "cols", "/tmp", "--dry-run", "--pin")
+
+	if !strings.Contains(output, "pin-workspace") {
+		t.Error("dry-run output missing 'pin-workspace' command")
+	}
+}
+
+func TestTemplateUse_TplAlias(t *testing.T) {
+	// The tpl alias should also work for use subcommand.
+	output := executeTemplateCmd(t, "tpl", "use", "cols", "/tmp", "--dry-run")
+
+	if !strings.Contains(output, "new-workspace") {
+		t.Error("tpl alias: dry-run output missing 'new-workspace'")
 	}
 }
