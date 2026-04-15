@@ -6,6 +6,7 @@ import (
 
 	"github.com/drolosoft/cmux-resurrect/internal/client"
 	"github.com/drolosoft/cmux-resurrect/internal/config"
+	"github.com/drolosoft/cmux-resurrect/internal/gallery"
 	"github.com/drolosoft/cmux-resurrect/internal/model"
 )
 
@@ -75,7 +76,7 @@ func (im *Importer) ImportFromMD(wf *model.WorkspaceFile, dryRun bool) (*ImportR
 	for i, p := range enabled {
 		title := p.BuildTitle(i)
 		expandedPath := config.ExpandHome(p.Path)
-		panes := wf.ResolveTemplate(p.Template)
+		panes := gallery.ResolveTemplate(wf, p.Template)
 
 		if dryRun {
 			im.emit(ImportEvent{
