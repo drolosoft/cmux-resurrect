@@ -20,6 +20,10 @@
 | `crex workspace list` | `ws ls` | 📋 List workspace entries in the Blueprint |
 | `crex workspace toggle` | `ws toggle` | 🔘 Enable/disable a workspace entry |
 | `crex version` | | ℹ️ Print version, commit, build date |
+| `crex template list` | `tpl ls` | 📦 List available templates from the gallery |
+| `crex template show <name>` | `tpl show` | 🔍 Preview a template with ASCII diagram |
+| `crex template use <template> [path]` | `tpl use` | 🚀 Create a workspace from a gallery template |
+| `crex template customize <name>` | `tpl customize` | ✏️ Copy a gallery template into your Blueprint |
 | `crex completion` | | 🔤 Generate shell completion scripts (bash, zsh, fish, powershell) |
 
 ## Key Flags
@@ -33,6 +37,59 @@ crex workspace add notes ~/docs -t single --disabled     # ➕ disabled by defau
 crex workspace list --all                                # 📋 include disabled workspaces
 crex show my-day --raw                                 # 🔍 dump raw TOML
 ```
+
+## Template Commands
+
+The `template` command group (alias: `tpl`) lets you browse and use the built-in gallery.
+
+### `crex template list`
+
+```sh
+crex template list                    # all templates
+crex template list --layout           # layout templates only
+crex template list --workflow         # workflow templates only
+crex template list --tag monitoring   # filter by tag
+```
+
+| Flag | Description |
+|------|-------------|
+| `--layout` | Show only layout templates |
+| `--workflow` | Show only workflow templates |
+| `--tag <tag>` | Filter templates by tag |
+
+### `crex template show <name>`
+
+```sh
+crex template show claude             # preview with ASCII diagram
+crex template show ide                # see pane layout and metadata
+```
+
+Displays the template's icon, description, ASCII diagram, category, pane count, split sequence, and tags.
+
+### `crex template use <template> [path]`
+
+```sh
+crex template use claude ~/project    # create workspace at path
+crex template use ide                 # create workspace in current dir
+crex template use cols --name "notes" # custom workspace title
+crex template use claude --dry-run    # preview commands
+```
+
+| Flag | Description |
+|------|-------------|
+| `--name <title>` | Workspace title (default: directory name) |
+| `--icon <icon>` | Workspace icon (default: template icon for workflows) |
+| `--dry-run` | Show commands without executing |
+| `--pin` | Pin the workspace after creation |
+
+### `crex template customize <name>`
+
+```sh
+crex template customize claude        # fork to your Blueprint
+crex template customize ide           # then edit with: crex edit
+```
+
+Copies the built-in template into your Workspace Blueprint. Your copy takes priority over the built-in version.
 
 ## Common Recipes
 
@@ -82,4 +139,4 @@ See [Shell Completion](shell-completion.md) for the full guide.
 
 ---
 
-See also: [Workflows](workflows.md) | [Workspace Blueprints](blueprint.md) | [Configuration](configuration.md) | [Shell Completion](shell-completion.md)
+See also: [Template Gallery](templates.md) | [Workflows](workflows.md) | [Workspace Blueprints](blueprint.md) | [Configuration](configuration.md) | [Shell Completion](shell-completion.md)

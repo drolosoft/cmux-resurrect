@@ -61,11 +61,49 @@ cmd/                    → Cobra CLI commands
 internal/
   client/               → CmuxClient interface + CLI implementation
   config/               → TOML config loading, default paths
+  gallery/              → Built-in template gallery (embedded .md files)
   model/                → Layout, Workspace, Pane structs + merge logic
   mdfile/               → Workspace Blueprint (.md) parser + writer
   orchestrate/          → Business logic: save, restore, import, watch, export
   persist/              → TOML file store (read/write layouts)
 ```
+
+## Template Gallery
+
+### Package: `internal/gallery/`
+
+The gallery provides 16 built-in workspace templates (9 layouts, 7 workflows) embedded directly in the binary.
+
+### Embedding Strategy
+
+Templates are stored as individual `.md` files in `internal/gallery/templates/` and compiled into the binary via `//go:embed`:
+
+```go
+//go:embed templates/*.md
+var templatesFS embed.FS
+```
+
+Each file uses YAML frontmatter (`name`, `category`, `icon`, `description`, `tags`) followed by standard Blueprint pane syntax. The `ensureLoaded()` function lazily parses all embedded files exactly once using `sync.Once`.
+
+### Three-Tier Resolution
+
+When resolving a template name (e.g., during `import-from-md` or `template use`), the `ResolveTemplate` function checks three tiers:
+
+```
+1. User Blueprint  →  templates in workspaces.md
+2. Gallery         →  built-in embedded templates
+3. Fallback        →  single focused terminal pane
+```
+
+User-defined templates always win. The `template customize` command copies a gallery template into the user's Blueprint, promoting it to tier 1.
+
+### FocusTarget Mechanism
+
+Some layouts (e.g., `quad`) need splits to target specific existing panes rather than the currently focused pane. The `@focus=N` annotation in gallery template files sets `FocusTarget` on a pane — the orchestrator focuses pane N before creating the split. This is a gallery-only feature; user Blueprint syntax does not support it.
+
+### ASCII Diagrams
+
+The `cmd/template_show.go` file contains hardcoded diagram rendering functions for each layout shape (`singleDiagram`, `twoPaneHorizontalDiagram`, `asideDiagram`, `quadDiagram`, etc.). The `renderDiagram` dispatcher maps template names to the appropriate function.
 
 ## Key Design Decisions
 

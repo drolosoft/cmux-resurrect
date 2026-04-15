@@ -104,6 +104,33 @@ crex export-to-md             # capture live state to Blueprint
 
 > For the full Blueprint format, templates, and CLI management, see [docs/blueprint.md](docs/blueprint.md).
 
+## 📦 Template Gallery
+
+crex ships with 16 ready-to-use workspace templates for common developer workflows.
+
+| | Layout Templates | | Workflow Templates |
+|---|---|---|---|
+| ▥ | `cols` — side-by-side | 🤖 | `claude` — Claude Code pair-programming |
+| ▤ | `rows` — stacked | 💻 | `code` — general coding |
+| ◧ | `sidebar` — main + side | 🔭 | `explore` — navigate codebase |
+| ⊤ | `shelf` — big top, 2 bottom | 📊 | `system` — monitor health |
+| ⊢ | `aside` — big left, 2 right | 📜 | `logs` — tail streams |
+| Ⅲ | `triple` — three columns | 🌐 | `network` — debug connectivity |
+| ⊠ | `quad` — 2×2 grid | 📟 | `single` — minimal terminal |
+| ◱ | `dashboard` — top + 3 bottom | | |
+| ⧉ | `ide` — full IDE layout | | |
+
+```sh
+crex template list                    # browse all templates
+crex template show claude             # preview with ASCII diagram
+crex template use claude ~/project    # create workspace instantly
+crex template customize claude        # fork to your Blueprint
+```
+
+> Templates are starting points. Run `crex template customize <name>` to fork any template and make it yours.
+
+See [docs/templates.md](docs/templates.md) for the full gallery with diagrams.
+
 ---
 
 ## ✨ Why crex?
@@ -113,7 +140,7 @@ crex export-to-md             # capture live state to Blueprint
 | | tmux-resurrect | crex |
 |:---:|---|---|
 | 📝 | Plugin configuration | **Workspace Blueprint** — Markdown files, Obsidian-compatible |
-| 🧩 | Manual pane recreation | **Reusable templates** (`dev`, `go`, `monitor`) |
+| 🧩 | Manual pane recreation | **16 built-in templates** + custom Blueprints |
 | 📥 | One-way restore | **Bidirectional** — import from and export to Markdown |
 | 👁️ | Execute immediately | **Dry-run mode** — preview every command first |
 | ⏱️ | Manual saves | **Auto-save with launchd** — deduped, zero-maintenance |
@@ -131,6 +158,8 @@ crex export-to-md             # capture live state to Blueprint
 | [Workflows](docs/workflows.md) | Save/Restore vs Import, dry-run, side-by-side comparison |
 | [Configuration](docs/configuration.md) | config.toml reference and defaults |
 | [Auto-Save](docs/auto-save.md) | launchd integration for macOS |
+| [Template Gallery](docs/templates.md) | Built-in templates, ASCII previews, customization |
+| [Template Authoring](docs/template-authoring.md) | Create and contribute custom templates |
 | [Shell Completion](docs/shell-completion.md) | Setup, troubleshooting, what gets completed |
 | [Building from Source](docs/building.md) | Makefile targets, cross-compilation, platform support |
 | [Architecture](ARCHITECTURE.md) | Internal design for contributors |

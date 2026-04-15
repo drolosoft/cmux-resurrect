@@ -58,6 +58,16 @@ Templates define reusable pane layouts. Reference them by name from any workspac
 
 Define your own templates by adding `### template-name` sections. Uncheck any pane line to disable that split.
 
+### Three-Tier Resolution
+
+Templates defined in your Blueprint take priority over built-in gallery templates. When crex resolves a template name, it checks:
+
+1. **Your Blueprint** — templates in your `workspaces.md`
+2. **Gallery** — the 16 built-in templates (run `crex template list` to browse)
+3. **Fallback** — a single focused terminal pane
+
+This means you can override any built-in template by defining one with the same name. Run `crex template customize <name>` to fork a gallery template as a starting point.
+
 ## Managing Blueprint Entries from CLI
 
 ```sh
@@ -71,4 +81,4 @@ crex workspace list --all                                  # include disabled en
 
 ---
 
-See also: [Workflows](workflows.md) | [Commands](commands.md)
+See also: [Template Gallery](templates.md) | [Template Authoring](template-authoring.md) | [Workflows](workflows.md) | [Commands](commands.md)
