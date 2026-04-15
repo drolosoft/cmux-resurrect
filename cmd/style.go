@@ -81,6 +81,7 @@ func styledHelp() string {
 	helpCmd(&b, "import-from-md", "", "Import from Workspace Blueprint")
 	helpCmd(&b, "export-to-md", "", "Export to Workspace Blueprint")
 	helpCmd(&b, "workspace", "<cmd>", "Manage Blueprint (add|remove|list|toggle)")
+	helpCmd(&b, "template", "<cmd>", "Template gallery (list|show|use|customize)")
 	helpCmd(&b, "version", "", "Version info")
 	helpCmd(&b, "completion", "<shell>", "Shell completions (bash|zsh|fish)")
 

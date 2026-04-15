@@ -608,7 +608,8 @@ func TestE2E_WsAddTemplateFlag(t *testing.T) {
 	setupTestConfig(t)
 	output := executeComplete(t, "workspace", "add", "--template", "")
 	names := completionNames(output)
-	for _, want := range []string{"dev", "go", "single", "monitor"} {
+	// Now uses gallery templates via completeTemplateNames.
+	for _, want := range []string{"single", "ide", "quad", "dashboard"} {
 		assertContains(t, names, want)
 	}
 

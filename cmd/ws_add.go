@@ -25,17 +25,10 @@ var wsAddCmd = &cobra.Command{
 
 func init() {
 	wsAddCmd.Flags().StringVarP(&addIcon, "icon", "i", "📁", "workspace icon emoji")
-	wsAddCmd.Flags().StringVarP(&addTemplate, "template", "t", "dev", "template name (dev, go, single, monitor)")
+	wsAddCmd.Flags().StringVarP(&addTemplate, "template", "t", "dev", "template name (run 'crex template list' for options)")
 	wsAddCmd.Flags().BoolVar(&addPin, "pin", true, "pin workspace in sidebar")
 	wsAddCmd.Flags().BoolVar(&addDisabled, "disabled", false, "add as disabled (unchecked)")
-	_ = wsAddCmd.RegisterFlagCompletionFunc("template", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return []string{
-			"dev\tStandard development layout",
-			"go\tGo project layout",
-			"single\tSingle terminal pane",
-			"monitor\tMonitoring layout",
-		}, cobra.ShellCompDirectiveNoFileComp
-	})
+	_ = wsAddCmd.RegisterFlagCompletionFunc("template", completeTemplateNames)
 	wsAddCmd.ValidArgsFunction = func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		switch len(args) {
 		case 0:
