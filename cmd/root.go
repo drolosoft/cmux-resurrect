@@ -78,9 +78,7 @@ func newClient() client.Backend {
 	detected := client.Detect()
 	switch detected {
 	case client.BackendGhostty:
-		fmt.Fprintln(os.Stderr, "Ghostty backend not yet implemented")
-		os.Exit(1)
-		return nil
+		return client.NewGhosttyClient()
 	default:
 		return client.NewCLIClient()
 	}
