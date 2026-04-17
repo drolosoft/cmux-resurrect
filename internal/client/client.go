@@ -1,9 +1,9 @@
 package client
 
-// CmuxClient abstracts interaction with cmux.
-// v1 uses CLI exec; future versions can use the Unix socket directly.
-type CmuxClient interface {
-	// Ping checks if cmux is running and reachable.
+// Backend abstracts interaction with a terminal multiplexer/emulator.
+// Implementations exist for cmux (CLIClient) and Ghostty (planned).
+type Backend interface {
+	// Ping checks if the backend is running and reachable.
 	Ping() error
 
 	// Tree returns the full workspace/pane hierarchy.
@@ -39,3 +39,6 @@ type CmuxClient interface {
 	// CloseWorkspace closes a workspace.
 	CloseWorkspace(ref string) error
 }
+
+// CmuxClient is an alias for backward compatibility during the transition.
+type CmuxClient = Backend

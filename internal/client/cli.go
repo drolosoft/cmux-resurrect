@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// CLIClient implements CmuxClient by exec'ing the cmux binary.
+// CLIClient implements Backend by exec'ing the cmux binary.
 type CLIClient struct {
 	Binary  string
 	Timeout time.Duration
