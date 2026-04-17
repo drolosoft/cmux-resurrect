@@ -295,12 +295,12 @@ func TestTemplateUse_DryRun(t *testing.T) {
 	// Should succeed (dry-run doesn't need cmux)
 	output := executeTemplateCmd(t, "template", "use", "cols", "/tmp", "--dry-run")
 
-	// Output should contain cmux commands.
-	if !strings.Contains(output, "new-workspace") {
-		t.Error("dry-run output missing 'new-workspace'")
+	// Output should contain workspace creation commands (backend-agnostic).
+	if !strings.Contains(output, "new-workspace") && !strings.Contains(output, "new tab") {
+		t.Error("dry-run output missing workspace creation command")
 	}
-	if !strings.Contains(output, "rename-workspace") {
-		t.Error("dry-run output missing 'rename-workspace'")
+	if !strings.Contains(output, "rename-workspace") && !strings.Contains(output, "set_tab_title") {
+		t.Error("dry-run output missing rename command")
 	}
 }
 
@@ -318,15 +318,15 @@ func TestTemplateUse_DryRunShowsCommands(t *testing.T) {
 	// Run "template use claude /tmp/test --dry-run"
 	output := executeTemplateCmd(t, "template", "use", "claude", "/tmp/test", "--dry-run")
 
-	// Output should contain cmux commands for a 3-pane template.
-	if !strings.Contains(output, "new-workspace") {
-		t.Error("dry-run output missing 'new-workspace'")
+	// Output should contain commands for a 3-pane template (backend-agnostic).
+	if !strings.Contains(output, "new-workspace") && !strings.Contains(output, "new tab") {
+		t.Error("dry-run output missing workspace creation command")
 	}
-	if !strings.Contains(output, "new-split") {
-		t.Error("dry-run output missing 'new-split'")
+	if !strings.Contains(output, "new-split") && !strings.Contains(output, "split") {
+		t.Error("dry-run output missing split command")
 	}
-	if !strings.Contains(output, "rename-workspace") {
-		t.Error("dry-run output missing 'rename-workspace'")
+	if !strings.Contains(output, "rename-workspace") && !strings.Contains(output, "set_tab_title") {
+		t.Error("dry-run output missing rename command")
 	}
 }
 
@@ -334,8 +334,8 @@ func TestTemplateUse_DryRunDefaultCWD(t *testing.T) {
 	// When no path argument is given, CWD defaults to "." (resolved to absolute).
 	output := executeTemplateCmd(t, "template", "use", "cols", "--dry-run")
 
-	if !strings.Contains(output, "new-workspace") {
-		t.Error("dry-run output missing 'new-workspace'")
+	if !strings.Contains(output, "new-workspace") && !strings.Contains(output, "new tab") {
+		t.Error("dry-run output missing workspace creation command")
 	}
 }
 
@@ -359,8 +359,8 @@ func TestTemplateUse_TplAlias(t *testing.T) {
 	// The tpl alias should also work for use subcommand.
 	output := executeTemplateCmd(t, "tpl", "use", "cols", "/tmp", "--dry-run")
 
-	if !strings.Contains(output, "new-workspace") {
-		t.Error("tpl alias: dry-run output missing 'new-workspace'")
+	if !strings.Contains(output, "new-workspace") && !strings.Contains(output, "new tab") {
+		t.Error("tpl alias: dry-run output missing workspace creation command")
 	}
 }
 
