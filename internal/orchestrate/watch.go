@@ -15,7 +15,7 @@ import (
 
 // Watcher periodically saves the cmux layout, deduplicating via content hash.
 type Watcher struct {
-	Client        client.CmuxClient
+	Client        client.Backend
 	Store         persist.Store
 	Name          string
 	Interval      time.Duration

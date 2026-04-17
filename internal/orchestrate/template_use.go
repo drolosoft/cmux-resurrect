@@ -27,7 +27,7 @@ type TemplateUseResult struct {
 
 // TemplateUser creates a single workspace from resolved template panes.
 type TemplateUser struct {
-	Client     client.CmuxClient
+	Client     client.Backend
 	OnProgress func(msg string)
 }
 

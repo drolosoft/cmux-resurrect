@@ -9,7 +9,7 @@ import (
 	"github.com/drolosoft/cmux-resurrect/internal/persist"
 )
 
-// mockClient implements client.CmuxClient for testing.
+// mockClient implements client.Backend for testing.
 type mockClient struct {
 	treeResp     *client.TreeResponse
 	sidebarCWDs  map[string]string

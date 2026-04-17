@@ -12,7 +12,7 @@ import (
 
 // Exporter captures live cmux state and writes it to the MD file.
 type Exporter struct {
-	Client client.CmuxClient
+	Client client.Backend
 }
 
 // ExportToMD reads live cmux state and updates the MD file,

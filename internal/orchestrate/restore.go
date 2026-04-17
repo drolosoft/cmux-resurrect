@@ -22,7 +22,7 @@ const (
 
 // Restorer recreates a saved layout in cmux.
 type Restorer struct {
-	Client     client.CmuxClient
+	Client     client.Backend
 	Store      persist.Store
 	OnProgress func(title string, panes int, err error) // called after each workspace
 }

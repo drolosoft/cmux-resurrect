@@ -74,7 +74,7 @@ func initConfig() {
 	}
 }
 
-func newClient() client.CmuxClient {
+func newClient() client.Backend {
 	return client.NewCLIClient()
 }
 

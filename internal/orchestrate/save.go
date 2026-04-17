@@ -13,7 +13,7 @@ import (
 
 // Saver captures the current cmux state and persists it.
 type Saver struct {
-	Client client.CmuxClient
+	Client client.Backend
 	Store  persist.Store
 }
 

@@ -44,7 +44,7 @@ type ImportResult struct {
 
 // Importer creates cmux workspaces from a parsed Workspace Blueprint.
 type Importer struct {
-	Client     client.CmuxClient
+	Client     client.Backend
 	OnProgress func(event ImportEvent) // called per workspace and per warning
 }
 
