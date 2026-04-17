@@ -343,43 +343,71 @@ Each terminal should have run its `echo` command.
 
 ---
 
-## Results Template
+## Results — Validated 2026-04-17
 
-Fill this in after running all tests:
+**Environment:** Ghostty 1.3.1, macOS Darwin 25.3.0, running from within Ghostty terminal.
 
 | Test | Result | Notes |
 |------|--------|-------|
-| 1. Ping | PASS / FAIL | |
-| 2. Count windows | PASS / FAIL | Value: |
-| 3. Count tabs | PASS / FAIL | Value: |
-| 4. Tab name | PASS / FAIL | Value: |
-| 5. Selected tab | PASS / FAIL | |
-| 6. Terminal count | PASS / FAIL | Value: |
-| 7. Working directory | PASS / FAIL | Value: |
-| 7b. CWD after cd | PASS / FAIL | **Critical** — does it update? |
-| 8. New tab | PASS / FAIL | |
-| 8b. New tab with CWD | PASS / FAIL | |
-| 9. Select tab | PASS / FAIL | |
-| 10. Rename tab | PASS / FAIL | |
-| 10b. Shell overwrites title? | YES / NO | |
-| 11. Split right | PASS / FAIL | |
-| 11b. Split down | PASS / FAIL | |
-| 11c. Terminal count after split | PASS / FAIL | Value: |
-| 12. Focus terminal | PASS / FAIL | |
-| 13. Send text (no return) | PASS / FAIL | |
-| 13b. Send text (with return) | PASS / FAIL | Which syntax worked? |
-| 14. Close tab | PASS / FAIL | Confirmation dialog? |
-| 15. Terminal ID | PASS / FAIL | Format: |
-| 15b. Tab ID | PASS / FAIL | Format: |
-| 16. Enumerate tabs | PASS / FAIL | |
-| 16b. Enumerate terminals | PASS / FAIL | |
-| 17. Full workflow | PASS / FAIL | Layout correct? |
+| 1. Ping | PASS | `true` — System Events confirms Ghostty process |
+| 2. Count windows | PASS | Value: 1 |
+| 3. Count tabs | PASS | Value: 1 |
+| 4. Tab name | PASS | Value: shows current process/CWD (e.g. `⠂ Validate Ghostty AppleScript API...`) |
+| 5. Selected tab | PASS | `true` for active tab |
+| 6. Terminal count | PASS | Value: 1 (no splits) |
+| 7. Working directory | PASS | Value: `/Users/txeo/Git/drolosoft/cmux-resurrect` — correct CWD |
+| 7b. CWD after cd | PASS | **Yes, it updates.** `/tmp` reported after `cd /tmp`. Requires `input text` + `send key "enter"` to execute the cd. |
+| 8. New tab | PASS | **Correct syntax:** `new tab in front window` (NOT bare `new tab`). Returns tab specifier. |
+| 8b. New tab with CWD | PASS | **Correct syntax:** `new surface configuration from {initial working directory:"/tmp"}` then `new tab in front window with configuration cfg`. Verified CWD = `/tmp`. |
+| 9. Select tab | PASS | **Correct syntax:** `select tab (a reference to tab N of window 1)` |
+| 10. Rename tab | PASS | **Correct syntax:** `perform action "set_tab_title:NAME" on terminal 1 of tab N of window 1` (requires `on` target). Returns `true`. |
+| 10b. Shell overwrites title? | NO | Title persists through multiple Enter presses. No delay-before-rename needed. |
+| 11. Split right | PASS | **Correct syntax:** `split terminal 1 of tab N of window 1 direction right`. Returns new terminal with UUID. |
+| 11b. Split down | PASS | `split ... direction down` works identically. |
+| 11c. Terminal count after split | PASS | Value: 3 (after right + down splits) |
+| 12. Focus terminal | PASS | `focus terminal N of tab M of window 1` works. Verified via `focused terminal of tab`. |
+| 13. Send text (no return) | PASS | `input text "..." to terminal N of tab M of window 1` — text appears, not executed. |
+| 13b. Send text (with return) | PASS | **Only `input text` + `send key "enter"` works.** `& return`, `& linefeed`, and literal newline in string all FAIL to execute. |
+| 14. Close tab | PASS | `close tab (a reference to tab N of window 1)` — **no confirmation dialog**. Closes immediately. |
+| 15. Terminal ID | PASS | Format: **UUID** (e.g. `F0D23D26-BA0D-40B8-9637-94701BFB8E34`) |
+| 15b. Tab ID | PASS | Format: **pointer-style string** (e.g. `tab-804be0c00`). Window ID: `tab-group-803b08780`. |
+| 16. Enumerate tabs | PASS | Full tree with name, selected state, terminal count, and ID per tab. |
+| 16b. Enumerate terminals | PASS | CWD and UUID per terminal within a tab. |
+| 17. Full workflow | PASS | Created tab "dev-workspace" with 3 terminals at `/tmp`, layout correct. **Needs ~1s delay after each split** for shell to start before sending commands. |
 
-### Critical Unknowns to Resolve
+**Result: 17/17 tests PASS. All critical unknowns resolved.**
 
-- [ ] Does `working directory` update after `cd`? (Test 7b)
-- [ ] Which `input text` + newline syntax works? (Test 13b)
-- [ ] Does `perform action "set_tab_title"` get overwritten by shell? (Test 10b)
-- [ ] Does `close tab` show a confirmation dialog? (Test 14)
-- [ ] What format are terminal/tab IDs? (Test 15)
-- [ ] Does Accessibility permission need to be granted? To which app?
+### Critical Unknowns — Resolved
+
+- [x] Does `working directory` update after `cd`? **YES** — updates reliably after ~1s. (Test 7b)
+- [x] Which `input text` + newline syntax works? **`input text` + separate `send key "enter"`** — embedded `& return`, `& linefeed`, literal newline all fail. (Test 13b)
+- [x] Does `perform action "set_tab_title"` get overwritten by shell? **NO** — title is sticky, no delay-before-rename needed. (Test 10b)
+- [x] Does `close tab` show a confirmation dialog? **NO** — closes immediately, no dialog. (Test 14)
+- [x] What format are terminal/tab IDs? **Terminal: UUID**, **Tab: pointer-style string** (`tab-HEXADDR`), **Window: `tab-group-HEXADDR`**. (Test 15)
+- [x] Does Accessibility permission need to be granted? **Not prompted** during testing. Ghostty's native AppleScript suite works without Accessibility permissions.
+
+### Syntax Corrections from sdef
+
+The test commands above used hypothetical syntax. Here are the **verified correct forms** based on Ghostty's `Ghostty.sdef` (v1.3.1):
+
+| Operation | Test File Syntax (WRONG) | Correct Syntax |
+|-----------|-------------------------|----------------|
+| New tab | `new tab` | `new tab in front window` |
+| New tab + CWD | `new tab with config "initial-working-directory=/tmp"` | `set cfg to new surface configuration from {initial working directory:"/tmp"}` then `new tab in front window with configuration cfg` |
+| Select tab | `select tab 1 of window 1` | `select tab (a reference to tab 1 of window 1)` |
+| Rename tab | `perform action "set_tab_title:X"` | `perform action "set_tab_title:X" on terminal 1 of tab N of window 1` |
+| Split | `split right` | `split terminal 1 of tab N of window 1 direction right` |
+| Focus | `focus terminal 1 of tab 1 of window 1` | Same (correct as written) |
+| Input text | `input text "X" of terminal ...` | `input text "X" to terminal ...` |
+| Execute command | `input text ("cmd" & return) of terminal ...` | `input text "cmd" to terminal ...` then `send key "enter" to terminal ...` |
+| Close tab | `close tab N of window 1` | `close tab (a reference to tab N of window 1)` |
+
+### Additional Discoveries
+
+1. **`send key` command** — Not in original test plan but critical. Syntax: `send key "enter" to terminal N of tab M of window 1`. Also supports modifiers: `send key "c" modifiers "control"` for Ctrl+C.
+2. **`focused terminal` property** — Tabs expose `focused terminal` to query which split has focus.
+3. **`close terminal`** — Individual split panes can be closed: `close terminal N of tab M of window 1`.
+4. **`surface configuration` record type** — Supports `font size`, `initial working directory`, `command`, `initial input`, `wait after command`, `environment variables`. Created with `new surface configuration from {prop:val, ...}`.
+5. **Window ID format** — `tab-group-HEXADDR` — suggests Ghostty uses macOS tab groups internally.
+6. **`new tab` returns tab specifier** — e.g. `tab id tab-8031dba00 of window id tab-group-803b08780`, can be used directly.
+7. **Shell startup delay** — After `new tab` or `split`, the shell needs ~1s to start before `input text` + `send key` will execute. Without delay, text may be typed before bash is ready. The crex backend should poll for shell readiness or use a fixed delay (1s is reliable).
