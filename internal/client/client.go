@@ -39,6 +39,3 @@ type Backend interface {
 	// CloseWorkspace closes a workspace.
 	CloseWorkspace(ref string) error
 }
-
-// CmuxClient is an alias for backward compatibility during the transition.
-type CmuxClient = Backend
