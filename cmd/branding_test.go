@@ -113,3 +113,25 @@ func TestStyledHelp_Ghostty_NoLegacyHint(t *testing.T) {
 		t.Error("Ghostty help should not mention cmux-resurrect")
 	}
 }
+
+func TestRootLongDescription_Ghostty(t *testing.T) {
+	cachedBackend = client.BackendGhostty
+	defer func() { cachedBackend = client.Detect() }()
+
+	updateRootLong()
+
+	if strings.Contains(rootCmd.Long, "cmux-resurrect") {
+		t.Error("Ghostty root Long should not mention cmux-resurrect")
+	}
+}
+
+func TestRootLongDescription_Cmux(t *testing.T) {
+	cachedBackend = client.BackendCmux
+	defer func() { cachedBackend = client.Detect() }()
+
+	updateRootLong()
+
+	if !strings.Contains(rootCmd.Long, "cmux-resurrect") {
+		t.Error("cmux root Long should mention cmux-resurrect")
+	}
+}

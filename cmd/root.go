@@ -20,7 +20,7 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "crex",
 	Short: "Save, restore, and template your terminal workspaces",
-	Long:  "crex (cmux-resurrect) saves, restores, and templates your terminal workspaces.\nWorks with cmux and Ghostty. Inspired by tmux-resurrect.",
+	Long:  "crex saves, restores, and templates your terminal workspaces.", // updated by updateRootLong()
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Print(banner())
 		fmt.Print(styledHelp())
@@ -42,6 +42,8 @@ func init() {
 	_ = rootCmd.MarkPersistentFlagDirname("layouts-dir")
 	_ = rootCmd.MarkPersistentFlagFilename("workspace-file", "md")
 
+	updateRootLong()
+
 	// Override the default help command to use our styled output for the root.
 	defaultHelp := rootCmd.HelpFunc()
 	rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
@@ -53,6 +55,14 @@ func init() {
 			defaultHelp(cmd, args)
 		}
 	})
+}
+
+func updateRootLong() {
+	if isCmuxBranding() {
+		rootCmd.Long = "crex (cmux-resurrect) saves, restores, and templates your terminal workspaces.\nWorks with cmux and Ghostty. Inspired by tmux-resurrect."
+	} else {
+		rootCmd.Long = "crex saves, restores, and templates your terminal workspaces.\nWorks with Ghostty. Inspired by tmux-resurrect."
+	}
 }
 
 func initConfig() {
