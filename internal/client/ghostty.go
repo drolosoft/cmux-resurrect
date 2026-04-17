@@ -99,10 +99,151 @@ func parseTerminalIndex(ref string) (int, error) {
 	return idx, nil
 }
 
-// --- Stub methods (replaced in subsequent tasks) ---
-
 func (g *GhosttyClient) Tree() (*TreeResponse, error) {
-	return nil, fmt.Errorf("ghostty: Tree not yet implemented")
+	out, err := g.runScriptLines(
+		`tell application "Ghostty"`,
+		`  set output to ""`,
+		`  set winCount to count of windows`,
+		`  repeat with w from 1 to winCount`,
+		`    set winID to id of window w`,
+		`    set tabCount to count of tabs of window w`,
+		`    set output to output & "WIN|" & winID & "|" & tabCount & linefeed`,
+		`    repeat with t from 1 to tabCount`,
+		`      set tabName to name of tab t of window w`,
+		`      set isSel to selected of tab t of window w`,
+		`      set termCount to count of terminals of tab t of window w`,
+		`      set output to output & "TAB|" & t & "|" & tabName & "|" & isSel & "|" & termCount & linefeed`,
+		`      repeat with term from 1 to termCount`,
+		`        set termCWD to working directory of terminal term of tab t of window w`,
+		`        set output to output & "TERM|" & term & "|" & termCWD & linefeed`,
+		`      end repeat`,
+		`    end repeat`,
+		`  end repeat`,
+		`  return output`,
+		`end tell`,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("tree: %w", err)
+	}
+
+	resp := &TreeResponse{}
+	var currentWindow *TreeWindow
+	var currentWorkspace *TreeWorkspace
+
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "|", 5)
+		if len(parts) < 2 {
+			continue
+		}
+
+		switch parts[0] {
+		case "WIN":
+			if currentWorkspace != nil && currentWindow != nil {
+				currentWindow.Workspaces = append(currentWindow.Workspaces, *currentWorkspace)
+				currentWorkspace = nil
+			}
+			if currentWindow != nil {
+				resp.Windows = append(resp.Windows, *currentWindow)
+			}
+			tabCount, _ := strconv.Atoi(parts[2])
+			currentWindow = &TreeWindow{
+				Ref:            parts[1],
+				Index:          len(resp.Windows),
+				Active:         true,
+				Visible:        true,
+				Current:        len(resp.Windows) == 0,
+				WorkspaceCount: tabCount,
+			}
+			currentWorkspace = nil
+
+		case "TAB":
+			if currentWorkspace != nil && currentWindow != nil {
+				currentWindow.Workspaces = append(currentWindow.Workspaces, *currentWorkspace)
+			}
+			tabIdx, _ := strconv.Atoi(parts[1])
+			tabName := parts[2]
+			isSel := parts[3] == "true"
+			ref := fmt.Sprintf("tab:%d", tabIdx)
+			currentWorkspace = &TreeWorkspace{
+				Ref:      ref,
+				Title:    tabName,
+				Index:    tabIdx - 1,
+				Pinned:   false,
+				Active:   isSel,
+				Selected: isSel,
+			}
+			if isSel && currentWindow != nil {
+				currentWindow.SelectedWorkspaceRef = ref
+			}
+
+		case "TERM":
+			if currentWorkspace == nil {
+				continue
+			}
+			termIdx, _ := strconv.Atoi(parts[1])
+			termCWD := ""
+			if len(parts) > 2 {
+				termCWD = parts[2]
+			}
+			paneRef := fmt.Sprintf("pane:%d", termIdx-1)
+			surfaceRef := fmt.Sprintf("terminal:%d", termIdx)
+			pane := TreePane{
+				Ref:                paneRef,
+				Index:              termIdx - 1,
+				Active:             termIdx == 1,
+				Focused:            termIdx == 1,
+				SurfaceCount:       1,
+				SelectedSurfaceRef: surfaceRef,
+				SurfaceRefs:        []string{surfaceRef},
+				Surfaces: []TreeSurface{
+					{
+						Ref:            surfaceRef,
+						PaneRef:        paneRef,
+						Type:           "terminal",
+						Title:          termCWD,
+						Index:          termIdx - 1,
+						IndexInPane:    0,
+						Active:         termIdx == 1,
+						Focused:        termIdx == 1,
+						Selected:       termIdx == 1,
+						SelectedInPane: true,
+					},
+				},
+			}
+			currentWorkspace.Panes = append(currentWorkspace.Panes, pane)
+		}
+	}
+
+	// Flush remaining workspace and window.
+	if currentWorkspace != nil && currentWindow != nil {
+		currentWindow.Workspaces = append(currentWindow.Workspaces, *currentWorkspace)
+	}
+	if currentWindow != nil {
+		resp.Windows = append(resp.Windows, *currentWindow)
+	}
+
+	// Set Caller to the selected tab's first terminal in the first window.
+	if len(resp.Windows) > 0 {
+		for _, ws := range resp.Windows[0].Workspaces {
+			if ws.Selected && len(ws.Panes) > 0 {
+				resp.Caller = &CallerInfo{
+					WorkspaceRef: ws.Ref,
+					PaneRef:      ws.Panes[0].Ref,
+					WindowRef:    resp.Windows[0].Ref,
+					SurfaceRef:   ws.Panes[0].SurfaceRefs[0],
+					SurfaceType:  "terminal",
+				}
+				resp.Active = resp.Caller
+				break
+			}
+		}
+	}
+
+	return resp, nil
 }
 
 func (g *GhosttyClient) SidebarState(workspaceRef string) (*SidebarState, error) {
