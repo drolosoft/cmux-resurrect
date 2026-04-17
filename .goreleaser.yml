@@ -58,7 +58,7 @@ brews:
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     name: cmux-resurrect
     homepage: "https://github.com/drolosoft/cmux-resurrect"
-    description: "Terminal workspace manager for cmux and Ghostty — save, restore, and template your workspaces"
+    description: "Terminal workspace manager — save, restore, and template your workspaces"
     license: "MIT"
     install: |
       bin.install "crex"
