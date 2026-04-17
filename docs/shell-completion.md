@@ -20,7 +20,11 @@ crex supports **tab completion** for commands, subcommands, layout names, worksp
 | `crex watch --interval <TAB>` | Common intervals: `1m`, `5m`, `10m`, `30m` |
 | `crex workspace remove <TAB>` | Workspace names from the Blueprint |
 | `crex workspace toggle <TAB>` | Workspace names from the Blueprint |
-| `crex ws add myproj --template <TAB>` | Template names: `dev`, `go`, `single`, `monitor` |
+| `crex ws add myproj --template <TAB>` | Template names from the gallery (16 templates) |
+| `crex template show <TAB>` | Gallery template names with icons and descriptions |
+| `crex template use <TAB>` | Gallery template names, then directory paths |
+| `crex template customize <TAB>` | Gallery template names with icons and descriptions |
+| `crex template list --tag <TAB>` | Available tags: `basic`, `3-pane`, `ai`, `monitoring`, etc. |
 | `crex ws add myproj <TAB>` | Directory completion for the path argument |
 | `crex --config <TAB>` | `.toml` files |
 | `crex --layouts-dir <TAB>` | Directories |
@@ -34,6 +38,10 @@ autosave    -- 5 workspaces
 my-day      -- Friday standup layout
 production  -- 3 workspaces
 ```
+
+Template completions include icons and descriptions:
+
+<p align="center"><img src="../assets/template-autocomplete.png" alt="crex template use with shell completion showing all 16 templates" width="600"></p>
 
 ---
 

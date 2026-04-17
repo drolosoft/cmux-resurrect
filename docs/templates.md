@@ -4,6 +4,11 @@
 
 crex ships with 16 ready-to-use workspace templates for common developer workflows. Browse them with `crex template list`, preview any with `crex template show`, and create a workspace instantly with `crex template use`.
 
+<p align="center">
+<img src="../assets/template-show-dashboard.png" alt="crex template show dashboard — layout template with ASCII diagram" width="600">
+<img src="../assets/template-show-code.png" alt="crex template show code — workflow template with pre-configured commands" width="600">
+</p>
+
 ## Quick Start
 
 ```sh

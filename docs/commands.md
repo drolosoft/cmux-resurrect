@@ -57,6 +57,8 @@ crex template list --tag monitoring   # filter by tag
 | `--workflow` | Show only workflow templates |
 | `--tag <tag>` | Filter templates by tag |
 
+<p align="center"><img src="../assets/template-list.png" alt="crex template list output showing all 16 templates" width="600"></p>
+
 ### `crex template show <name>`
 
 ```sh

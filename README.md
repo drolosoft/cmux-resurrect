@@ -127,6 +127,8 @@ crex template use claude ~/project    # create workspace instantly
 crex template customize claude        # fork to your Blueprint
 ```
 
+<p align="center"><img src="assets/template-list.png" alt="crex template list showing 16 templates grouped by Layouts and Workflows" width="700"></p>
+
 > Templates are starting points. Run `crex template customize <name>` to fork any template and make it yours.
 
 See [docs/templates.md](docs/templates.md) for the full gallery with diagrams.
