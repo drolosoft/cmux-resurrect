@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/drolosoft/cmux-resurrect/internal/client"
@@ -67,5 +68,48 @@ func TestIsCmuxBranding(t *testing.T) {
 	cachedBackend = client.BackendGhostty
 	if isCmuxBranding() {
 		t.Error("isCmuxBranding() should be false for Ghostty")
+	}
+}
+
+func TestBanner_Cmux_ShowsFullName(t *testing.T) {
+	cachedBackend = client.BackendCmux
+	defer func() { cachedBackend = client.Detect() }()
+
+	out := banner()
+	if !strings.Contains(out, "cmux") {
+		t.Error("cmux banner should contain 'cmux'")
+	}
+	if !strings.Contains(out, "resurrect") {
+		t.Error("cmux banner should contain 'resurrect'")
+	}
+}
+
+func TestBanner_Ghostty_NoCmux(t *testing.T) {
+	cachedBackend = client.BackendGhostty
+	defer func() { cachedBackend = client.Detect() }()
+
+	out := banner()
+	if strings.Contains(out, "cmux") {
+		t.Error("Ghostty banner should not contain 'cmux'")
+	}
+}
+
+func TestStyledHelp_Cmux_ShowsLegacyHint(t *testing.T) {
+	cachedBackend = client.BackendCmux
+	defer func() { cachedBackend = client.Detect() }()
+
+	out := styledHelp()
+	if !strings.Contains(out, "cmux-resurrect") {
+		t.Error("cmux help should show legacy name hint")
+	}
+}
+
+func TestStyledHelp_Ghostty_NoLegacyHint(t *testing.T) {
+	cachedBackend = client.BackendGhostty
+	defer func() { cachedBackend = client.Detect() }()
+
+	out := styledHelp()
+	if strings.Contains(out, "cmux-resurrect") {
+		t.Error("Ghostty help should not mention cmux-resurrect")
 	}
 }
