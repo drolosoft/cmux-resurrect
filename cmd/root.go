@@ -75,7 +75,15 @@ func initConfig() {
 }
 
 func newClient() client.Backend {
-	return client.NewCLIClient()
+	detected := client.Detect()
+	switch detected {
+	case client.BackendGhostty:
+		fmt.Fprintln(os.Stderr, "Ghostty backend not yet implemented")
+		os.Exit(1)
+		return nil
+	default:
+		return client.NewCLIClient()
+	}
 }
 
 func newStore() (persist.Store, error) {
