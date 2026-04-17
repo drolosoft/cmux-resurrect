@@ -16,6 +16,9 @@ watch_interval = "5m"
 
 # Max rotated autosave files
 max_autosaves = 10
+
+# Banner style: "flame", "classic", or "plain"
+banner_style = "flame"
 ```
 
 ## Defaults
@@ -25,6 +28,38 @@ max_autosaves = 10
 | 📄 Config file | `~/.config/crex/config.toml` |
 | 📁 Layouts dir | `~/.config/crex/layouts/` |
 | 📝 Workspace Blueprint | `~/.config/crex/workspaces.md` |
+| 🎨 Banner style | `flame` |
+
+## Banner Styles
+
+The `banner_style` setting controls how the startup banner looks when you run `crex` with no arguments.
+
+| Style | Description |
+|-------|-------------|
+| `flame` | Ember→gold→green gradient across the ASCII art (default) |
+| `classic` | Solid green — the traditional terminal look |
+| `plain` | Monochrome gray — minimal and quiet |
+
+Set it in `config.toml`:
+
+```toml
+banner_style = "plain"
+```
+
+Or override with the `CREX_BANNER` environment variable (takes precedence over the config file):
+
+```sh
+CREX_BANNER=classic crex
+```
+
+## Environment Variables
+
+| Variable | Purpose | Values |
+|----------|---------|--------|
+| `CREX_THEME` | Force dark or light palette | `dark`, `light` |
+| `CREX_BANNER` | Override banner style | `flame`, `classic`, `plain` |
+
+Both are useful when auto-detection fails (e.g. tmux blocking OSC queries) or for scripting.
 
 ## Override with Flags
 

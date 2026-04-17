@@ -15,3 +15,10 @@ watch_interval = "5m"
 
 # Maximum number of rotated autosave files to keep
 max_autosaves = 10
+
+# Banner style: "flame" (default), "classic", or "plain"
+#   flame   — ember→gold→green gradient on the startup banner
+#   classic — solid green, the traditional terminal look
+#   plain   — monochrome gray, minimal and quiet
+# Can also be set via CREX_BANNER env var (takes precedence over this).
+# banner_style = "flame"

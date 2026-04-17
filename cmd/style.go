@@ -7,14 +7,15 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// -- Color palette -----------------------------------------------------------
+// -- Adaptive color palette --------------------------------------------------
+// Colors resolve automatically based on terminal background (dark vs light).
 
 var (
-	colorGreen   = lipgloss.Color("#5FFF87")
-	colorDim     = lipgloss.Color("#6C6C6C")
-	colorCyan    = lipgloss.Color("#87D7FF")
-	colorYellow  = lipgloss.Color("#FFD787")
-	colorMagenta = lipgloss.Color("#D787FF")
+	colorGreen = lipgloss.AdaptiveColor{Dark: "#5FFF87", Light: "#1A8A3E"}
+	colorDim   = lipgloss.AdaptiveColor{Dark: "#8C8C8C", Light: "#6C6C6C"}
+	colorCyan  = lipgloss.AdaptiveColor{Dark: "#87D7FF", Light: "#0277BD"}
+	colorYellow = lipgloss.AdaptiveColor{Dark: "#FFD787", Light: "#B8860B"}
+	colorMagenta = lipgloss.AdaptiveColor{Dark: "#D787FF", Light: "#8B008B"}
 )
 
 // -- Shared styles -----------------------------------------------------------
@@ -38,13 +39,97 @@ var (
 	categoryStyle     = lipgloss.NewStyle().Bold(true).Foreground(colorYellow).MarginTop(1)
 )
 
+// -- Flame wing rendering ----------------------------------------------------
+
+// flameWing colors each visible character in a wing string using the given
+// gradient. For left wings the gradient flows left→right (ember→gold); for
+// right wings it flows right→left (gold→ember).
+func flameWing(s string, reverse bool, gradient []lipgloss.Color) string {
+	runes := []rune(s)
+
+	var visible []int
+	for i, ch := range runes {
+		if ch != ' ' {
+			visible = append(visible, i)
+		}
+	}
+	if len(visible) == 0 {
+		return s
+	}
+
+	var result strings.Builder
+	result.Grow(len(s) * 20)
+
+	visMap := make(map[int]int, len(visible))
+	for rank, idx := range visible {
+		visMap[idx] = rank
+	}
+
+	for i, ch := range runes {
+		if ch == ' ' {
+			result.WriteRune(' ')
+			continue
+		}
+		rank := visMap[i]
+		if reverse {
+			rank = len(visible) - 1 - rank
+		}
+		colorIdx := rank * (len(gradient) - 1) / max(len(visible)-1, 1)
+		style := lipgloss.NewStyle().Foreground(gradient[colorIdx])
+		result.WriteString(style.Render(string(ch)))
+	}
+	return result.String()
+}
+
+// flameLine applies the flame→green gradient across a full line of text.
+// Visible characters are colored left-to-right: ember → gold → green.
+// Used for the cmux-resurrect banner where there are no separate wings.
+func flameLine(s string, th theme) string {
+	runes := []rune(s)
+
+	// Build combined gradient: flame colors + the banner green at the end.
+	grad := make([]lipgloss.Color, len(th.flame)+1)
+	copy(grad, th.flame)
+	grad[len(grad)-1] = th.green
+
+	var visible []int
+	for i, ch := range runes {
+		if ch != ' ' {
+			visible = append(visible, i)
+		}
+	}
+	if len(visible) == 0 {
+		return s
+	}
+
+	var result strings.Builder
+	result.Grow(len(s) * 20)
+
+	visMap := make(map[int]int, len(visible))
+	for rank, idx := range visible {
+		visMap[idx] = rank
+	}
+
+	for i, ch := range runes {
+		if ch == ' ' {
+			result.WriteRune(' ')
+			continue
+		}
+		rank := visMap[i]
+		colorIdx := rank * (len(grad) - 1) / max(len(visible)-1, 1)
+		style := lipgloss.NewStyle().Foreground(grad[colorIdx]).Bold(true)
+		result.WriteString(style.Render(string(ch)))
+	}
+	return result.String()
+}
+
 // -- ASCII banner ------------------------------------------------------------
 
 func banner() string {
-	bannerStyle := lipgloss.NewStyle().Foreground(colorGreen).Bold(true)
-	wingStyle := lipgloss.NewStyle().Foreground(colorDim)
-	tagStyle := lipgloss.NewStyle().Foreground(colorDim).Italic(true)
-	verStyle := lipgloss.NewStyle().Foreground(colorDim)
+	th := detectTheme()
+	mode := resolveBannerMode()
+	greenStyle := lipgloss.NewStyle().Foreground(th.green).Bold(true)
+	plainStyle := lipgloss.NewStyle().Foreground(th.dim)
 
 	var b strings.Builder
 
@@ -57,7 +142,14 @@ func banner() string {
 			` \___|_| |_| |_|\__,_/_/\_\    |_|  \___||___/\__,_|_|  |_|  \___|\___|\__|`,
 		}
 		for _, line := range art {
-			b.WriteString(bannerStyle.Render(line))
+			switch mode {
+			case bannerPlain:
+				b.WriteString(plainStyle.Render(line))
+			case bannerClassic:
+				b.WriteString(greenStyle.Render(line))
+			default:
+				b.WriteString(flameLine(line, th))
+			}
 			b.WriteString("\n")
 		}
 	} else {
@@ -71,17 +163,53 @@ func banner() string {
 			{`       · · ────  `, ` \___|_|  \___/_/\_\`, `  ──── · ·       `},
 		}
 		for _, l := range lines {
-			b.WriteString(wingStyle.Render(l.left))
-			b.WriteString(bannerStyle.Render(l.text))
-			b.WriteString(wingStyle.Render(l.right))
+			switch mode {
+			case bannerPlain:
+				b.WriteString(plainStyle.Render(l.left))
+				b.WriteString(plainStyle.Render(l.text))
+				b.WriteString(plainStyle.Render(l.right))
+			case bannerClassic:
+				b.WriteString(greenStyle.Render(l.left))
+				b.WriteString(greenStyle.Render(l.text))
+				b.WriteString(greenStyle.Render(l.right))
+			default:
+				b.WriteString(flameWing(l.left, false, th.flame))
+				b.WriteString(greenStyle.Render(l.text))
+				b.WriteString(flameWing(l.right, true, th.flame))
+			}
 			b.WriteString("\n")
 		}
 	}
 
-	b.WriteString(tagStyle.Render("  " + appTagline()))
+	// Tagline with accented "resurrected."
+	b.WriteString(renderTagline(th, mode))
 	b.WriteString("\n")
-	b.WriteString(verStyle.Render(fmt.Sprintf("  %s (%s) built %s", Version, Commit, Date)))
+
+	// Version line — dimmer than tagline.
+	ver := fmt.Sprintf("  %s (%s) built %s", Version, Commit, Date)
+	b.WriteString(th.version.Render(ver))
 	b.WriteString("\n")
+	return b.String()
+}
+
+// renderTagline splits the tagline to accent "resurrected." in flame color.
+// In classic mode the accent is green; in plain mode there is no accent.
+func renderTagline(th theme, mode bannerMode) string {
+	tag := appTagline()
+	const keyword = "resurrected."
+	idx := strings.LastIndex(tag, keyword)
+	if idx == -1 || mode == bannerPlain {
+		return th.tagline.Render("  " + tag)
+	}
+	var b strings.Builder
+	b.WriteString(th.tagline.Render("  " + tag[:idx]))
+	switch mode {
+	case bannerClassic:
+		accent := lipgloss.NewStyle().Foreground(th.green).Italic(true).Bold(true)
+		b.WriteString(accent.Render(keyword))
+	default:
+		b.WriteString(th.accent.Render(keyword))
+	}
 	return b.String()
 }
 
