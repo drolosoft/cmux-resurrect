@@ -13,7 +13,7 @@ import (
 //
 // Limitations vs cmux backend:
 //   - PinWorkspace is a no-op (Ghostty has no pin concept)
-//   - SidebarState returns no git info (not exposed by Ghostty API)
+//   - SidebarState git info obtained via shell (not exposed by Ghostty API)
 //   - Tree enumeration is slower (no single JSON snapshot, must loop via AppleScript)
 //   - Split sizing cannot be controlled (always equal splits)
 //   - AppleScript API is preview — breaking changes expected in Ghostty 1.4
@@ -97,6 +97,13 @@ func parseTerminalIndex(ref string) (int, error) {
 		return idx + 1, nil
 	}
 	return idx, nil
+}
+
+// escapeAppleScript escapes backslashes and double quotes for safe AppleScript string interpolation.
+func escapeAppleScript(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `"`, `\"`)
+	return s
 }
 
 func (g *GhosttyClient) Tree() (*TreeResponse, error) {
@@ -278,7 +285,9 @@ func (g *GhosttyClient) SidebarState(workspaceRef string) (*SidebarState, error)
 }
 
 func (g *GhosttyClient) gitBranch(cwd string) (string, error) {
-	cmd := exec.Command("git", "-C", cwd, "rev-parse", "--abbrev-ref", "HEAD")
+	ctx, cancel := context.WithTimeout(context.Background(), g.Timeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "git", "-C", cwd, "rev-parse", "--abbrev-ref", "HEAD")
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err
@@ -287,7 +296,9 @@ func (g *GhosttyClient) gitBranch(cwd string) (string, error) {
 }
 
 func (g *GhosttyClient) gitDirty(cwd string) bool {
-	cmd := exec.Command("git", "-C", cwd, "status", "--porcelain")
+	ctx, cancel := context.WithTimeout(context.Background(), g.Timeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "git", "-C", cwd, "status", "--porcelain")
 	out, err := cmd.Output()
 	if err != nil {
 		return false
@@ -341,7 +352,7 @@ func (g *GhosttyClient) NewWorkspace(opts NewWorkspaceOpts) (string, error) {
 	if opts.CWD != "" {
 		_, err = g.runScriptLines(
 			`tell application "Ghostty"`,
-			fmt.Sprintf(`  set cfg to new surface configuration from {initial working directory:"%s"}`, opts.CWD),
+			fmt.Sprintf(`  set cfg to new surface configuration from {initial working directory:"%s"}`, escapeAppleScript(opts.CWD)),
 			`  new tab in front window with configuration cfg`,
 			`end tell`,
 		)
@@ -404,7 +415,7 @@ func (g *GhosttyClient) RenameWorkspace(ref, title string) error {
 	}
 	_, err = g.runScript(fmt.Sprintf(
 		`tell application "Ghostty" to perform action "set_tab_title:%s" on terminal 1 of tab %d of front window`,
-		title, tabIdx,
+		escapeAppleScript(title), tabIdx,
 	))
 	return err
 }
