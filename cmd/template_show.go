@@ -9,27 +9,72 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var tplShowAll bool
+
 var templateShowCmd = &cobra.Command{
 	Use:   "show <name>",
 	Short: "Show details of a gallery template",
-	Args:  cobra.ExactArgs(1),
+	Long:  "Preview a gallery template with its ASCII diagram and metadata.\nUse --all to display the full gallery at a glance.",
+	Args:  cobra.RangeArgs(0, 1),
 	RunE:  runTemplateShow,
 }
 
 func init() {
+	templateShowCmd.Flags().BoolVar(&tplShowAll, "all", false, "show all templates at once")
 	templateShowCmd.ValidArgsFunction = completeTemplateNames
 	templateCmd.AddCommand(templateShowCmd)
 }
 
 func runTemplateShow(cmd *cobra.Command, args []string) error {
-	name := args[0]
+	if tplShowAll {
+		return runTemplateShowAll(cmd)
+	}
+
+	if len(args) == 0 {
+		return fmt.Errorf("provide a template name, or use --all to show the full gallery")
+	}
+
+	return showSingleTemplate(cmd, args[0])
+}
+
+func showSingleTemplate(cmd *cobra.Command, name string) error {
 	tmpl, ok := gallery.Get(name)
 	if !ok {
 		return fmt.Errorf("template %q not found in gallery", name)
 	}
 
 	w := cmd.OutOrStderr()
+	renderTemplateCard(w, tmpl)
+	return nil
+}
 
+func runTemplateShowAll(cmd *cobra.Command) error {
+	w := cmd.OutOrStderr()
+
+	layouts := gallery.ListByCategory("layout")
+	workflows := gallery.ListByCategory("workflow")
+
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, categoryStyle.Render("  Layouts"))
+
+	for _, tmpl := range layouts {
+		renderTemplateCard(w, tmpl)
+	}
+
+	fmt.Fprintln(w, categoryStyle.Render("  Workflows"))
+
+	for _, tmpl := range workflows {
+		renderTemplateCard(w, tmpl)
+	}
+
+	total := len(layouts) + len(workflows)
+	fmt.Fprintln(w, dimStyle.Render(fmt.Sprintf("  %d templates (%d layouts, %d workflows)", total, len(layouts), len(workflows))))
+	fmt.Fprintln(w)
+	return nil
+}
+
+// renderTemplateCard renders a full template preview (header + diagram + metadata).
+func renderTemplateCard(w interface{ Write([]byte) (int, error) }, tmpl *model.Template) {
 	// Header: icon + name + description.
 	fmt.Fprintf(w, "\n  %s %s — %s\n\n",
 		tmpl.Icon,
@@ -58,7 +103,6 @@ func runTemplateShow(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Fprintln(w)
-	return nil
 }
 
 // buildSplitSequence returns a human-readable split sequence like "main → right → down".

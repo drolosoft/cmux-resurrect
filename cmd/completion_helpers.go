@@ -49,6 +49,22 @@ func completeTemplateNames(cmd *cobra.Command, args []string, toComplete string)
 	return names, cobra.ShellCompDirectiveNoFileComp
 }
 
+// completeTemplateTags provides dynamic completion of gallery template tags.
+// Used by: template list --tag.
+func completeTemplateTags(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	seen := make(map[string]bool)
+	var tags []string
+	for _, tmpl := range gallery.List() {
+		for _, tag := range tmpl.Tags {
+			if !seen[tag] {
+				seen[tag] = true
+				tags = append(tags, tag)
+			}
+		}
+	}
+	return tags, cobra.ShellCompDirectiveNoFileComp
+}
+
 // completeWorkspaceNames provides dynamic completion of project names
 // from the Workspace Blueprint.
 // Used by: ws remove, ws toggle.

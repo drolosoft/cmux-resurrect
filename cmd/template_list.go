@@ -27,6 +27,7 @@ func init() {
 	templateListCmd.Flags().BoolVar(&tplListLayout, "layout", false, "show only layout templates")
 	templateListCmd.Flags().BoolVar(&tplListWorkflow, "workflow", false, "show only workflow templates")
 	templateListCmd.Flags().StringVar(&tplListTag, "tag", "", "filter templates by tag")
+	_ = templateListCmd.RegisterFlagCompletionFunc("tag", completeTemplateTags)
 	templateCmd.AddCommand(templateListCmd)
 }
 

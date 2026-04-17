@@ -26,6 +26,7 @@ func executeTemplateCmd(t *testing.T, args ...string) string {
 	tplListLayout = false
 	tplListWorkflow = false
 	tplListTag = ""
+	tplShowAll = false
 	tplUseName = ""
 	tplUseIcon = ""
 	tplUseDryRun = false
@@ -150,6 +151,7 @@ func executeTemplateCmdErr(t *testing.T, args ...string) (string, error) {
 	tplListLayout = false
 	tplListWorkflow = false
 	tplListTag = ""
+	tplShowAll = false
 	tplUseName = ""
 	tplUseIcon = ""
 	tplUseDryRun = false
@@ -448,6 +450,84 @@ func TestTemplateCustomize_AlreadyExists(t *testing.T) {
 		t.Errorf("expected 'already exists' in error, got: %v", err)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// template show --all tests
+// ---------------------------------------------------------------------------
+
+func TestTemplateShow_All(t *testing.T) {
+	output := executeTemplateCmd(t, "template", "show", "--all")
+
+	// Must contain both category headers.
+	if !strings.Contains(output, "Layouts") {
+		t.Error("--all output missing 'Layouts' header")
+	}
+	if !strings.Contains(output, "Workflows") {
+		t.Error("--all output missing 'Workflows' header")
+	}
+
+	// Must contain diagrams (box-drawing chars) for multiple templates.
+	count := strings.Count(output, "┌")
+	if count < 10 {
+		t.Errorf("expected at least 10 diagrams (one per template), got %d", count)
+	}
+
+	// Must contain all template names.
+	for _, name := range []string{"cols", "rows", "sidebar", "quad", "ide", "claude", "code", "single"} {
+		if !strings.Contains(output, name) {
+			t.Errorf("--all output missing template name %q", name)
+		}
+	}
+
+	// Summary line.
+	if !strings.Contains(output, "16 templates") {
+		t.Errorf("--all output missing '16 templates' summary; output:\n%s", output)
+	}
+}
+
+func TestTemplateShow_NoArgsNoFlag(t *testing.T) {
+	_, err := executeTemplateCmdErr(t, "template", "show")
+	if err == nil {
+		t.Error("expected error for 'show' with no args and no --all")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// template (bare command) styled help tests
+// ---------------------------------------------------------------------------
+
+func TestTemplateBareCommand_ShowsStyledHelp(t *testing.T) {
+	output := executeTemplateCmd(t, "template")
+
+	// Must show the gallery header.
+	if !strings.Contains(output, "Template Gallery") {
+		t.Error("bare 'template' output missing 'Template Gallery' header")
+	}
+
+	// Must list subcommands.
+	for _, sub := range []string{"list", "show", "use", "customize"} {
+		if !strings.Contains(output, sub) {
+			t.Errorf("bare 'template' output missing subcommand %q", sub)
+		}
+	}
+
+	// Must show template names (gallery preview).
+	if !strings.Contains(output, "cols") {
+		t.Error("bare 'template' output missing template name 'cols'")
+	}
+	if !strings.Contains(output, "claude") {
+		t.Error("bare 'template' output missing template name 'claude'")
+	}
+
+	// Must show examples section.
+	if !strings.Contains(output, "Examples") {
+		t.Error("bare 'template' output missing 'Examples' section")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// template customize tests (continued)
+// ---------------------------------------------------------------------------
 
 func TestTemplateCustomize_StripsFocusTarget(t *testing.T) {
 	_, wsFile := setupTestConfig(t)
