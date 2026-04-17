@@ -19,8 +19,8 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:   "crex",
-	Short: "Resurrect your cmux sessions",
-	Long:  "cmux-resurrect (crex) saves/restores cmux layouts and manages workspaces from a Workspace Blueprint.",
+	Short: "Save, restore, and template your terminal workspaces",
+	Long:  "crex (cmux-resurrect) saves, restores, and templates your terminal workspaces.\nWorks with cmux and Ghostty. Inspired by tmux-resurrect.",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Print(banner())
 		fmt.Print(styledHelp())
