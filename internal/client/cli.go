@@ -200,6 +200,8 @@ func (c *CLIClient) FocusPane(paneRef, workspaceRef string) error {
 	return err
 }
 
+func (c *CLIClient) DryRunFormatter() DryRunFormatter { return CmuxDryRun{} }
+
 func (c *CLIClient) Send(workspaceRef, surfaceRef, text string) error {
 	args := []string{"send"}
 	if workspaceRef != "" {

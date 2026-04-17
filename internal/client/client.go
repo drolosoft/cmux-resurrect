@@ -38,4 +38,7 @@ type Backend interface {
 
 	// CloseWorkspace closes a workspace.
 	CloseWorkspace(ref string) error
+
+	// DryRunFormatter returns a formatter for generating dry-run command output.
+	DryRunFormatter() DryRunFormatter
 }

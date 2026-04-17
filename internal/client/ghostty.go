@@ -540,6 +540,8 @@ func (g *GhosttyClient) Send(workspaceRef, surfaceRef, text string) error {
 	return nil
 }
 
+func (g *GhosttyClient) DryRunFormatter() DryRunFormatter { return GhosttyDryRun{} }
+
 func (g *GhosttyClient) CloseWorkspace(ref string) error {
 	tabIdx, err := parseTabIndex(ref)
 	if err != nil {

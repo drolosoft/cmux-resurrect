@@ -82,7 +82,7 @@ func runTemplateUse(cmd *cobra.Command, args []string) error {
 	cl := newClient()
 	if !tplUseDryRun {
 		if err := cl.Ping(); err != nil {
-			return fmt.Errorf("cmux not reachable: %w", err)
+			return fmt.Errorf("backend not reachable: %w", err)
 		}
 	}
 

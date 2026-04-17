@@ -25,7 +25,7 @@ func (s *Saver) Save(name, description string) (*model.Layout, error) {
 	}
 
 	if len(tree.Windows) == 0 {
-		return nil, fmt.Errorf("no windows found in cmux")
+		return nil, fmt.Errorf("no windows found")
 	}
 
 	// Use the first (typically only) window.

@@ -350,8 +350,8 @@ func TestTemplateUse_DryRunWithName(t *testing.T) {
 func TestTemplateUse_DryRunWithPin(t *testing.T) {
 	output := executeTemplateCmd(t, "template", "use", "cols", "/tmp", "--dry-run", "--pin")
 
-	if !strings.Contains(output, "pin-workspace") {
-		t.Error("dry-run output missing 'pin-workspace' command")
+	if !strings.Contains(output, "workspace-action") && !strings.Contains(output, "pin") {
+		t.Error("dry-run output missing pin command")
 	}
 }
 

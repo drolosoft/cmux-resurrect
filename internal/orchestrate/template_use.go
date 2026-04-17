@@ -57,40 +57,35 @@ func (tu *TemplateUser) Use(panes []model.Pane, opts TemplateUseOpts, dryRun boo
 
 func (tu *TemplateUser) dryRun(panes []model.Pane, opts TemplateUseOpts, title string, result *TemplateUseResult) (*TemplateUseResult, error) {
 	ref := "workspace:new"
+	f := tu.Client.DryRunFormatter()
 
-	result.Commands = append(result.Commands,
-		fmt.Sprintf("cmux new-workspace --cwd %q", opts.CWD))
+	result.Commands = append(result.Commands, f.FmtNewWorkspace(opts.CWD))
 
 	for i, pane := range panes {
 		if i == 0 {
 			if pane.Command != "" {
-				result.Commands = append(result.Commands,
-					fmt.Sprintf("cmux send --workspace %s %q", ref, pane.Command))
+				result.Commands = append(result.Commands, f.FmtSend(ref, pane.Command))
 			}
 			continue
 		}
 		if pane.FocusTarget >= 0 {
 			result.Commands = append(result.Commands,
-				fmt.Sprintf("cmux focus-pane --pane pane:%d --workspace %s", pane.FocusTarget, ref))
+				f.FmtFocusPane(fmt.Sprintf("pane:%d", pane.FocusTarget), ref))
 		}
 		direction := pane.Split
 		if direction == "" {
 			direction = "right"
 		}
-		result.Commands = append(result.Commands,
-			fmt.Sprintf("cmux new-split %s --workspace %s", direction, ref))
+		result.Commands = append(result.Commands, f.FmtNewSplit(direction, ref))
 		if pane.Command != "" {
-			result.Commands = append(result.Commands,
-				fmt.Sprintf("cmux send --workspace %s %q", ref, pane.Command))
+			result.Commands = append(result.Commands, f.FmtSend(ref, pane.Command))
 		}
 	}
 
-	result.Commands = append(result.Commands,
-		fmt.Sprintf("cmux rename-workspace --workspace %s %q", ref, title))
+	result.Commands = append(result.Commands, f.FmtRenameWorkspace(ref, title))
 
 	if opts.Pin {
-		result.Commands = append(result.Commands,
-			fmt.Sprintf("cmux pin-workspace --workspace %s", ref))
+		result.Commands = append(result.Commands, f.FmtPinWorkspace(ref))
 	}
 
 	return result, nil

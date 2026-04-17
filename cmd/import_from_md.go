@@ -33,7 +33,7 @@ func runImportFromMD(cmd *cobra.Command, args []string) error {
 	}
 
 	if err := cl.Ping(); err != nil && !importDryRun {
-		return fmt.Errorf("cmux not reachable: %w", err)
+		return fmt.Errorf("backend not reachable: %w", err)
 	}
 
 	enabled := wf.EnabledProjects()
