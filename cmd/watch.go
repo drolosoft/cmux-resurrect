@@ -14,7 +14,7 @@ var watchInterval string
 var watchCmd = &cobra.Command{
 	Use:   "watch [name]",
 	Short: "Auto-save layout periodically",
-	Long:  "Watches the cmux state and saves it periodically. Deduplicates via content hash.",
+	Long:  "Watches terminal state and saves it periodically. Deduplicates via content hash.",
 	Args:  cobra.MaximumNArgs(1),
 	RunE:  runWatch,
 }
@@ -57,7 +57,7 @@ func runWatch(cmd *cobra.Command, args []string) error {
 		WorkspaceFile: cfg.WorkspaceFile,
 	}
 
-	fmt.Fprintf(os.Stderr, "Watching cmux state, saving as %q every %s\n", name, interval)
+	fmt.Fprintf(os.Stderr, "Watching terminal state, saving as %q every %s\n", name, interval)
 	fmt.Fprintf(os.Stderr, "Press Ctrl+C to stop\n")
 
 	return watcher.Run()

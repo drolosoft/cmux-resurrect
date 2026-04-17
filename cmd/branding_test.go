@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/drolosoft/cmux-resurrect/internal/client"
+	"github.com/spf13/cobra"
 )
 
 func TestAppTitle_Cmux(t *testing.T) {
@@ -111,6 +112,22 @@ func TestStyledHelp_Ghostty_NoLegacyHint(t *testing.T) {
 	out := styledHelp()
 	if strings.Contains(out, "cmux-resurrect") {
 		t.Error("Ghostty help should not mention cmux-resurrect")
+	}
+}
+
+func TestSubcommandDescriptions_NoCmuxMention(t *testing.T) {
+	cmds := []*cobra.Command{
+		saveCmd, restoreCmd, watchCmd,
+		exportToMDCmd, importFromMDCmd, templateUseCmd,
+	}
+
+	for _, c := range cmds {
+		if strings.Contains(strings.ToLower(c.Short), "cmux") {
+			t.Errorf("%s Short contains 'cmux': %q", c.Name(), c.Short)
+		}
+		if strings.Contains(strings.ToLower(c.Long), "cmux") {
+			t.Errorf("%s Long contains 'cmux': %q", c.Name(), c.Long)
+		}
 	}
 }
 

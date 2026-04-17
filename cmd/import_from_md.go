@@ -13,8 +13,8 @@ var importDryRun bool
 
 var importFromMDCmd = &cobra.Command{
 	Use:   "import-from-md",
-	Short: "Create cmux workspaces from a Workspace Blueprint",
-	Long:  "Reads a Workspace Blueprint (.md), resolves templates, and creates any workspaces that don't already exist in cmux.",
+	Short: "Create workspaces from a Workspace Blueprint",
+	Long:  "Reads a Workspace Blueprint (.md), resolves templates, and creates any workspaces that don't already exist.",
 	RunE:  runImportFromMD,
 }
 

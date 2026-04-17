@@ -11,8 +11,8 @@ import (
 
 var exportToMDCmd = &cobra.Command{
 	Use:   "export-to-md",
-	Short: "Export live cmux state to a Workspace Blueprint",
-	Long:  "Captures current cmux workspaces and writes them to a Workspace Blueprint (.md) with default templates.",
+	Short: "Export live state to a Workspace Blueprint",
+	Long:  "Captures current workspaces and writes them to a Workspace Blueprint (.md) with default templates.",
 	RunE:  runExportToMD,
 }
 
