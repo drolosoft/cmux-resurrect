@@ -12,8 +12,8 @@ var saveDescription string
 
 var saveCmd = &cobra.Command{
 	Use:   "save [name]",
-	Short: "Save current cmux layout",
-	Long:  "Captures all workspaces, splits, CWDs, and pinned state from the running cmux instance.",
+	Short: "Save current layout",
+	Long:  "Captures all workspaces, splits, CWDs, and pinned state from the running terminal.",
 	Args:  cobra.MaximumNArgs(1),
 	RunE:  runSave,
 }

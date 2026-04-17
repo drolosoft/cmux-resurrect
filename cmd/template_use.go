@@ -21,8 +21,8 @@ var (
 
 var templateUseCmd = &cobra.Command{
 	Use:   "use <template> [path]",
-	Short: "Create a cmux workspace from a gallery template",
-	Long:  "Creates a new cmux workspace using a gallery template's layout and commands.\n\nThe first argument is the template name (e.g., cols, claude, ide).\nThe optional second argument is the working directory (defaults to \".\").",
+	Short: "Create a workspace from a gallery template",
+	Long:  "Creates a new workspace using a gallery template's layout and commands.\n\nThe first argument is the template name (e.g., cols, claude, ide).\nThe optional second argument is the working directory (defaults to \".\").",
 	Args:  cobra.RangeArgs(1, 2),
 	RunE:  runTemplateUse,
 }
@@ -82,7 +82,7 @@ func runTemplateUse(cmd *cobra.Command, args []string) error {
 	cl := newClient()
 	if !tplUseDryRun {
 		if err := cl.Ping(); err != nil {
-			return fmt.Errorf("cmux not reachable: %w", err)
+			return fmt.Errorf("backend not reachable: %w", err)
 		}
 	}
 

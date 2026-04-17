@@ -1,5 +1,7 @@
 # 🏗️ Architecture — cmux-resurrect
 
+crex supports multiple terminal backends through the `Backend` interface in `internal/client/`.
+
 > Internal documentation for contributors and anyone wanting to understand or extend the project.
 
 ## How It Works
@@ -59,7 +61,7 @@ The reverse of import: captures live state and writes it to the Workspace Bluepr
 ```
 cmd/                    → Cobra CLI commands
 internal/
-  client/               → CmuxClient interface + CLI implementation
+  client/               → Backend interface + CLIClient (cmux) + GhosttyClient (Ghostty)
   config/               → TOML config loading, default paths
   gallery/              → Built-in template gallery (embedded .md files)
   model/                → Layout, Workspace, Pane structs + merge logic

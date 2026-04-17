@@ -58,7 +58,7 @@ brews:
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     name: cmux-resurrect
     homepage: "https://github.com/drolosoft/cmux-resurrect"
-    description: "Session persistence for cmux — save, restore, and manage your terminal workspaces"
+    description: "Terminal workspace manager — save, restore, and template your workspaces"
     license: "MIT"
     install: |
       bin.install "crex"

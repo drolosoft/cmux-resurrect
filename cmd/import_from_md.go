@@ -13,8 +13,8 @@ var importDryRun bool
 
 var importFromMDCmd = &cobra.Command{
 	Use:   "import-from-md",
-	Short: "Create cmux workspaces from a Workspace Blueprint",
-	Long:  "Reads a Workspace Blueprint (.md), resolves templates, and creates any workspaces that don't already exist in cmux.",
+	Short: "Create workspaces from a Workspace Blueprint",
+	Long:  "Reads a Workspace Blueprint (.md), resolves templates, and creates any workspaces that don't already exist.",
 	RunE:  runImportFromMD,
 }
 
@@ -33,7 +33,7 @@ func runImportFromMD(cmd *cobra.Command, args []string) error {
 	}
 
 	if err := cl.Ping(); err != nil && !importDryRun {
-		return fmt.Errorf("cmux not reachable: %w", err)
+		return fmt.Errorf("backend not reachable: %w", err)
 	}
 
 	enabled := wf.EnabledProjects()

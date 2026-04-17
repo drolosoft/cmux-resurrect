@@ -291,16 +291,16 @@ func TestTemplateShow_FocusedPaneMarked(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestTemplateUse_DryRun(t *testing.T) {
-	// Run "template use cols /tmp --dry-run"
-	// Should succeed (dry-run doesn't need cmux)
+	// Force cmux backend so dry-run output is deterministic regardless of host terminal.
+	t.Setenv("CMUX_SOCKET_PATH", "/tmp/fake.sock")
+
 	output := executeTemplateCmd(t, "template", "use", "cols", "/tmp", "--dry-run")
 
-	// Output should contain cmux commands.
 	if !strings.Contains(output, "new-workspace") {
-		t.Error("dry-run output missing 'new-workspace'")
+		t.Error("dry-run output missing workspace creation command")
 	}
 	if !strings.Contains(output, "rename-workspace") {
-		t.Error("dry-run output missing 'rename-workspace'")
+		t.Error("dry-run output missing rename command")
 	}
 }
 
@@ -315,31 +315,34 @@ func TestTemplateUse_NonExistentTemplate(t *testing.T) {
 }
 
 func TestTemplateUse_DryRunShowsCommands(t *testing.T) {
-	// Run "template use claude /tmp/test --dry-run"
+	t.Setenv("CMUX_SOCKET_PATH", "/tmp/fake.sock")
+
 	output := executeTemplateCmd(t, "template", "use", "claude", "/tmp/test", "--dry-run")
 
-	// Output should contain cmux commands for a 3-pane template.
 	if !strings.Contains(output, "new-workspace") {
-		t.Error("dry-run output missing 'new-workspace'")
+		t.Error("dry-run output missing workspace creation command")
 	}
 	if !strings.Contains(output, "new-split") {
-		t.Error("dry-run output missing 'new-split'")
+		t.Error("dry-run output missing split command")
 	}
 	if !strings.Contains(output, "rename-workspace") {
-		t.Error("dry-run output missing 'rename-workspace'")
+		t.Error("dry-run output missing rename command")
 	}
 }
 
 func TestTemplateUse_DryRunDefaultCWD(t *testing.T) {
-	// When no path argument is given, CWD defaults to "." (resolved to absolute).
+	t.Setenv("CMUX_SOCKET_PATH", "/tmp/fake.sock")
+
 	output := executeTemplateCmd(t, "template", "use", "cols", "--dry-run")
 
 	if !strings.Contains(output, "new-workspace") {
-		t.Error("dry-run output missing 'new-workspace'")
+		t.Error("dry-run output missing workspace creation command")
 	}
 }
 
 func TestTemplateUse_DryRunWithName(t *testing.T) {
+	t.Setenv("CMUX_SOCKET_PATH", "/tmp/fake.sock")
+
 	output := executeTemplateCmd(t, "template", "use", "cols", "/tmp", "--dry-run", "--name", "my-ws")
 
 	if !strings.Contains(output, "my-ws") {
@@ -348,19 +351,22 @@ func TestTemplateUse_DryRunWithName(t *testing.T) {
 }
 
 func TestTemplateUse_DryRunWithPin(t *testing.T) {
+	t.Setenv("CMUX_SOCKET_PATH", "/tmp/fake.sock")
+
 	output := executeTemplateCmd(t, "template", "use", "cols", "/tmp", "--dry-run", "--pin")
 
-	if !strings.Contains(output, "pin-workspace") {
-		t.Error("dry-run output missing 'pin-workspace' command")
+	if !strings.Contains(output, "workspace-action") {
+		t.Error("dry-run output missing pin command")
 	}
 }
 
 func TestTemplateUse_TplAlias(t *testing.T) {
-	// The tpl alias should also work for use subcommand.
+	t.Setenv("CMUX_SOCKET_PATH", "/tmp/fake.sock")
+
 	output := executeTemplateCmd(t, "tpl", "use", "cols", "/tmp", "--dry-run")
 
 	if !strings.Contains(output, "new-workspace") {
-		t.Error("tpl alias: dry-run output missing 'new-workspace'")
+		t.Error("tpl alias: dry-run output missing workspace creation command")
 	}
 }
 

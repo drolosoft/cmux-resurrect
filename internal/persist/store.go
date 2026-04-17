@@ -82,7 +82,7 @@ func (s *FileStore) Save(name string, layout *model.Layout) error {
 	}
 
 	// Add a header comment
-	header := fmt.Sprintf("# cmux-resurrect layout: %s\n# Saved at: %s\n\n",
+	header := fmt.Sprintf("# crex layout: %s\n# Saved at: %s\n\n",
 		name, layout.SavedAt.Format("2006-01-02T15:04:05Z07:00"))
 	content := header + string(data)
 

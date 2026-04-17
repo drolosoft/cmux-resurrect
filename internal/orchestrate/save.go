@@ -13,7 +13,7 @@ import (
 
 // Saver captures the current cmux state and persists it.
 type Saver struct {
-	Client client.CmuxClient
+	Client client.Backend
 	Store  persist.Store
 }
 
@@ -25,7 +25,7 @@ func (s *Saver) Save(name, description string) (*model.Layout, error) {
 	}
 
 	if len(tree.Windows) == 0 {
-		return nil, fmt.Errorf("no windows found in cmux")
+		return nil, fmt.Errorf("no windows found")
 	}
 
 	// Use the first (typically only) window.

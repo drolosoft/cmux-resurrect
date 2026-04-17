@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// CLIClient implements CmuxClient by exec'ing the cmux binary.
+// CLIClient implements Backend by exec'ing the cmux binary.
 type CLIClient struct {
 	Binary  string
 	Timeout time.Duration
@@ -199,6 +199,8 @@ func (c *CLIClient) FocusPane(paneRef, workspaceRef string) error {
 	_, err := c.run(args...)
 	return err
 }
+
+func (c *CLIClient) DryRunFormatter() DryRunFormatter { return CmuxDryRun{} }
 
 func (c *CLIClient) Send(workspaceRef, surfaceRef, text string) error {
 	args := []string{"send"}

@@ -1,6 +1,6 @@
 <p align="center"><img src="assets/logo.png" alt="crex logo" width="120"></p>
 
-<h1 align="center">cmux-resurrect</h1>
+<h1 align="center">crex <sup><sub>(cmux-resurrect)</sub></sup></h1>
 
 <p align="center">
   <a href="https://github.com/drolosoft/cmux-resurrect/actions/workflows/ci.yml"><img src="https://github.com/drolosoft/cmux-resurrect/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
@@ -13,13 +13,11 @@
   <a href="https://github.com/manaflow-ai/cmux"><img src="https://img.shields.io/badge/cmux-ecosystem-blueviolet.svg" alt="cmux"></a>
 </p>
 
-> **Session persistence for [cmux](https://github.com/manaflow-ai/cmux) — your terminal workspaces, resurrected.**
+> **Save, restore, and template your terminal workspaces — for [cmux](https://github.com/manaflow-ai/cmux) and [Ghostty](https://ghostty.org/).**
 
-[cmux](https://github.com/manaflow-ai/cmux) is a popular terminal multiplexer in the Ghostty ecosystem (14K+ stars). It handles session restoration well most of the time, but crashes, forced updates, and unexpected reboots can still wipe your workspace. **crex** (short for cmux-resurrect) is a safety net for those moments.
+Inspired by [tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect) (12.7K stars), **crex** (short for cmux-resurrect) was born to do for [cmux](https://github.com/manaflow-ai/cmux) what tmux-resurrect does for tmux — and then went further. With **Workspace Blueprints**, a **template gallery**, and now **multi-backend support**, crex saves your entire layout and brings it back: workspaces, splits, CWDs, pinned state, startup commands, everything.
 
-⚡️ One command saves your entire cmux layout. One command brings it back — workspaces, splits, CWDs, pinned state, startup commands, everything.
-
-Inspired by [tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect) (12.7K stars) — crex does for cmux what tmux-resurrect does for tmux, and takes it further with **Workspace Blueprints**: define your ideal terminal setup in a Markdown file (Obsidian-compatible), version it, share it with your team, and let crex build it for you.
+crex takes its name from the corncrake (*Crex crex*) — a migratory bird that returns to the same ground year after year. A phoenix of the grasslands. Much like your terminal workspaces, resurrected.
 
 <p align="center"><img src="assets/demo.gif" alt="crex demo" width="800"></p>
 
@@ -33,7 +31,7 @@ Inspired by [tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect) (12
 brew install drolosoft/tap/cmux-resurrect
 ```
 
-Both `crex` and `cmux-resurrect` are ready to use, with shell completions installed automatically. No Go toolchain required. macOS only (cmux is a macOS terminal).
+Both `crex` and `cmux-resurrect` are ready to use, with shell completions installed automatically. No Go toolchain required. macOS only (both cmux and Ghostty's AppleScript API are macOS-native).
 
 ### Install with `go install`
 
@@ -133,11 +131,28 @@ crex template customize claude        # fork to your Blueprint
 
 See [docs/templates.md](docs/templates.md) for the full gallery with diagrams.
 
+## Supported Backends
+
+| Backend | Status | Detection |
+|---------|--------|-----------|
+| [cmux](https://github.com/manaflow-ai/cmux) | Full support (original backend) | Auto-detected via `CMUX_SOCKET_PATH` |
+| [Ghostty](https://ghostty.org/) | Full support (v1.3+ macOS) | Auto-detected when Ghostty is running |
+
+crex auto-detects your terminal backend — no flags needed. Just run your commands and crex figures out the rest:
+
+```sh
+crex save my-day        # works in cmux or Ghostty
+crex restore my-day     # recreates layout in whichever backend you're in
+crex template use dev   # same templates, any backend
+```
+
+All features — save, restore, import, export, templates, Blueprints — work identically across backends. The template gallery is 100% backend-agnostic.
+
 ---
 
 ## ✨ Why crex?
 
-[tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect) proved that session persistence is essential for any serious terminal multiplexer workflow. Every multiplexer eventually gets one — crex is that tool for cmux.
+[tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect) proved that session persistence is essential for any serious terminal multiplexer workflow. Every multiplexer eventually gets one — crex started as that tool for cmux, and now brings the same power to Ghostty.
 
 | | tmux-resurrect | crex |
 |:---:|---|---|

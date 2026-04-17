@@ -22,7 +22,7 @@ const (
 
 // Restorer recreates a saved layout in cmux.
 type Restorer struct {
-	Client     client.CmuxClient
+	Client     client.Backend
 	Store      persist.Store
 	OnProgress func(title string, panes int, err error) // called after each workspace
 }
@@ -47,7 +47,7 @@ func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode) (*Restore
 
 	if !dryRun {
 		if err := r.Client.Ping(); err != nil {
-			return nil, fmt.Errorf("cmux not reachable: %w", err)
+			return nil, fmt.Errorf("backend not reachable: %w", err)
 		}
 	}
 
@@ -151,7 +151,7 @@ func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode) (*Restore
 			result.Errors = append(result.Errors, fmt.Sprintf("select caller workspace: %v", err))
 		}
 	} else if dryRun {
-		result.Commands = append(result.Commands, "cmux select-workspace --workspace <caller>")
+		result.Commands = append(result.Commands, r.Client.DryRunFormatter().FmtSelectWorkspace("<caller>"))
 	}
 
 	return result, nil
@@ -248,39 +248,31 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 
 func (r *Restorer) dryRunWorkspace(ws model.Workspace, result *RestoreResult) (string, error) {
 	ref := fmt.Sprintf("workspace:new_%d", ws.Index)
+	f := r.Client.DryRunFormatter()
 
-	// Blank line separator between workspace groups.
 	result.Commands = append(result.Commands, "")
-	// Workspace header comment.
-	result.Commands = append(result.Commands,
-		fmt.Sprintf("# %s", ws.Title))
-
-	result.Commands = append(result.Commands,
-		fmt.Sprintf("cmux new-workspace --cwd %q", ws.CWD))
-	result.Commands = append(result.Commands,
-		fmt.Sprintf("cmux rename-workspace --workspace %s %q", ref, ws.Title))
+	result.Commands = append(result.Commands, fmt.Sprintf("# %s", ws.Title))
+	result.Commands = append(result.Commands, f.FmtNewWorkspace(ws.CWD))
+	result.Commands = append(result.Commands, f.FmtRenameWorkspace(ref, ws.Title))
 
 	for i, pane := range ws.Panes {
 		if i == 0 {
 			if pane.Command != "" {
-				result.Commands = append(result.Commands,
-					fmt.Sprintf("cmux send --workspace %s %q", ref, pane.Command))
+				result.Commands = append(result.Commands, f.FmtSend(ref, pane.Command))
 			}
 			continue
 		}
 		if pane.FocusTarget >= 0 {
 			result.Commands = append(result.Commands,
-				fmt.Sprintf("cmux focus-pane --pane pane:%d --workspace %s", pane.FocusTarget, ref))
+				f.FmtFocusPane(fmt.Sprintf("pane:%d", pane.FocusTarget), ref))
 		}
 		direction := pane.Split
 		if direction == "" {
 			direction = "right"
 		}
-		result.Commands = append(result.Commands,
-			fmt.Sprintf("cmux new-split %s --workspace %s", direction, ref))
+		result.Commands = append(result.Commands, f.FmtNewSplit(direction, ref))
 		if pane.Command != "" {
-			result.Commands = append(result.Commands,
-				fmt.Sprintf("cmux send --workspace %s %q", ref, pane.Command))
+			result.Commands = append(result.Commands, f.FmtSend(ref, pane.Command))
 		}
 	}
 

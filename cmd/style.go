@@ -41,24 +41,44 @@ var (
 // -- ASCII banner ------------------------------------------------------------
 
 func banner() string {
-	art := []string{
-		`                                                                        _   `,
-		`  ___ _ __ ___  _   ___  __     _ __ ___  ___ _   _ _ __ _ __ ___  ___| |_ `,
-		` / __| '_ ` + "`" + ` _ \| | | \ \/ /____| '__/ _ \/ __| | | | '__| '__/ _ \/ __| __|`,
-		`| (__| | | | | | |_| |>  <_____| | |  __/\__ \ |_| | |  | | |  __/ (__| |_ `,
-		` \___|_| |_| |_|\__,_/_/\_\    |_|  \___||___/\__,_|_|  |_|  \___|\___|\__|`,
-	}
-
 	bannerStyle := lipgloss.NewStyle().Foreground(colorGreen).Bold(true)
+	wingStyle := lipgloss.NewStyle().Foreground(colorDim)
 	tagStyle := lipgloss.NewStyle().Foreground(colorDim).Italic(true)
 	verStyle := lipgloss.NewStyle().Foreground(colorDim)
 
 	var b strings.Builder
-	for _, line := range art {
-		b.WriteString(bannerStyle.Render(line))
-		b.WriteString("\n")
+
+	if isCmuxBranding() {
+		art := []string{
+			`                                                                        _   `,
+			`  ___ _ __ ___  _   ___  __     _ __ ___  ___ _   _ _ __ _ __ ___  ___| |_ `,
+			` / __| '_ ` + "`" + ` _ \| | | \ \/ /____| '__/ _ \/ __| | | | '__| '__/ _ \/ __| __|`,
+			`| (__| | | | | | |_| |>  <_____| | |  __/\__ \ |_| | |  | | |  __/ (__| |_ `,
+			` \___|_| |_| |_|\__,_/_/\_\    |_|  \___||___/\__,_|_|  |_|  \___|\___|\__|`,
+		}
+		for _, line := range art {
+			b.WriteString(bannerStyle.Render(line))
+			b.WriteString("\n")
+		}
+	} else {
+		type wingedLine struct {
+			left, text, right string
+		}
+		lines := []wingedLine{
+			{`·  · · ────────  `, `  ___ _ __ _____  __`, `  ──────── · ·  ·`},
+			{`   · · ────────  `, ` / __| '__/ _ \ \/ /`, `  ──────── · ·   `},
+			{`     · · ──────  `, `| (__| | |  __/>  < `, `  ────── · ·     `},
+			{`       · · ────  `, ` \___|_|  \___/_/\_\`, `  ──── · ·       `},
+		}
+		for _, l := range lines {
+			b.WriteString(wingStyle.Render(l.left))
+			b.WriteString(bannerStyle.Render(l.text))
+			b.WriteString(wingStyle.Render(l.right))
+			b.WriteString("\n")
+		}
 	}
-	b.WriteString(tagStyle.Render("  Session persistence for cmux — your terminal workspaces, resurrected."))
+
+	b.WriteString(tagStyle.Render("  " + appTagline()))
 	b.WriteString("\n")
 	b.WriteString(verStyle.Render(fmt.Sprintf("  %s (%s) built %s", Version, Commit, Date)))
 	b.WriteString("\n")
@@ -88,13 +108,15 @@ func styledHelp() string {
 	b.WriteString("\n")
 	b.WriteString(dimStyle.Render("  Quick start:"))
 	b.WriteString("\n")
-	fmt.Fprintf(&b, "    %s%s%s%s%s\n",
-		dimStyle.Render("("),
-		greenStyle.Render("crex"),
-		dimStyle.Render(" is the short name for "),
-		greenStyle.Render("cmux-resurrect"),
-		dimStyle.Render(")"))
-	b.WriteString("\n")
+	if isCmuxBranding() {
+		fmt.Fprintf(&b, "    %s%s%s%s%s\n",
+			dimStyle.Render("("),
+			greenStyle.Render("crex"),
+			dimStyle.Render(" is the short name for "),
+			greenStyle.Render("cmux-resurrect"),
+			dimStyle.Render(")"))
+		b.WriteString("\n")
+	}
 	helpExample(&b, "crex import-from-md", "create workspaces from Blueprint")
 	helpExample(&b, "crex save my-day", "save current layout")
 	helpExample(&b, "crex list", "list saved layouts")

@@ -15,7 +15,7 @@ var restoreMode string
 
 var restoreCmd = &cobra.Command{
 	Use:   "restore [name]",
-	Short: "Restore a saved cmux layout",
+	Short: "Restore a saved layout",
 	Long:  "Recreates workspaces, splits, and sends commands from a saved layout.\n\nYou will be asked whether to replace your current workspaces or add to them.\nUse --mode to skip the interactive prompt (useful for scripts).\n\nIf no layout name is given, an interactive picker is shown.",
 	Args:  cobra.MaximumNArgs(1),
 	RunE:  runRestore,
