@@ -134,10 +134,12 @@ See [docs/templates.md](docs/templates.md) for the full gallery with diagrams.
 
 ## Supported Backends
 
-| Backend | Status | Tested versions | Detection |
-|---------|--------|-----------------|-----------|
-| [cmux](https://github.com/manaflow-ai/cmux) | Full support (original backend) | 0.62.1, 0.63.2 | Auto-detected via `CMUX_SOCKET_PATH` |
-| [Ghostty](https://ghostty.org/) | Full support (v1.3+ macOS) | 1.3 | Auto-detected when Ghostty is running |
+| Backend | Status | Platform | Tested versions | Detection |
+|---------|--------|----------|-----------------|-----------|
+| [cmux](https://github.com/manaflow-ai/cmux) | Full support (original backend) | macOS | 0.62.1, 0.63.2 | Auto-detected via `CMUX_SOCKET_PATH` |
+| [Ghostty](https://ghostty.org/) | Full support (AppleScript API) | macOS | 1.3 | Auto-detected when Ghostty is running |
+
+> **macOS only.** Both backends rely on macOS-native APIs (cmux is a macOS terminal multiplexer; the Ghostty backend uses AppleScript). Linux support will follow once Ghostty ships a cross-platform scripting API ([ghostty-org/ghostty#2353](https://github.com/ghostty-org/ghostty/discussions/2353)).
 
 crex auto-detects your terminal backend — no flags needed. Just run your commands and crex figures out the rest:
 
