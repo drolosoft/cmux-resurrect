@@ -15,7 +15,7 @@
 
 > **Save, restore, and template your terminal workspaces — for [cmux](https://github.com/manaflow-ai/cmux) and [Ghostty](https://ghostty.org/).**
 
-Inspired by [tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect) (12.7K stars), **crex** (short for cmux-resurrect) was born to do for [cmux](https://github.com/manaflow-ai/cmux) what tmux-resurrect does for tmux — and then went further. With **Workspace Blueprints**, a **template gallery**, and now **multi-backend support**, crex saves your entire layout and brings it back: workspaces, splits, CWDs, pinned state, startup commands, everything.
+Inspired by [tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect) (12.7K stars), **crex** (short for cmux-resurrect) was born to do for [cmux](https://github.com/manaflow-ai/cmux) what tmux-resurrect does for tmux — and then went further. With **Workspace Blueprints**, a **template gallery**, and now **multi-backend support**, crex saves your entire layout and brings it back: all your tabs, pane arrangements, working directories, pinned state, and startup commands.
 
 crex takes its name from the corncrake (*Crex crex*) — a migratory bird that returns to the same ground year after year. A phoenix of the grasslands. Much like your terminal workspaces, resurrected.
 
@@ -57,8 +57,10 @@ Now `crex <TAB>` shows all commands, `crex restore <TAB>` completes your saved l
 ### Try it
 
 ```sh
+crex setup                                # guided first-run configuration
 crex save my-day                          # snapshot your current layout
 crex save my-day -d "Friday deep work"    # with a description
+crex tui                                  # interactive workspace launcher
 ```
 
 ---
@@ -74,6 +76,34 @@ crex restore my-day                       # bring it all back
 Every workspace, split, CWD, pinned state, and startup command — captured and restored. Layouts are saved to `~/.config/crex/layouts/`.
 
 <p align="center"><img src="assets/save-my-day.png" alt="crex save my-day" width="700"></p>
+
+## 🧙 Setup Wizard
+
+First time? `crex setup` walks you through everything:
+
+```sh
+crex setup              # interactive guided configuration
+crex setup --defaults   # accept all defaults (CI/scripting)
+```
+
+The wizard auto-detects your terminal backend (cmux or Ghostty), creates a default `config.toml` if missing, and sets up the layouts directory. One command and you're ready to go.
+
+## 🖥️ TUI Launcher
+
+Run `crex tui` — or just `crex` with no arguments when you have saved layouts — to open the interactive workspace launcher. Browse your saved layouts and gallery templates in a single fuzzy-searchable view.
+
+```
+Sections:  Saved Layouts  |  Templates
+─────────────────────────────────────────
+j / k / ↑ / ↓   navigate
+Enter            restore layout or use template
+/                filter (fuzzy search)
+s                save current workspace
+d                delete selected layout
+q                quit
+```
+
+The TUI adapts to your terminal's dark or light theme automatically.
 
 ## 📥 Workspace Blueprints
 
@@ -166,7 +196,7 @@ All features — save, restore, import, export, templates, Blueprints — work i
 | 🧩 | Manual pane recreation | **16 built-in templates** + custom Blueprints |
 | 📥 | One-way restore | **Bidirectional** — import from and export to Markdown |
 | 👁️ | Execute immediately | **Dry-run mode** — preview every command first |
-| ⏱️ | Manual saves | **Auto-save with launchd** — deduped, zero-maintenance |
+| ⏱️ | Manual saves | **Auto-save with launchd or `--daemon`** — deduped, shell hooks, zero-maintenance |
 | 📋 | Edit config files | **CLI workspace management** — `add`, `remove`, `toggle` from terminal |
 | 🔤 | Basic tab completion | **Dynamic completions** — layout names, workspace names, flag values (bash/zsh/fish) |
 
@@ -180,7 +210,7 @@ All features — save, restore, import, export, templates, Blueprints — work i
 | [Workspace Blueprints](docs/blueprint.md) | Blueprint format, templates, CLI management |
 | [Workflows](docs/workflows.md) | Save/Restore vs Import, dry-run, side-by-side comparison |
 | [Configuration](docs/configuration.md) | config.toml reference and defaults |
-| [Auto-Save](docs/auto-save.md) | launchd integration for macOS |
+| [Auto-Save & Daemon](docs/auto-save.md) | launchd, daemon mode, shell hooks |
 | [Template Gallery](docs/templates.md) | Built-in templates, ASCII previews, customization |
 | [Template Authoring](docs/template-authoring.md) | Create and contribute custom templates |
 | [Shell Completion](docs/shell-completion.md) | Setup, troubleshooting, what gets completed |
