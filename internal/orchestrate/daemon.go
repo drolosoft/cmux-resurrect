@@ -51,6 +51,23 @@ func RemovePIDFile(path string) {
 	_ = os.Remove(path)
 }
 
+// OpenLogWriter opens a log file for writing, rotating if it exceeds maxBytes.
+// The old log is renamed to path + ".old" (only one backup is kept).
+func OpenLogWriter(path string, maxBytes int64) (*os.File, error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return nil, fmt.Errorf("create log dir: %w", err)
+	}
+
+	// Check if rotation is needed.
+	if info, err := os.Stat(path); err == nil && info.Size() >= maxBytes {
+		oldPath := path + ".old"
+		os.Remove(oldPath)
+		os.Rename(path, oldPath)
+	}
+
+	return os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+}
+
 // IsDaemonRunning checks whether the process recorded in pidPath is alive.
 // It returns (true, pid) if running, or (false, pid) if the file exists but
 // the process is gone, or (false, 0) if the file cannot be read.

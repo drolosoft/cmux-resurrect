@@ -85,6 +85,42 @@ func TestRemovePIDFile(t *testing.T) {
 	}
 }
 
+func TestOpenLogWriter_CreatesFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "watch.log")
+
+	w, err := OpenLogWriter(path, 1024*1024)
+	if err != nil {
+		t.Fatalf("OpenLogWriter: %v", err)
+	}
+	defer w.Close()
+
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		t.Error("log file should be created")
+	}
+}
+
+func TestOpenLogWriter_RotatesWhenLarge(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "watch.log")
+
+	// Write a file larger than the threshold.
+	bigData := make([]byte, 100)
+	os.WriteFile(path, bigData, 0o644)
+
+	w, err := OpenLogWriter(path, 50) // threshold = 50 bytes
+	if err != nil {
+		t.Fatalf("OpenLogWriter: %v", err)
+	}
+	defer w.Close()
+
+	// Old file should be renamed to .old
+	oldPath := path + ".old"
+	if _, err := os.Stat(oldPath); os.IsNotExist(err) {
+		t.Error("old log file should exist after rotation")
+	}
+}
+
 func TestDaemonRunning_NotRunning(t *testing.T) {
 	t.Run("no PID file means not running", func(t *testing.T) {
 		running, pid := IsDaemonRunning("/nonexistent/path/crex.pid")
