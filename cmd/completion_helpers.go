@@ -65,10 +65,10 @@ func completeTemplateTags(cmd *cobra.Command, args []string, toComplete string) 
 	return tags, cobra.ShellCompDirectiveNoFileComp
 }
 
-// completeWorkspaceNames provides dynamic completion of project names
-// from the Workspace Blueprint.
-// Used by: ws remove, ws toggle.
-func completeWorkspaceNames(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+// completeBlueprintNames provides dynamic completion of project names
+// from the Blueprint.
+// Used by: blueprint remove, blueprint toggle.
+func completeBlueprintNames(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if len(args) > 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}

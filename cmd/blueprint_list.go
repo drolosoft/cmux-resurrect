@@ -9,29 +9,38 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var wsListAll bool
+var bpListAll bool
 
-var wsListCmd = &cobra.Command{
+var blueprintListCmd = &cobra.Command{
 	Use:     "list",
-	Short:   "List workspace entries from the Workspace Blueprint",
+	Short:   "List entries in the Blueprint",
 	Aliases: []string{"ls"},
 	Args:    cobra.NoArgs,
-	RunE:    runWorkspaceList,
+	RunE:    runBlueprintList,
 }
 
 func init() {
-	wsListCmd.Flags().BoolVarP(&wsListAll, "all", "a", false, "show disabled workspaces too")
-	workspaceCmd.AddCommand(wsListCmd)
+	blueprintListCmd.Flags().BoolVarP(&bpListAll, "all", "a", false, "show disabled entries too")
+	blueprintCmd.AddCommand(blueprintListCmd)
+
+	// Legacy subcommand under workspaceLegacyCmd for backward compatibility.
+	legacyList := &cobra.Command{
+		Use:  "list",
+		Args: cobra.NoArgs,
+		RunE: runBlueprintList,
+	}
+	legacyList.Flags().BoolVarP(&bpListAll, "all", "a", false, "show disabled entries too")
+	workspaceLegacyCmd.AddCommand(legacyList)
 }
 
-func runWorkspaceList(cmd *cobra.Command, args []string) error {
+func runBlueprintList(cmd *cobra.Command, args []string) error {
 	wsFile := cfg.WorkspaceFile
 	wf, err := mdfile.Parse(wsFile)
 	if err != nil {
-		return fmt.Errorf("read Workspace Blueprint: %w", err)
+		return fmt.Errorf("read Blueprint: %w", err)
 	}
 
-	fmt.Fprintln(os.Stderr, headingStyle.Render("📝 Workspace Blueprint"))
+	fmt.Fprintln(os.Stderr, headingStyle.Render("📝 Blueprint"))
 	fmt.Fprintln(os.Stderr)
 
 	enabled := 0
@@ -39,7 +48,7 @@ func runWorkspaceList(cmd *cobra.Command, args []string) error {
 	shown := 0
 
 	for _, p := range wf.Projects {
-		if !wsListAll && !p.Enabled {
+		if !bpListAll && !p.Enabled {
 			disabled++
 			continue
 		}
@@ -70,12 +79,12 @@ func runWorkspaceList(cmd *cobra.Command, args []string) error {
 	}
 
 	if shown == 0 {
-		fmt.Fprintln(os.Stderr, dimStyle.Render("  No workspace entries found."))
+		fmt.Fprintln(os.Stderr, dimStyle.Render("  No entries found."))
 	}
 
 	fmt.Fprintln(os.Stderr)
 	total := enabled + disabled
-	if wsListAll && disabled > 0 {
+	if bpListAll && disabled > 0 {
 		fmt.Fprintln(os.Stderr, dimStyle.Render(fmt.Sprintf("  %d entries (%d enabled, %d disabled)", total, enabled, disabled)))
 	} else {
 		fmt.Fprintln(os.Stderr, dimStyle.Render(fmt.Sprintf("  %d entries", shown)))

@@ -246,14 +246,14 @@ func TestCompleteLayoutNames_StoreError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2. Unit tests: completeWorkspaceNames
+// 2. Unit tests: completeBlueprintNames
 // ---------------------------------------------------------------------------
 
-func TestCompleteWorkspaceNames_MissingFile(t *testing.T) {
+func TestCompleteBlueprintNames_MissingFile(t *testing.T) {
 	_, wsFile := setupTestConfig(t)
 	_ = wsFile
 
-	completions, directive := completeWorkspaceNames(nil, nil, "")
+	completions, directive := completeBlueprintNames(nil, nil, "")
 	if len(completions) != 0 {
 		t.Errorf("expected 0 completions for missing blueprint, got %d", len(completions))
 	}
@@ -262,11 +262,11 @@ func TestCompleteWorkspaceNames_MissingFile(t *testing.T) {
 	}
 }
 
-func TestCompleteWorkspaceNames_WithProjects(t *testing.T) {
+func TestCompleteBlueprintNames_WithProjects(t *testing.T) {
 	_, wsFile := setupTestConfig(t)
 	writeTestBlueprint(t, wsFile, []string{"api-server", "webapp", "notes"})
 
-	completions, directive := completeWorkspaceNames(nil, nil, "")
+	completions, directive := completeBlueprintNames(nil, nil, "")
 	if len(completions) != 3 {
 		t.Fatalf("expected 3 completions, got %d: %v", len(completions), completions)
 	}
@@ -287,11 +287,11 @@ func TestCompleteWorkspaceNames_WithProjects(t *testing.T) {
 	}
 }
 
-func TestCompleteWorkspaceNames_SecondArgBlocked(t *testing.T) {
+func TestCompleteBlueprintNames_SecondArgBlocked(t *testing.T) {
 	_, wsFile := setupTestConfig(t)
 	writeTestBlueprint(t, wsFile, []string{"api-server"})
 
-	completions, directive := completeWorkspaceNames(nil, []string{"api-server"}, "")
+	completions, directive := completeBlueprintNames(nil, []string{"api-server"}, "")
 	if len(completions) != 0 {
 		t.Errorf("expected 0 completions for second arg, got %d", len(completions))
 	}
@@ -373,9 +373,9 @@ func TestWiring_LayoutCommandsHaveValidArgsFunction(t *testing.T) {
 
 func TestWiring_WorkspaceCommandsHaveValidArgsFunction(t *testing.T) {
 	cmds := map[string]*cobra.Command{
-		"ws remove": wsRemoveCmd,
-		"ws toggle": wsToggleCmd,
-		"ws add":    wsAddCmd,
+		"blueprint remove": blueprintRemoveCmd,
+		"blueprint toggle": blueprintToggleCmd,
+		"blueprint add":    blueprintAddCmd,
 	}
 	for name, cmd := range cmds {
 		t.Run(name, func(t *testing.T) {
@@ -394,7 +394,7 @@ func TestWiring_CommandsWithoutArgsDontNeedCompletion(t *testing.T) {
 		"version":        versionCmd,
 		"export-to-md":   exportToMDCmd,
 		"import-from-md": importFromMDCmd,
-		"ws list":        wsListCmd,
+		"blueprint list": blueprintListCmd,
 	}
 	for name, cmd := range cmds {
 		t.Run(name, func(t *testing.T) {
@@ -418,13 +418,14 @@ func TestE2E_SubcommandCompletion_AllCommands(t *testing.T) {
 
 	// Must contain all user-facing commands.
 	for _, want := range []string{"save", "restore", "list", "show", "edit",
-		"delete", "watch", "export-to-md", "import-from-md", "workspace",
+		"delete", "watch", "export-to-md", "import-from-md", "blueprint",
 		"version", "completion"} {
 		assertContains(t, names, want)
 	}
-	// Must NOT contain hidden commands.
+	// Must NOT contain hidden commands (workspace/ws are now hidden legacy aliases).
 	assertNotContains(t, names, "__complete")
 	assertNotContains(t, names, "__completeNoDesc")
+	assertNotContains(t, names, "workspace")
 }
 
 func TestE2E_SubcommandPartialMatch(t *testing.T) {
@@ -449,11 +450,16 @@ func TestE2E_SubcommandPartialMatch(t *testing.T) {
 	names = completionNames(output)
 	assertContains(t, names, "completion")
 
-	// "w" → "watch", "workspace" (both start with w)
+	// "w" → "watch" (workspace is now hidden)
 	output = executeComplete(t, "w")
 	names = completionNames(output)
 	assertContains(t, names, "watch")
-	assertContains(t, names, "workspace")
+	assertNotContains(t, names, "workspace")
+
+	// "b" → "blueprint"
+	output = executeComplete(t, "b")
+	names = completionNames(output)
+	assertContains(t, names, "blueprint")
 }
 
 func TestE2E_RestoreLayoutNames(t *testing.T) {
@@ -606,7 +612,7 @@ func TestE2E_WatchIntervalFlag(t *testing.T) {
 
 func TestE2E_WsAddTemplateFlag(t *testing.T) {
 	setupTestConfig(t)
-	output := executeComplete(t, "workspace", "add", "--template", "")
+	output := executeComplete(t, "blueprint", "add", "--template", "")
 	names := completionNames(output)
 	// Now uses gallery templates via completeTemplateNames.
 	for _, want := range []string{"single", "ide", "quad", "dashboard"} {
@@ -623,12 +629,12 @@ func TestE2E_WsAddTemplateFlag(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7. Workspace subcommand completion end-to-end
+// 7. Blueprint subcommand completion end-to-end
 // ---------------------------------------------------------------------------
 
 func TestE2E_WorkspaceSubcommands(t *testing.T) {
 	setupTestConfig(t)
-	output := executeComplete(t, "workspace", "")
+	output := executeComplete(t, "blueprint", "")
 	names := completionNames(output)
 	assertContains(t, names, "add")
 	assertContains(t, names, "remove")
@@ -640,7 +646,7 @@ func TestE2E_WsRemoveWorkspaceNames(t *testing.T) {
 	_, wsFile := setupTestConfig(t)
 	writeTestBlueprint(t, wsFile, []string{"api-server", "webapp"})
 
-	output := executeComplete(t, "workspace", "remove", "")
+	output := executeComplete(t, "blueprint", "remove", "")
 	names := completionNames(output)
 	assertContains(t, names, "api-server")
 	assertContains(t, names, "webapp")
@@ -650,7 +656,7 @@ func TestE2E_WsToggleWorkspaceNames(t *testing.T) {
 	_, wsFile := setupTestConfig(t)
 	writeTestBlueprint(t, wsFile, []string{"notes", "api-server"})
 
-	output := executeComplete(t, "workspace", "toggle", "")
+	output := executeComplete(t, "blueprint", "toggle", "")
 	names := completionNames(output)
 	assertContains(t, names, "notes")
 	assertContains(t, names, "api-server")
@@ -658,11 +664,11 @@ func TestE2E_WsToggleWorkspaceNames(t *testing.T) {
 
 func TestE2E_WsAddFirstArgNoFileComp(t *testing.T) {
 	setupTestConfig(t)
-	output := executeComplete(t, "workspace", "add", "")
+	output := executeComplete(t, "blueprint", "add", "")
 	// First arg is freeform name — no completions, no file fallback.
 	names := completionNames(output)
 	if len(names) != 0 {
-		t.Errorf("expected 0 completions for ws add first arg, got %d: %v", len(names), names)
+		t.Errorf("expected 0 completions for blueprint add first arg, got %d: %v", len(names), names)
 	}
 	if d := completionDirective(output); d != 4 {
 		t.Errorf("directive = %d, want 4 (NoFileComp)", d)
@@ -671,7 +677,7 @@ func TestE2E_WsAddFirstArgNoFileComp(t *testing.T) {
 
 func TestE2E_WsAddSecondArgFilterDirs(t *testing.T) {
 	setupTestConfig(t)
-	output := executeComplete(t, "workspace", "add", "myproj", "")
+	output := executeComplete(t, "blueprint", "add", "myproj", "")
 	// Second arg is path — directive should be FilterDirs (16).
 	if d := completionDirective(output); d != 16 {
 		t.Errorf("directive = %d, want 16 (FilterDirs)", d)
@@ -684,7 +690,7 @@ func TestE2E_WsAddSecondArgFilterDirs(t *testing.T) {
 
 func TestE2E_WsAlias(t *testing.T) {
 	setupTestConfig(t)
-	// "ws" is an alias for "workspace".
+	// "ws" is a hidden backward-compat alias that routes to workspace/blueprint subcommands.
 	output := executeComplete(t, "ws", "")
 	names := completionNames(output)
 	assertContains(t, names, "add")
@@ -786,17 +792,17 @@ func TestE2E_WorkspaceFileFlagFiltersMD(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11. ws add ValidArgsFunction unit tests
+// 11. blueprint add ValidArgsFunction unit tests
 // ---------------------------------------------------------------------------
 
-func TestWsAddCompletion_FirstArgNoFileComp(t *testing.T) {
+func TestBlueprintAddCompletion_FirstArgNoFileComp(t *testing.T) {
 	setupTestConfig(t)
-	fn := wsAddCmd.ValidArgsFunction
+	fn := blueprintAddCmd.ValidArgsFunction
 	if fn == nil {
-		t.Fatal("wsAddCmd.ValidArgsFunction is nil")
+		t.Fatal("blueprintAddCmd.ValidArgsFunction is nil")
 	}
 
-	completions, directive := fn(wsAddCmd, nil, "")
+	completions, directive := fn(blueprintAddCmd, nil, "")
 	if len(completions) != 0 {
 		t.Errorf("expected 0 completions for first arg (name), got %d", len(completions))
 	}
@@ -805,14 +811,14 @@ func TestWsAddCompletion_FirstArgNoFileComp(t *testing.T) {
 	}
 }
 
-func TestWsAddCompletion_SecondArgFilterDirs(t *testing.T) {
+func TestBlueprintAddCompletion_SecondArgFilterDirs(t *testing.T) {
 	setupTestConfig(t)
-	fn := wsAddCmd.ValidArgsFunction
+	fn := blueprintAddCmd.ValidArgsFunction
 	if fn == nil {
-		t.Fatal("wsAddCmd.ValidArgsFunction is nil")
+		t.Fatal("blueprintAddCmd.ValidArgsFunction is nil")
 	}
 
-	completions, directive := fn(wsAddCmd, []string{"myproj"}, "")
+	completions, directive := fn(blueprintAddCmd, []string{"myproj"}, "")
 	if len(completions) != 0 {
 		t.Errorf("expected 0 explicit completions for path arg, got %d", len(completions))
 	}
@@ -821,14 +827,14 @@ func TestWsAddCompletion_SecondArgFilterDirs(t *testing.T) {
 	}
 }
 
-func TestWsAddCompletion_ThirdArgBlocked(t *testing.T) {
+func TestBlueprintAddCompletion_ThirdArgBlocked(t *testing.T) {
 	setupTestConfig(t)
-	fn := wsAddCmd.ValidArgsFunction
+	fn := blueprintAddCmd.ValidArgsFunction
 	if fn == nil {
-		t.Fatal("wsAddCmd.ValidArgsFunction is nil")
+		t.Fatal("blueprintAddCmd.ValidArgsFunction is nil")
 	}
 
-	completions, directive := fn(wsAddCmd, []string{"myproj", "/tmp"}, "")
+	completions, directive := fn(blueprintAddCmd, []string{"myproj", "/tmp"}, "")
 	if len(completions) != 0 {
 		t.Errorf("expected 0 completions for third arg, got %d", len(completions))
 	}
