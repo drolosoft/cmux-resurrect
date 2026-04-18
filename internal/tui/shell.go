@@ -82,7 +82,7 @@ func (m ShellModel) flushOutput() tea.Cmd {
 	if text == "" {
 		return nil
 	}
-	return tea.Println(strings.TrimRight(text, "\n"))
+	return tea.Println(strings.TrimRight(text, "\n") + "\n")
 }
 
 // Update handles all incoming messages.
