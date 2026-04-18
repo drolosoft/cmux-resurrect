@@ -60,7 +60,7 @@ Now `crex <TAB>` shows all commands, `crex restore <TAB>` completes your saved l
 crex setup                                # guided first-run configuration
 crex save my-day                          # snapshot your current layout
 crex save my-day -d "Friday deep work"    # with a description
-crex tui                                  # interactive workspace launcher
+crex tui                                  # interactive shell
 ```
 
 ---
@@ -88,22 +88,21 @@ crex setup --defaults   # accept all defaults (CI/scripting)
 
 The wizard auto-detects your terminal backend (cmux or Ghostty), creates a default `config.toml` if missing, and sets up the layouts directory. One command and you're ready to go.
 
-## 🖥️ TUI Launcher
+## 🖥️ Interactive Shell
 
-Run `crex tui` — or just `crex` with no arguments when you have saved layouts — to open the interactive workspace launcher. Browse your saved layouts and gallery templates in a single fuzzy-searchable view.
+Run `crex tui` — or just `crex` when config exists — to drop into the interactive shell. A `crex❯` prompt gives you full access to all commands without leaving your terminal.
 
 ```
-Sections:  Saved Layouts  |  Templates
-─────────────────────────────────────────
-j / k / ↑ / ↓   navigate
-Enter            restore layout or use template
-/                filter (fuzzy search)
-s                save current workspace
-d                delete selected layout
-q                quit
+crex❯ ls                     list saved layouts
+crex❯ restore 2              restore by number
+crex❯ now                    show live terminal state
+crex❯ templates              browse the gallery
+crex❯ use claude             create workspace from template
+crex❯ bp list                list Blueprint entries
+crex❯ help                   show all commands
 ```
 
-The TUI adapts to your terminal's dark or light theme automatically.
+Listings show numbered items — use the number in any follow-up command. Arrow keys browse listings inline. The shell adapts to your terminal's dark or light theme automatically.
 
 ## 📥 Workspace Blueprints
 
@@ -197,8 +196,8 @@ All features — save, restore, import, export, templates, Blueprints — work i
 | 📥 | One-way restore | **Bidirectional** — import from and export to Markdown |
 | 👁️ | Execute immediately | **Dry-run mode** — preview every command first |
 | ⏱️ | Manual saves | **Auto-save with launchd or `--daemon`** — deduped, shell hooks, zero-maintenance |
-| 📋 | Edit config files | **CLI workspace management** — `add`, `remove`, `toggle` from terminal |
-| 🔤 | Basic tab completion | **Dynamic completions** — layout names, workspace names, flag values (bash/zsh/fish) |
+| 📋 | Edit config files | **CLI blueprint management** — `add`, `remove`, `toggle` from terminal |
+| 🔤 | Basic tab completion | **Dynamic completions** — layout names, blueprint names, flag values (bash/zsh/fish) |
 
 ---
 

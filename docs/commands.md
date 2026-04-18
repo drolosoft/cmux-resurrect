@@ -6,19 +6,21 @@
 
 | Command | Alias | Description |
 |---------|-------|-------------|
+| `crex setup` | | 🧙 First-run wizard — detect backend, create config |
 | `crex save [name]` | | 💾 Capture current layout to TOML |
-| `crex restore [name]` | | 🔄 Recreate workspaces, splits, and commands |
-| `crex list` | `ls` | 📋 List saved layouts with workspace count |
+| `crex restore [name]` | | 🔄 Recreate tabs, pane arrangements, and commands |
+| `crex list` | `ls` | 📋 List saved layouts with tab count |
 | `crex show <name>` | | 🔍 Display layout details (`--raw` for TOML) |
 | `crex edit <name>` | | ✏️ Open layout in `$EDITOR` |
 | `crex delete <name>` | `rm` | 🗑️ Delete a saved layout |
-| `crex import-from-md` | | 📥 Create workspaces from a Workspace Blueprint |
-| `crex export-to-md` | | 📤 Export live terminal state to a Workspace Blueprint |
-| `crex watch [name]` | | ⏱️ Auto-save at interval (default: 5m) |
-| `crex workspace add` | `ws add` | ➕ Add workspace entry to the Blueprint |
-| `crex workspace remove` | `ws rm` | ➖ Remove workspace entry from the Blueprint |
-| `crex workspace list` | `ws ls` | 📋 List workspace entries in the Blueprint |
-| `crex workspace toggle` | `ws toggle` | 🔘 Enable/disable a workspace entry |
+| `crex import-from-md` | | 📥 Create tabs from a Blueprint |
+| `crex export-to-md` | | 📤 Export live terminal state to a Blueprint |
+| `crex watch [name]` | | ⏱️ Auto-save at interval (--daemon, --stop, --status, --shell-hook) |
+| `crex tui` | | 🖥️ Interactive shell (browse layouts, templates, live state) |
+| `crex blueprint add` | `bp add` | ➕ Add entry to the Blueprint |
+| `crex blueprint remove` | `bp rm` | ➖ Remove entry from the Blueprint |
+| `crex blueprint list` | `bp ls` | 📋 List entries in the Blueprint |
+| `crex blueprint toggle` | `bp toggle` | 🔘 Enable/disable a Blueprint entry |
 | `crex version` | | ℹ️ Print version, commit, build date |
 | `crex template list` | `tpl ls` | 📦 List available templates from the gallery |
 | `crex template show <name>` | `tpl show` | 🔍 Preview a template with ASCII diagram |
@@ -32,10 +34,16 @@
 crex save -d "Friday standup layout"                   # 💬 attach a description
 crex restore my-day --dry-run                          # 👁️ preview without executing
 crex watch autosave --interval 2m                      # ⏱️ custom interval
-crex workspace add api ~/projects/api -t dev --icon "⚙️"  # ➕ with template + icon
-crex workspace add notes ~/docs -t single --disabled     # ➕ disabled by default
-crex workspace list --all                                # 📋 include disabled workspaces
+crex blueprint add api ~/projects/api -t dev --icon "⚙️"  # ➕ with template + icon
+crex blueprint add notes ~/docs -t single --disabled      # ➕ disabled by default
+crex blueprint list --all                                 # 📋 include disabled entries
 crex show my-day --raw                                 # 🔍 dump raw TOML
+crex setup                                              # 🧙 run the first-time wizard
+crex setup --defaults                                   # 🧙 accept all defaults (CI/scripting)
+crex watch --daemon                                     # ⏱️ start background auto-persistence
+crex watch --status                                     # ⏱️ check if daemon is running
+crex watch --stop                                       # ⏱️ stop the daemon
+crex watch --shell-hook                                 # ⏱️ print auto-start snippet for your shell
 ```
 
 ## Template Commands
@@ -93,7 +101,65 @@ crex template customize claude        # fork to your Blueprint
 crex template customize ide           # then edit with: crex edit
 ```
 
-Copies the built-in template into your Workspace Blueprint. Your copy takes priority over the built-in version.
+Copies the built-in template into your Blueprint. Your copy takes priority over the built-in version.
+
+## `crex setup`
+
+```sh
+crex setup                # interactive wizard
+crex setup --defaults     # accept defaults (CI-friendly)
+```
+
+| Flag | Description |
+|------|-------------|
+| `--defaults` | Accept all defaults without prompts |
+
+Steps: (1) detect backend, (2) create config, (3) ensure layouts dir, (4) offer first save.
+
+## `crex tui`
+
+```sh
+crex tui                  # launch the interactive shell
+crex                      # also launches the shell when config exists
+```
+
+An inline REPL with a `crex❯` prompt. Type commands, browse listings with arrow keys, and manage your workspaces without leaving the shell.
+
+| Command | Description |
+|---------|-------------|
+| `help` | Show all commands |
+| `now` | Show live terminal state |
+| `ls` | List saved layouts (browse with ↑/↓) |
+| `save [name]` | Save current layout |
+| `restore <name\|#>` | Restore a layout |
+| `delete <name\|#>` | Delete a layout |
+| `templates` | Browse gallery templates |
+| `use <name\|#>` | Create workspace from template |
+| `bp list` | List Blueprint entries |
+| `bp add <name> <path>` | Add Blueprint entry |
+| `bp remove <name\|#>` | Remove Blueprint entry |
+| `bp toggle <name\|#>` | Enable/disable entry |
+| `watch start\|stop\|status` | Daemon controls |
+| `exit` | Quit |
+
+Listings show numbered items (`[1]`, `[2]`, …) — use the number instead of the name in any command.
+
+## Watch Daemon Mode
+
+```sh
+crex watch --daemon                 # start daemon (PID file, log file)
+crex watch --stop                   # stop running daemon
+crex watch --status                 # check daemon status
+crex watch --shell-hook             # print shell auto-start snippet
+crex watch --shell-hook >> ~/.zshrc # install the hook
+```
+
+| Flag | Description |
+|------|-------------|
+| `--daemon` | Run in background with PID file and log rotation |
+| `--stop` | Kill the running daemon |
+| `--status` | Check if the daemon is alive |
+| `--shell-hook` | Print a shell snippet that auto-starts the daemon |
 
 ## Common Recipes
 
@@ -122,9 +188,17 @@ crex restore my-day
 crex watch autosave --interval 2m
 ```
 
+### Auto-start daemon on shell login
+```sh
+crex watch --shell-hook >> ~/.zshrc  # zsh
+crex watch --shell-hook >> ~/.bashrc # bash
+```
+
+Set `CREX_NO_WATCH=1` to disable auto-start.
+
 ## Shell Completion
 
-crex supports tab completion for commands, layout names, workspace names, and flag values.
+crex supports tab completion for commands, layout names, blueprint names, and flag values.
 
 ```sh
 # Zsh (add to ~/.zshrc)
