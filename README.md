@@ -15,7 +15,7 @@
 
 > **Save, restore, and template your terminal workspaces — for [cmux](https://github.com/manaflow-ai/cmux) and [Ghostty](https://ghostty.org/).**
 
-Inspired by [tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect), **crex** was born to do for [cmux](https://github.com/manaflow-ai/cmux) what tmux-resurrect does for tmux — and then went further. With an **interactive shell**, a **template gallery**, **Blueprints**, and a **watch daemon**, crex saves your entire layout and brings it back: all your tabs, pane arrangements, working directories, pinned state, and startup commands. Named after the corncrake (*Crex crex*), a bird that returns to the same ground year after year.
+Inspired by [tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect), **crex** was born to do for [cmux](https://github.com/manaflow-ai/cmux) what tmux-resurrect does for tmux — and then went further. With an **interactive shell**, a **template gallery**, **Blueprints**, and a **watch daemon**, crex saves your entire layout and brings it back: all your tabs, pane arrangements, working directories, pinned state, and startup commands. Named after the corncrake (*Crex crex*), a bird that returns to the same ground year after year — your terminal's own phoenix.
 
 <p align="center"><img src="assets/demo.gif" alt="crex demo" width="800"></p>
 
