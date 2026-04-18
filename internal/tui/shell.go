@@ -13,7 +13,7 @@ import (
 type shellMode int
 
 const (
-	modePrompt  shellMode = iota
+	modePrompt shellMode = iota
 	modeBrowse
 	modeConfirm
 )
@@ -87,8 +87,7 @@ func (m ShellModel) flushOutput() tea.Cmd {
 
 // Update handles all incoming messages.
 func (m ShellModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	if msg, ok := msg.(tea.KeyMsg); ok {
 		switch m.mode {
 		case modePrompt:
 			return m.updatePrompt(msg)

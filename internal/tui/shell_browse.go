@@ -151,9 +151,9 @@ func (bm BrowseModel) View() string {
 		desc := item.Desc()
 
 		if i == bm.cursor {
-			b.WriteString(fmt.Sprintf("  %s %s %s", shellCursorStyle.Render("▸"), idx, shellSuccessStyle.Render(name)))
+			fmt.Fprintf(&b, "  %s %s %s", shellCursorStyle.Render("▸"), idx, shellSuccessStyle.Render(name))
 		} else {
-			b.WriteString(fmt.Sprintf("    %s %s", idx, name))
+			fmt.Fprintf(&b, "    %s %s", idx, name)
 		}
 		if desc != "" {
 			b.WriteString("  ")
@@ -163,7 +163,7 @@ func (bm BrowseModel) View() string {
 	}
 
 	if bm.filtering {
-		b.WriteString(fmt.Sprintf("  / %s", bm.filterText))
+		fmt.Fprintf(&b, "  / %s", bm.filterText)
 		b.WriteString(shellDimStyle.Render("▌"))
 		b.WriteString("\n")
 	} else {

@@ -10,7 +10,7 @@ import (
 type ItemKind int
 
 const (
-	KindLayout   ItemKind = iota
+	KindLayout ItemKind = iota
 	KindTemplate
 )
 

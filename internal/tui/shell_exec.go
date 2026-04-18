@@ -48,7 +48,7 @@ func (m *ShellModel) execNow() {
 			}
 
 			// Title.
-			m.output.WriteString(fmt.Sprintf("  %s%s", shellSuccessStyle.Render(ws.Title), badgeStr))
+			fmt.Fprintf(m.output, "  %s%s", shellSuccessStyle.Render(ws.Title), badgeStr)
 
 			// CWD from sidebar-state (best effort).
 			if ws.Ref != "" {

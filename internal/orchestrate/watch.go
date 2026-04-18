@@ -20,7 +20,7 @@ type Watcher struct {
 	Store         persist.Store
 	Name          string
 	Interval      time.Duration
-	WorkspaceFile string // MD file path; if set, also updates the MD on each tick
+	WorkspaceFile string    // MD file path; if set, also updates the MD on each tick
 	LogWriter     io.Writer // if set, log to this writer instead of stderr
 
 	lastHash string
@@ -47,7 +47,7 @@ func (w *Watcher) Run() error {
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Fprintf(w.logWriter(), "\nStopping watcher. Final save...\n")
+			_, _ = fmt.Fprintf(w.logWriter(), "\nStopping watcher. Final save...\n")
 			w.saveOnce()
 			return nil
 		case <-ticker.C:
@@ -60,7 +60,7 @@ func (w *Watcher) saveOnce() {
 	saver := &Saver{Client: w.Client, Store: w.Store}
 	layout, err := saver.Save(w.Name, "autosave")
 	if err != nil {
-		fmt.Fprintf(w.logWriter(), "  watch save error: %v\n", err)
+		_, _ = fmt.Fprintf(w.logWriter(), "  watch save error: %v\n", err)
 		return
 	}
 
@@ -77,11 +77,11 @@ func (w *Watcher) saveOnce() {
 	if w.WorkspaceFile != "" {
 		exporter := &Exporter{Client: w.Client}
 		if err := exporter.ExportToMD(w.WorkspaceFile); err != nil {
-			fmt.Fprintf(w.logWriter(), "  watch md update error: %v\n", err)
+			_, _ = fmt.Fprintf(w.logWriter(), "  watch md update error: %v\n", err)
 		}
 	}
 
-	fmt.Fprintf(w.logWriter(), "  saved %d workspaces at %s\n",
+	_, _ = fmt.Fprintf(w.logWriter(), "  saved %d workspaces at %s\n",
 		len(layout.Workspaces),
 		time.Now().Format("15:04:05"))
 }

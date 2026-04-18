@@ -61,8 +61,8 @@ func OpenLogWriter(path string, maxBytes int64) (*os.File, error) {
 	// Check if rotation is needed.
 	if info, err := os.Stat(path); err == nil && info.Size() >= maxBytes {
 		oldPath := path + ".old"
-		os.Remove(oldPath)
-		os.Rename(path, oldPath)
+		_ = os.Remove(oldPath)
+		_ = os.Rename(path, oldPath)
 	}
 
 	return os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)

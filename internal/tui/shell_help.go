@@ -68,7 +68,7 @@ func renderHelp(backend client.DetectedBackend) string {
 			}
 			desc := shellDimStyle.Render(e.desc(backend))
 			cmd := shellSuccessStyle.Render(e.cmd)
-			b.WriteString(fmt.Sprintf("  %s  %-28s %s\n", e.icon, cmd+args, desc))
+			fmt.Fprintf(&b, "  %s  %-28s %s\n", e.icon, cmd+args, desc)
 		}
 		b.WriteString("\n")
 	}

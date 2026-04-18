@@ -68,13 +68,14 @@ func runSetup(cmd *cobra.Command, args []string) error {
 
 	// Step 4: First Save
 	o.ln(cyanStyle.Render("Step 4/4") + dimStyle.Render(" — First Save"))
-	if detected != client.BackendUnknown && setupDefaults {
+	switch {
+	case detected != client.BackendUnknown && setupDefaults:
 		if err := doFirstSave(o, detected); err != nil {
 			o.f("  %s  First save skipped: %v\n", yellowStyle.Render("!"), err)
 		}
-	} else if detected == client.BackendUnknown {
+	case detected == client.BackendUnknown:
 		o.f("  %s  No backend detected — skipping first save\n", dimStyle.Render("·"))
-	} else {
+	default:
 		o.f("  %s  Run %s to save your current layout\n",
 			dimStyle.Render("·"),
 			cyanStyle.Render("crex save my-layout"))

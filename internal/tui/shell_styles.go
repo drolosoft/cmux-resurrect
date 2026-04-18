@@ -8,6 +8,5 @@ var (
 	shellDimStyle     = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Dark: "#8C8C8C", Light: "#6C6C6C"})
 	shellErrorStyle   = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Dark: "#FF6B6B", Light: "#CC3333"})
 	shellSuccessStyle = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Dark: "#5FFF87", Light: "#1A8A3E"})
-	shellCyanStyle    = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Dark: "#87D7FF", Light: "#0277BD"})
 	shellCursorStyle  = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Dark: "#5FFF87", Light: "#1A8A3E"}).Bold(true)
 )

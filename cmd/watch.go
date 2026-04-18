@@ -129,7 +129,7 @@ func runWatch(cmd *cobra.Command, args []string) error {
 
 		// Write PID file
 		if err := orchestrate.WritePIDFile(pidPath, os.Getpid()); err != nil {
-			logFile.Close()
+			_ = logFile.Close()
 			return fmt.Errorf("write pid: %w", err)
 		}
 
@@ -140,7 +140,7 @@ func runWatch(cmd *cobra.Command, args []string) error {
 
 		defer func() {
 			orchestrate.RemovePIDFile(pidPath)
-			logFile.Close()
+			_ = logFile.Close()
 		}()
 
 		return watcher.Run()

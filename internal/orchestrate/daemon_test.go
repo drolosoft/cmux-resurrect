@@ -93,7 +93,7 @@ func TestOpenLogWriter_CreatesFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("OpenLogWriter: %v", err)
 	}
-	defer w.Close()
+	defer func() { _ = w.Close() }()
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		t.Error("log file should be created")
@@ -106,13 +106,15 @@ func TestOpenLogWriter_RotatesWhenLarge(t *testing.T) {
 
 	// Write a file larger than the threshold.
 	bigData := make([]byte, 100)
-	os.WriteFile(path, bigData, 0o644)
+	if err := os.WriteFile(path, bigData, 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	w, err := OpenLogWriter(path, 50) // threshold = 50 bytes
 	if err != nil {
 		t.Fatalf("OpenLogWriter: %v", err)
 	}
-	defer w.Close()
+	defer func() { _ = w.Close() }()
 
 	// Old file should be renamed to .old
 	oldPath := path + ".old"
