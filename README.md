@@ -15,7 +15,7 @@
 
 > **Save, restore, and template your terminal workspaces — for [cmux](https://github.com/manaflow-ai/cmux) and [Ghostty](https://ghostty.org/).**
 
-Inspired by [tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect) (12.7K stars), **crex** (short for cmux-resurrect) was born to do for [cmux](https://github.com/manaflow-ai/cmux) what tmux-resurrect does for tmux — and then went further. With **Workspace Blueprints**, a **template gallery**, and now **multi-backend support**, crex saves your entire layout and brings it back: all your tabs, pane arrangements, working directories, pinned state, and startup commands.
+Inspired by [tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect), **crex** (short for cmux-resurrect) was born to do for [cmux](https://github.com/manaflow-ai/cmux) what tmux-resurrect does for tmux — and then went further. With an **interactive shell**, a **template gallery**, **Blueprints**, and a **watch daemon**, crex saves your entire layout and brings it back: all your tabs, pane arrangements, working directories, pinned state, and startup commands.
 
 crex takes its name from the corncrake (*Crex crex*) — a migratory bird that returns to the same ground year after year. A phoenix of the grasslands. Much like your terminal workspaces, resurrected.
 
@@ -73,7 +73,7 @@ crex save my-day -d "Friday deep work"    # add a description (preserved across 
 crex restore my-day                       # bring it all back
 ```
 
-Every workspace, split, CWD, pinned state, and startup command — captured and restored. Layouts are saved to `~/.config/crex/layouts/`.
+Every tab, pane arrangement, CWD, pinned state, and startup command — captured and restored. Layouts are saved to `~/.config/crex/layouts/`.
 
 <p align="center"><img src="assets/save-my-day.png" alt="crex save my-day" width="700"></p>
 
@@ -106,9 +106,9 @@ Listings show numbered items — use the number in any follow-up command. Arrow 
 
 <p align="center"><img src="assets/demo-tui.gif" alt="crex interactive shell" width="800"></p>
 
-## 📥 Workspace Blueprints
+## 📥 Blueprints
 
-Define your workspaces in Obsidian-compatible Markdown. Import creates only what's missing — it's idempotent.
+Define your terminal layout in Obsidian-compatible Markdown. Import creates only what's missing — it's idempotent.
 
 ```markdown
 ## Projects
@@ -127,17 +127,17 @@ Define your workspaces in Obsidian-compatible Markdown. Import creates only what
 ```
 
 ```sh
-crex import-from-md           # create workspaces from Blueprint
+crex import-from-md           # create tabs/workspaces from Blueprint
 crex export-to-md             # capture live state to Blueprint
 ```
 
 <p align="center"><img src="assets/import-success.png" alt="crex import-from-md in action" width="800"></p>
 
-> For the full Blueprint format, templates, and CLI management, see [docs/blueprint.md](docs/blueprint.md).
+> For the full Blueprint format and CLI management (`bp add`, `bp list`, `bp toggle`), see [docs/blueprint.md](docs/blueprint.md).
 
 ## 📦 Template Gallery
 
-crex ships with 16 ready-to-use workspace templates for common developer workflows.
+crex ships with 16 ready-to-use templates for common developer workflows.
 
 | | Layout Templates | | Workflow Templates |
 |---|---|---|---|
@@ -193,11 +193,12 @@ All features — save, restore, import, export, templates, Blueprints — work i
 
 | | tmux-resurrect | crex |
 |:---:|---|---|
-| 📝 | Plugin configuration | **Workspace Blueprint** — Markdown files, Obsidian-compatible |
+| 🖥️ | CLI commands only | **Interactive shell** — `crex❯` REPL with browse mode, number refs, history |
+| 📝 | Plugin configuration | **Blueprints** — Markdown files, Obsidian-compatible |
 | 🧩 | Manual pane recreation | **16 built-in templates** + custom Blueprints |
 | 📥 | One-way restore | **Bidirectional** — import from and export to Markdown |
 | 👁️ | Execute immediately | **Dry-run mode** — preview every command first |
-| ⏱️ | Manual saves | **Auto-save with launchd or `--daemon`** — deduped, shell hooks, zero-maintenance |
+| ⏱️ | Manual saves | **Watch daemon** — background auto-save, deduped, shell hooks, zero-maintenance |
 | 📋 | Edit config files | **CLI blueprint management** — `add`, `remove`, `toggle` from terminal |
 | 🔤 | Basic tab completion | **Dynamic completions** — layout names, blueprint names, flag values (bash/zsh/fish) |
 
@@ -208,7 +209,7 @@ All features — save, restore, import, export, templates, Blueprints — work i
 | Doc | Description |
 |-----|-------------|
 | [Commands](docs/commands.md) | Full command reference, flags, and recipes |
-| [Workspace Blueprints](docs/blueprint.md) | Blueprint format, templates, CLI management |
+| [Blueprints](docs/blueprint.md) | Blueprint format, templates, CLI management |
 | [Workflows](docs/workflows.md) | Save/Restore vs Import, dry-run, side-by-side comparison |
 | [Configuration](docs/configuration.md) | config.toml reference and defaults |
 | [Auto-Save & Daemon](docs/auto-save.md) | launchd, daemon mode, shell hooks |
