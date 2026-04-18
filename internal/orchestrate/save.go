@@ -137,6 +137,10 @@ func mergeUserEdits(live, existing *model.Layout) {
 		if !ok {
 			continue
 		}
+		// Preserve user-set workspace description (live tree doesn't expose it).
+		if lw.Description == "" && ew.Description != "" {
+			lw.Description = ew.Description
+		}
 		// Merge pane-level user edits.
 		for j := range lw.Panes {
 			if j >= len(ew.Panes) {

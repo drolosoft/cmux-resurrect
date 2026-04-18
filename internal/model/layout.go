@@ -13,12 +13,13 @@ type Layout struct {
 
 // Workspace represents a single cmux workspace (tab).
 type Workspace struct {
-	Title  string `toml:"title"`
-	CWD    string `toml:"cwd"`
-	Pinned bool   `toml:"pinned"`
-	Index  int    `toml:"index"`
-	Active bool   `toml:"active,omitempty"`
-	Panes  []Pane `toml:"pane"`
+	Title       string `toml:"title"`
+	Description string `toml:"description,omitempty"`
+	CWD         string `toml:"cwd"`
+	Pinned      bool   `toml:"pinned"`
+	Index       int    `toml:"index"`
+	Active      bool   `toml:"active,omitempty"`
+	Panes       []Pane `toml:"pane"`
 }
 
 // Pane represents a terminal or browser pane within a workspace.

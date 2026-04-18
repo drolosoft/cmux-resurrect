@@ -63,6 +63,9 @@ func runShow(cmd *cobra.Command, args []string) error {
 			badges += " " + yellowStyle.Render("◀ active")
 		}
 		fmt.Fprintf(os.Stderr, "   %s%s\n", title, badges)
+		if ws.Description != "" {
+			fmt.Fprintf(os.Stderr, "   %s\n", dimStyle.Render(ws.Description))
+		}
 
 		// CWD
 		fmt.Fprintf(os.Stderr, "   %s\n", dimStyle.Render("cwd "+ws.CWD))

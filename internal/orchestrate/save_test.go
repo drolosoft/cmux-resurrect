@@ -47,7 +47,7 @@ func (m *mockClient) FocusPane(pane, ws string) error          { return nil }
 func (m *mockClient) Send(ws, surf, text string) error         { return nil }
 func (m *mockClient) PinWorkspace(ref string) error            { return nil }
 func (m *mockClient) CloseWorkspace(ref string) error          { return nil }
-func (m *mockClient) DryRunFormatter() client.DryRunFormatter { return client.CmuxDryRun{} }
+func (m *mockClient) DryRunFormatter() client.DryRunFormatter  { return client.CmuxDryRun{} }
 
 func TestSave_FromFixture(t *testing.T) {
 	// Load tree fixture.
@@ -152,6 +152,59 @@ func TestSave_MergePreservesUserEdits(t *testing.T) {
 		}
 		if layout2.Workspaces[0].Panes[1].Command != "make watch" {
 			t.Errorf("Command = %q, want 'make watch' (user edit)", layout2.Workspaces[0].Panes[1].Command)
+		}
+	}
+}
+
+// TestSave_PreservesWorkspaceDescription verifies that a user-edited
+// per-workspace description survives a re-save. cmux itself doesn't
+// expose descriptions through Tree/SidebarState, so crex keeps them as
+// a user-annotated field (aligned with cmux v0.63.2's "editable
+// workspace descriptions" feature).
+func TestSave_PreservesWorkspaceDescription(t *testing.T) {
+	data, _ := os.ReadFile("../../testdata/responses/tree-6-workspaces.json")
+	var treeResp client.TreeResponse
+	_ = json.Unmarshal(data, &treeResp)
+
+	mc := &mockClient{
+		treeResp: &treeResp,
+		sidebarCWDs: map[string]string{
+			"workspace:1": "/home/user/projects/api-server",
+			"workspace:2": "/home/user/Documents/notes",
+			"workspace:3": "/home/user/projects/webapp",
+		},
+	}
+
+	dir := t.TempDir()
+	store, _ := persist.NewFileStore(dir)
+	saver := &Saver{Client: mc, Store: store}
+
+	// First save.
+	if _, err := saver.Save("desc-test", ""); err != nil {
+		t.Fatalf("first save: %v", err)
+	}
+
+	// Annotate workspace[0] with a description.
+	layout, _ := store.Load("desc-test")
+	layout.Workspaces[0].Description = "backend API — reads postgres"
+	if err := store.Save("desc-test", layout); err != nil {
+		t.Fatalf("annotated save: %v", err)
+	}
+
+	// Re-save — the live tree doesn't expose descriptions, so the
+	// merge must preserve the annotation.
+	layout2, err := saver.Save("desc-test", "")
+	if err != nil {
+		t.Fatalf("second save: %v", err)
+	}
+
+	if got := layout2.Workspaces[0].Description; got != "backend API — reads postgres" {
+		t.Errorf("Workspaces[0].Description = %q, want preserved annotation", got)
+	}
+	// Other workspaces should remain empty (no bleed).
+	for i := 1; i < len(layout2.Workspaces); i++ {
+		if got := layout2.Workspaces[i].Description; got != "" {
+			t.Errorf("Workspaces[%d].Description = %q, want empty", i, got)
 		}
 	}
 }
