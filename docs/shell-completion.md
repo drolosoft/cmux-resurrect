@@ -49,7 +49,7 @@ Template completions include icons and descriptions:
 
 ### Homebrew (zero-config for zsh/fish)
 
-If you installed via `brew install cmux-resurrect`, completions are installed automatically. **No setup needed.**
+If you installed via `brew install drolosoft/tap/crex` (or `cmux-resurrect`), completions are installed automatically. **No setup needed.**
 
 ### Manual Setup
 

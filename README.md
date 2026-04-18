@@ -28,10 +28,11 @@ crex takes its name from the corncrake (*Crex crex*) — a migratory bird that r
 ### Install with Homebrew (recommended)
 
 ```sh
-brew install drolosoft/tap/cmux-resurrect
+brew install drolosoft/tap/crex            # preferred
+brew install drolosoft/tap/cmux-resurrect  # also works — same formula
 ```
 
-Both `crex` and `cmux-resurrect` are ready to use, with shell completions installed automatically. No Go toolchain required. macOS only (both cmux and Ghostty's AppleScript API are macOS-native).
+Both `crex` and `cmux-resurrect` commands are ready to use, with shell completions installed automatically. No Go toolchain required. macOS only (both cmux and Ghostty's AppleScript API are macOS-native).
 
 ### Install with `go install`
 
