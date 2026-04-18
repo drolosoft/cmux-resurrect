@@ -41,7 +41,7 @@ func runList(cmd *cobra.Command, args []string) error {
 
 	for _, m := range metas {
 		name := greenStyle.Render(fmt.Sprintf("%-16s", m.Name))
-		ws := cyanStyle.Render(fmt.Sprintf("%d workspaces", m.WorkspaceCount))
+		ws := cyanStyle.Render(fmt.Sprintf("%d %s", m.WorkspaceCount, unitName(m.WorkspaceCount)))
 		date := dimStyle.Render(m.SavedAt.Local().Format("Jan 02 15:04"))
 
 		var parts []string

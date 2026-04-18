@@ -13,7 +13,7 @@ var saveDescription string
 var saveCmd = &cobra.Command{
 	Use:   "save [name]",
 	Short: "Save current layout",
-	Long:  "Captures all workspaces, splits, CWDs, and pinned state from the running terminal.",
+	Long:  "Captures all tabs, pane arrangements, CWDs, and pinned state from the running terminal.",
 	Args:  cobra.MaximumNArgs(1),
 	RunE:  runSave,
 }
@@ -65,7 +65,7 @@ func runSave(cmd *cobra.Command, args []string) error {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintf(os.Stderr, "%s\n",
-		greenStyle.Render(fmt.Sprintf("✅ Saved %d workspaces to %s", len(layout.Workspaces), store.Path(name))))
+		greenStyle.Render(fmt.Sprintf("✅ Saved %d %s to %s", len(layout.Workspaces), unitName(len(layout.Workspaces)), store.Path(name))))
 	fmt.Fprintln(os.Stderr)
 	return nil
 }

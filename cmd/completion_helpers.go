@@ -29,7 +29,7 @@ func completeLayoutNames(cmd *cobra.Command, args []string, toComplete string) (
 	for _, m := range metas {
 		desc := m.Description
 		if desc == "" {
-			desc = fmt.Sprintf("%d workspaces", m.WorkspaceCount)
+			desc = fmt.Sprintf("%d %s", m.WorkspaceCount, unitName(m.WorkspaceCount))
 		}
 		names = append(names, fmt.Sprintf("%s\t%s", m.Name, desc))
 	}

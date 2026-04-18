@@ -95,7 +95,7 @@ func handleTUISelect(item tui.Item) error {
 		}
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintf(os.Stderr, "%s\n\n",
-			greenStyle.Render(fmt.Sprintf("Restored %d/%d workspaces", result.WorkspacesOK, result.WorkspacesTotal)))
+			greenStyle.Render(fmt.Sprintf("Restored %d/%d %s", result.WorkspacesOK, result.WorkspacesTotal, unitName(result.WorkspacesTotal))))
 		return nil
 
 	case tui.KindTemplate:
@@ -140,7 +140,7 @@ func handleTUISave() error {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintf(os.Stderr, "%s\n\n",
-		greenStyle.Render(fmt.Sprintf("Saved %d workspaces to %s", len(layout.Workspaces), store.Path("default"))))
+		greenStyle.Render(fmt.Sprintf("Saved %d %s to %s", len(layout.Workspaces), unitName(len(layout.Workspaces)), store.Path("default"))))
 	return nil
 }
 
