@@ -348,17 +348,3 @@ func (m ShellModel) View() string {
 	return b.String()
 }
 
-// --- Exec stubs (implemented in Task 9) ---
-
-func (m *ShellModel) execList()                   {}
-func (m *ShellModel) execNow()                    {}
-func (m *ShellModel) execSave(name string)        {}
-func (m *ShellModel) execRestore(name string)     {}
-func (m *ShellModel) execDelete(name string)      {}
-func (m *ShellModel) execTemplates()              {}
-func (m *ShellModel) execUse(name string)         {}
-func (m *ShellModel) execWatch(sub string)        {}
-func (m *ShellModel) execBpAdd(name, path string) {}
-func (m *ShellModel) execBpList()                 {}
-func (m *ShellModel) execBpRemove(name string)    {}
-func (m *ShellModel) execBpToggle(name string)    {}
