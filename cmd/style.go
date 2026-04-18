@@ -214,6 +214,7 @@ func styledHelp() string {
 	helpCmd(&b, "delete", "<name>", "Delete a layout")
 	helpCmd(&b, "watch", "[name]", "Auto-save on a timer (--daemon, --stop, --status)")
 	helpCmd(&b, "setup", "", "First-run wizard")
+	helpCmd(&b, "tui", "", "Interactive workspace launcher")
 	helpCmd(&b, "import-from-md", "", "Import from Workspace Blueprint")
 	helpCmd(&b, "export-to-md", "", "Export to Workspace Blueprint")
 	helpCmd(&b, "workspace", "<cmd>", "Manage Blueprint (add|remove|list|toggle)")

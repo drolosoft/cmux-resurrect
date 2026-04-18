@@ -21,9 +21,20 @@ var rootCmd = &cobra.Command{
 	Use:   "crex",
 	Short: "Save, restore, and template your terminal workspaces",
 	Long:  "crex saves, restores, and templates your terminal workspaces.", // updated by updateRootLong()
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Print(banner())
-		fmt.Print(styledHelp())
+	RunE: func(cmd *cobra.Command, args []string) error {
+		store, err := newStore()
+		if err != nil {
+			fmt.Print(banner())
+			fmt.Print(styledHelp())
+			return nil
+		}
+		metas, err := store.List()
+		if err != nil || len(metas) == 0 {
+			fmt.Print(banner())
+			fmt.Print(styledHelp())
+			return nil
+		}
+		return runTUI(cmd, args)
 	},
 }
 
