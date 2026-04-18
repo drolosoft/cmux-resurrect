@@ -25,7 +25,7 @@ type ShellModel struct {
 	mode      shellMode
 	prompt    textinput.Model
 	browse    BrowseModel
-	output    *strings.Builder
+	output    *strings.Builder // per-command buffer, flushed via tea.Println
 	lastItems []Item
 	history   []string
 	histIdx   int
@@ -34,6 +34,7 @@ type ShellModel struct {
 	client    client.Backend
 	wsFile    string
 	quitting  bool
+	welcome   string // printed once via Init
 
 	// Confirmation state
 	confirmMsg string
@@ -47,7 +48,15 @@ func NewShellModel(store persist.Store, cl client.Backend, backend client.Detect
 	ti.Focus()
 	ti.CharLimit = 256
 
-	m := ShellModel{
+	// Build welcome message (printed via Init, not accumulated in View).
+	var w strings.Builder
+	w.WriteString(shellDimStyle.Render("  crex interactive shell. Type "))
+	w.WriteString(shellSuccessStyle.Render("help"))
+	w.WriteString(shellDimStyle.Render(" for commands, "))
+	w.WriteString(shellSuccessStyle.Render("exit"))
+	w.WriteString(shellDimStyle.Render(" to quit."))
+
+	return ShellModel{
 		mode:    modePrompt,
 		prompt:  ti,
 		output:  &strings.Builder{},
@@ -56,22 +65,24 @@ func NewShellModel(store persist.Store, cl client.Backend, backend client.Detect
 		client:  cl,
 		wsFile:  wsFile,
 		histIdx: -1,
+		welcome: w.String(),
 	}
-
-	// Welcome message
-	m.output.WriteString(shellDimStyle.Render("  crex interactive shell. Type "))
-	m.output.WriteString(shellSuccessStyle.Render("help"))
-	m.output.WriteString(shellDimStyle.Render(" for commands, "))
-	m.output.WriteString(shellSuccessStyle.Render("exit"))
-	m.output.WriteString(shellDimStyle.Render(" to quit."))
-	m.output.WriteString("\n\n")
-
-	return m
 }
 
 // Init is the Bubble Tea init function.
 func (m ShellModel) Init() tea.Cmd {
-	return textinput.Blink
+	return tea.Batch(textinput.Blink, tea.Println(m.welcome))
+}
+
+// flushOutput drains the per-command buffer and returns a tea.Println Cmd.
+// Returns nil when the buffer is empty.
+func (m ShellModel) flushOutput() tea.Cmd {
+	text := m.output.String()
+	m.output.Reset()
+	if text == "" {
+		return nil
+	}
+	return tea.Println(strings.TrimRight(text, "\n"))
 }
 
 // Update handles all incoming messages.
@@ -134,13 +145,21 @@ func (m ShellModel) updatePrompt(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.history = m.history[len(m.history)-maxHistory:]
 		}
 
-		// Echo the command
+		// Reset buffer and echo the command
+		m.output.Reset()
 		m.output.WriteString(shellPromptStyle.Render("crex❯"))
 		m.output.WriteString(" ")
 		m.output.WriteString(input)
 		m.output.WriteString("\n")
 
-		return m.dispatch(input)
+		// Dispatch (exec methods write to m.output)
+		model, dispatchCmd := m.dispatch(input)
+
+		// Flush buffered output as tea.Println
+		sm := model.(ShellModel)
+		printCmd := sm.flushOutput()
+
+		return sm, batchNonNil(printCmd, dispatchCmd)
 	}
 
 	// Pass to text input for line editing
@@ -156,7 +175,10 @@ func (m ShellModel) updateBrowse(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if bm.done {
 		m.mode = modePrompt
 		if bm.selected {
-			return m.handleBrowseSelection(bm.SelectedItem())
+			model, cmd := m.handleBrowseSelection(bm.SelectedItem())
+			sm := model.(ShellModel)
+			printCmd := sm.flushOutput()
+			return sm, batchNonNil(printCmd, cmd)
 		}
 		if bm.passthrough != 0 {
 			m.prompt.SetValue(string(bm.passthrough))
@@ -172,15 +194,15 @@ func (m ShellModel) updateConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.confirmFn()
 		}
 		m.output.WriteString(shellSuccessStyle.Render("  ✓ Done"))
-		m.output.WriteString("\n\n")
+		m.output.WriteString("\n")
 	} else {
 		m.output.WriteString(shellDimStyle.Render("  Cancelled"))
-		m.output.WriteString("\n\n")
+		m.output.WriteString("\n")
 	}
 	m.mode = modePrompt
 	m.confirmMsg = ""
 	m.confirmFn = nil
-	return m, nil
+	return m, m.flushOutput()
 }
 
 func (m ShellModel) handleBrowseSelection(item Item) (tea.Model, tea.Cmd) {
@@ -323,28 +345,37 @@ func (m ShellModel) dispatch(input string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// View renders the full shell output.
+// View renders only the current interactive element.
+// Command output is printed above via tea.Println, not accumulated here.
 func (m ShellModel) View() string {
 	if m.quitting {
-		return m.output.String()
+		return ""
 	}
 
-	var b strings.Builder
-	b.WriteString(m.output.String())
-
-	if m.mode == modeBrowse {
-		b.WriteString(m.browse.View())
+	switch m.mode {
+	case modeBrowse:
+		return m.browse.View()
+	case modeConfirm:
+		return m.confirmMsg + "\n"
+	default:
+		return m.prompt.View()
 	}
-
-	if m.mode == modeConfirm {
-		b.WriteString(m.confirmMsg)
-		b.WriteString("\n")
-	}
-
-	if m.mode == modePrompt {
-		b.WriteString(m.prompt.View())
-	}
-
-	return b.String()
 }
 
+// batchNonNil batches commands, filtering out nils.
+func batchNonNil(cmds ...tea.Cmd) tea.Cmd {
+	var live []tea.Cmd
+	for _, c := range cmds {
+		if c != nil {
+			live = append(live, c)
+		}
+	}
+	switch len(live) {
+	case 0:
+		return nil
+	case 1:
+		return live[0]
+	default:
+		return tea.Batch(live...)
+	}
+}

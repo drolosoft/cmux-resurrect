@@ -8,15 +8,13 @@ import (
 	"github.com/drolosoft/cmux-resurrect/internal/client"
 )
 
-func TestShellModel_InitShowsWelcome(t *testing.T) {
+func TestShellModel_WelcomeInInit(t *testing.T) {
 	m := NewShellModel(nil, nil, client.BackendGhostty, "")
-	view := m.View()
-
-	if !strings.Contains(view, "crex") {
-		t.Error("initial view should contain 'crex'")
+	if !strings.Contains(m.welcome, "crex") {
+		t.Error("welcome should contain 'crex'")
 	}
-	if !strings.Contains(view, "help") {
-		t.Error("initial view should mention 'help'")
+	if !strings.Contains(m.welcome, "help") {
+		t.Error("welcome should mention 'help'")
 	}
 }
 
@@ -24,6 +22,18 @@ func TestShellModel_StartsInPromptMode(t *testing.T) {
 	m := NewShellModel(nil, nil, client.BackendGhostty, "")
 	if m.mode != modePrompt {
 		t.Errorf("expected modePrompt, got %v", m.mode)
+	}
+}
+
+func TestShellModel_ViewOnlyShowsPrompt(t *testing.T) {
+	m := NewShellModel(nil, nil, client.BackendGhostty, "")
+	view := m.View()
+	if !strings.Contains(view, "crex❯") {
+		t.Error("view should show the prompt")
+	}
+	// View should NOT contain welcome (that's printed via Init)
+	if strings.Contains(view, "interactive shell") {
+		t.Error("view should not contain welcome text (printed via tea.Println)")
 	}
 }
 
@@ -42,19 +52,21 @@ func TestShellModel_ExitQuits(t *testing.T) {
 	}
 }
 
-func TestShellModel_HelpShowsOutput(t *testing.T) {
+func TestShellModel_HelpProducesOutput(t *testing.T) {
 	m := NewShellModel(nil, nil, client.BackendGhostty, "")
 	m.prompt.SetValue("help")
 
-	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	result, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	sm := result.(ShellModel)
 
-	view := sm.View()
-	if !strings.Contains(view, "Live") {
-		t.Error("help output should contain 'Live' group")
+	// Output is flushed via tea.Println cmd, not in View
+	if cmd == nil {
+		t.Error("expected tea.Println command for help output")
 	}
-	if !strings.Contains(view, "Layouts") {
-		t.Error("help output should contain 'Layouts' group")
+	// View should only show prompt, not help content
+	view := sm.View()
+	if strings.Contains(view, "Layouts") {
+		t.Error("help content should be printed via tea.Println, not in View()")
 	}
 }
 
@@ -62,11 +74,11 @@ func TestShellModel_UnknownCommand(t *testing.T) {
 	m := NewShellModel(nil, nil, client.BackendGhostty, "")
 	m.prompt.SetValue("wat")
 
-	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	sm := result.(ShellModel)
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 
-	if !strings.Contains(sm.output.String(), "Unknown command") {
-		t.Error("unknown command should show error message")
+	// Unknown command output is flushed via tea.Println
+	if cmd == nil {
+		t.Error("expected tea.Println command for error output")
 	}
 }
 
