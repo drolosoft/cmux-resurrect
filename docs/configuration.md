@@ -60,6 +60,7 @@ CREX_BANNER=classic crex
 |----------|---------|--------|
 | `CREX_THEME` | Force dark or light palette | `dark`, `light` |
 | `CREX_BANNER` | Override banner style | `flame`, `classic`, `plain` |
+| `CREX_NO_WATCH` | Prevent daemon auto-start from shell hooks | `1` (any truthy value) |
 
 Both are useful when auto-detection fails (e.g. terminal multiplexers blocking OSC 11 passthrough) or for scripting.
 
