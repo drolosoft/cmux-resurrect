@@ -312,3 +312,68 @@ func TestBanner_CmuxAllModes(t *testing.T) {
 		}
 	}
 }
+
+// -- unitName / unitNameCap tests --------------------------------------------
+
+func TestUnitName_Ghostty_Singular(t *testing.T) {
+	orig := cachedBackend
+	cachedBackend = client.BackendGhostty
+	defer func() { cachedBackend = orig }()
+
+	if got := unitName(1); got != "tab" {
+		t.Errorf("unitName(1) with Ghostty = %q, want %q", got, "tab")
+	}
+}
+
+func TestUnitName_Ghostty_Plural(t *testing.T) {
+	orig := cachedBackend
+	cachedBackend = client.BackendGhostty
+	defer func() { cachedBackend = orig }()
+
+	if got := unitName(3); got != "tabs" {
+		t.Errorf("unitName(3) with Ghostty = %q, want %q", got, "tabs")
+	}
+}
+
+func TestUnitName_Cmux_Singular(t *testing.T) {
+	orig := cachedBackend
+	cachedBackend = client.BackendCmux
+	defer func() { cachedBackend = orig }()
+
+	if got := unitName(1); got != "workspace" {
+		t.Errorf("unitName(1) with cmux = %q, want %q", got, "workspace")
+	}
+}
+
+func TestUnitName_Cmux_Plural(t *testing.T) {
+	orig := cachedBackend
+	cachedBackend = client.BackendCmux
+	defer func() { cachedBackend = orig }()
+
+	if got := unitName(3); got != "workspaces" {
+		t.Errorf("unitName(3) with cmux = %q, want %q", got, "workspaces")
+	}
+}
+
+func TestUnitName_Unknown_DefaultsToCmux(t *testing.T) {
+	orig := cachedBackend
+	cachedBackend = client.BackendUnknown
+	defer func() { cachedBackend = orig }()
+
+	if got := unitName(2); got != "workspaces" {
+		t.Errorf("unitName(2) with unknown = %q, want %q", got, "workspaces")
+	}
+}
+
+func TestUnitNameCapitalized(t *testing.T) {
+	orig := cachedBackend
+	cachedBackend = client.BackendGhostty
+	defer func() { cachedBackend = orig }()
+
+	if got := unitNameCap(1); got != "Tab" {
+		t.Errorf("unitNameCap(1) with Ghostty = %q, want %q", got, "Tab")
+	}
+	if got := unitNameCap(3); got != "Tabs" {
+		t.Errorf("unitNameCap(3) with Ghostty = %q, want %q", got, "Tabs")
+	}
+}
