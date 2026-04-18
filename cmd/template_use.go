@@ -103,38 +103,38 @@ func runTemplateUse(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	w := cmd.OutOrStderr()
+	o := newWF(cmd.OutOrStderr())
 
 	if result.DryRun {
-		fmt.Fprintln(w)
-		fmt.Fprintf(w, "%s %s %s %s\n",
+		o.ln()
+		o.f("%s %s %s %s\n",
 			yellowStyle.Render("Dry-run"),
 			greenStyle.Render(tmpl.Icon+" "+tmpl.Name),
 			dimStyle.Render("in"),
 			cyanStyle.Render(absCWD))
-		fmt.Fprintln(w)
+		o.ln()
 
 		for _, c := range result.Commands {
 			parts := strings.SplitN(c, " ", 3)
 			if len(parts) >= 2 {
-				fmt.Fprintf(w, "  %s %s", dimStyle.Render(parts[0]), cyanStyle.Render(parts[1]))
+				o.f("  %s %s", dimStyle.Render(parts[0]), cyanStyle.Render(parts[1]))
 				if len(parts) == 3 {
-					fmt.Fprintf(w, " %s", dimStyle.Render(parts[2]))
+					o.f(" %s", dimStyle.Render(parts[2]))
 				}
-				fmt.Fprintln(w)
+				o.ln()
 			} else {
-				fmt.Fprintf(w, "  %s\n", c)
+				o.f("  %s\n", c)
 			}
 		}
 
-		fmt.Fprintln(w)
-		fmt.Fprintf(w, "%s\n\n",
+		o.ln()
+		o.f("%s\n\n",
 			greenStyle.Render(fmt.Sprintf("  %d commands for %q (%d panes)", len(result.Commands), result.Title, result.Panes)))
 		return nil
 	}
 
-	fmt.Fprintln(w)
-	fmt.Fprintf(w, "%s  %s %s (%d panes)\n\n",
+	o.ln()
+	o.f("%s  %s %s (%d panes)\n\n",
 		greenStyle.Render("OK"),
 		greenStyle.Render(padTitle(result.Title)),
 		dimStyle.Render("from "+tmpl.Name),

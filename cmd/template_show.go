@@ -43,40 +43,39 @@ func showSingleTemplate(cmd *cobra.Command, name string) error {
 		return fmt.Errorf("template %q not found in gallery", name)
 	}
 
-	w := cmd.OutOrStderr()
-	renderTemplateCard(w, tmpl)
+	renderTemplateCard(newWF(cmd.OutOrStderr()), tmpl)
 	return nil
 }
 
 func runTemplateShowAll(cmd *cobra.Command) error {
-	w := cmd.OutOrStderr()
+	o := newWF(cmd.OutOrStderr())
 
 	layouts := gallery.ListByCategory("layout")
 	workflows := gallery.ListByCategory("workflow")
 
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, categoryStyle.Render("  Layouts"))
+	o.ln()
+	o.ln(categoryStyle.Render("  Layouts"))
 
 	for _, tmpl := range layouts {
-		renderTemplateCard(w, tmpl)
+		renderTemplateCard(o, tmpl)
 	}
 
-	fmt.Fprintln(w, categoryStyle.Render("  Workflows"))
+	o.ln(categoryStyle.Render("  Workflows"))
 
 	for _, tmpl := range workflows {
-		renderTemplateCard(w, tmpl)
+		renderTemplateCard(o, tmpl)
 	}
 
 	total := len(layouts) + len(workflows)
-	fmt.Fprintln(w, dimStyle.Render(fmt.Sprintf("  %d templates (%d layouts, %d workflows)", total, len(layouts), len(workflows))))
-	fmt.Fprintln(w)
+	o.ln(dimStyle.Render(fmt.Sprintf("  %d templates (%d layouts, %d workflows)", total, len(layouts), len(workflows))))
+	o.ln()
 	return nil
 }
 
 // renderTemplateCard renders a full template preview (header + diagram + metadata).
-func renderTemplateCard(w interface{ Write([]byte) (int, error) }, tmpl *model.Template) {
+func renderTemplateCard(o wf, tmpl *model.Template) {
 	// Header: icon + name + description.
-	fmt.Fprintf(w, "\n  %s %s — %s\n\n",
+	o.f("\n  %s %s — %s\n\n",
 		tmpl.Icon,
 		greenStyle.Render(tmpl.Name),
 		dimStyle.Render(tmpl.Description),
@@ -85,24 +84,24 @@ func renderTemplateCard(w interface{ Write([]byte) (int, error) }, tmpl *model.T
 	// ASCII diagram.
 	diagram := renderDiagram(tmpl)
 	for _, line := range strings.Split(diagram, "\n") {
-		fmt.Fprintf(w, "  %s\n", line)
+		o.f("  %s\n", line)
 	}
-	fmt.Fprintln(w)
+	o.ln()
 
 	// Metadata.
-	fmt.Fprintf(w, "  %s  %s\n", dimStyle.Render("Category:"), cyanStyle.Render(tmpl.Category))
-	fmt.Fprintf(w, "  %s     %s\n", dimStyle.Render("Panes:"), cyanStyle.Render(fmt.Sprintf("%d", len(tmpl.Panes))))
+	o.f("  %s  %s\n", dimStyle.Render("Category:"), cyanStyle.Render(tmpl.Category))
+	o.f("  %s     %s\n", dimStyle.Render("Panes:"), cyanStyle.Render(fmt.Sprintf("%d", len(tmpl.Panes))))
 
 	// Split sequence.
 	splits := buildSplitSequence(tmpl)
-	fmt.Fprintf(w, "  %s    %s\n", dimStyle.Render("Splits:"), cyanStyle.Render(splits))
+	o.f("  %s    %s\n", dimStyle.Render("Splits:"), cyanStyle.Render(splits))
 
 	// Tags.
 	if len(tmpl.Tags) > 0 {
-		fmt.Fprintf(w, "  %s      %s\n", dimStyle.Render("Tags:"), cyanStyle.Render(strings.Join(tmpl.Tags, ", ")))
+		o.f("  %s      %s\n", dimStyle.Render("Tags:"), cyanStyle.Render(strings.Join(tmpl.Tags, ", ")))
 	}
 
-	fmt.Fprintln(w)
+	o.ln()
 }
 
 // buildSplitSequence returns a human-readable split sequence like "main → right → down".
@@ -463,4 +462,3 @@ func ideDiagram(panes []paneInfo) string {
 func fallbackDiagram(panes []paneInfo) string {
 	return singleDiagram(panes)
 }
-

@@ -72,14 +72,14 @@ func runTemplateCustomize(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	w := cmd.OutOrStderr()
-	fmt.Fprintln(w)
-	fmt.Fprintf(w, "  %s Copied %s to your Workspace Blueprint.\n",
+	o := newWF(cmd.OutOrStderr())
+	o.ln()
+	o.f("  %s Copied %s to your Workspace Blueprint.\n",
 		greenStyle.Render("✅"),
 		greenStyle.Render("'"+name+"'"))
-	fmt.Fprintf(w, "  Your copy now takes priority over the built-in.\n")
-	fmt.Fprintf(w, "  Edit with: %s\n", cyanStyle.Render("crex edit"))
-	fmt.Fprintln(w)
+	o.f("  Your copy now takes priority over the built-in.\n")
+	o.f("  Edit with: %s\n", cyanStyle.Render("crex edit"))
+	o.ln()
 
 	return nil
 }

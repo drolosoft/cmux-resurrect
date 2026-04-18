@@ -11,10 +11,10 @@ import (
 // Colors resolve automatically based on terminal background (dark vs light).
 
 var (
-	colorGreen = lipgloss.AdaptiveColor{Dark: "#5FFF87", Light: "#1A8A3E"}
-	colorDim   = lipgloss.AdaptiveColor{Dark: "#8C8C8C", Light: "#6C6C6C"}
-	colorCyan  = lipgloss.AdaptiveColor{Dark: "#87D7FF", Light: "#0277BD"}
-	colorYellow = lipgloss.AdaptiveColor{Dark: "#FFD787", Light: "#B8860B"}
+	colorGreen   = lipgloss.AdaptiveColor{Dark: "#5FFF87", Light: "#1A8A3E"}
+	colorDim     = lipgloss.AdaptiveColor{Dark: "#8C8C8C", Light: "#6C6C6C"}
+	colorCyan    = lipgloss.AdaptiveColor{Dark: "#87D7FF", Light: "#0277BD"}
+	colorYellow  = lipgloss.AdaptiveColor{Dark: "#FFD787", Light: "#B8860B"}
 	colorMagenta = lipgloss.AdaptiveColor{Dark: "#D787FF", Light: "#8B008B"}
 )
 
@@ -39,12 +39,24 @@ var (
 	categoryStyle     = lipgloss.NewStyle().Bold(true).Foreground(colorYellow).MarginTop(1)
 )
 
+// -- Print helpers -----------------------------------------------------------
+
+// wf wraps an io.Writer with convenience methods that silence errcheck.
+type wf struct {
+	w interface{ Write([]byte) (int, error) }
+}
+
+func newWF(w interface{ Write([]byte) (int, error) }) wf { return wf{w} }
+
+func (f wf) ln(a ...any)               { fmt.Fprintln(f.w, a...) }        //nolint:errcheck
+func (f wf) f(format string, a ...any) { fmt.Fprintf(f.w, format, a...) } //nolint:errcheck
+
 // -- Flame wing rendering ----------------------------------------------------
 
-// flameWing colors each visible character in a wing string using the given
-// gradient. For left wings the gradient flows left→right (ember→gold); for
-// right wings it flows right→left (gold→ember).
-func flameWing(s string, reverse bool, gradient []lipgloss.Color) string {
+// gradientText colors each visible (non-space) character using the given
+// gradient palette. When reverse is true the gradient flows right→left.
+// When bold is true each character is rendered bold.
+func gradientText(s string, gradient []lipgloss.Color, reverse, bold bool) string {
 	runes := []rune(s)
 
 	var visible []int
@@ -75,52 +87,27 @@ func flameWing(s string, reverse bool, gradient []lipgloss.Color) string {
 			rank = len(visible) - 1 - rank
 		}
 		colorIdx := rank * (len(gradient) - 1) / max(len(visible)-1, 1)
-		style := lipgloss.NewStyle().Foreground(gradient[colorIdx])
+		style := lipgloss.NewStyle().Foreground(gradient[colorIdx]).Bold(bold)
 		result.WriteString(style.Render(string(ch)))
 	}
 	return result.String()
+}
+
+// flameWing colors each visible character in a wing string using the given
+// gradient. For left wings the gradient flows left→right (ember→gold); for
+// right wings it flows right→left (gold→ember).
+func flameWing(s string, reverse bool, gradient []lipgloss.Color) string {
+	return gradientText(s, gradient, reverse, false)
 }
 
 // flameLine applies the flame→green gradient across a full line of text.
 // Visible characters are colored left-to-right: ember → gold → green.
 // Used for the cmux-resurrect banner where there are no separate wings.
 func flameLine(s string, th theme) string {
-	runes := []rune(s)
-
-	// Build combined gradient: flame colors + the banner green at the end.
 	grad := make([]lipgloss.Color, len(th.flame)+1)
 	copy(grad, th.flame)
 	grad[len(grad)-1] = th.green
-
-	var visible []int
-	for i, ch := range runes {
-		if ch != ' ' {
-			visible = append(visible, i)
-		}
-	}
-	if len(visible) == 0 {
-		return s
-	}
-
-	var result strings.Builder
-	result.Grow(len(s) * 20)
-
-	visMap := make(map[int]int, len(visible))
-	for rank, idx := range visible {
-		visMap[idx] = rank
-	}
-
-	for i, ch := range runes {
-		if ch == ' ' {
-			result.WriteRune(' ')
-			continue
-		}
-		rank := visMap[i]
-		colorIdx := rank * (len(grad) - 1) / max(len(visible)-1, 1)
-		style := lipgloss.NewStyle().Foreground(grad[colorIdx]).Bold(true)
-		result.WriteString(style.Render(string(ch)))
-	}
-	return result.String()
+	return gradientText(s, grad, false, true)
 }
 
 // -- ASCII banner ------------------------------------------------------------
@@ -128,7 +115,7 @@ func flameLine(s string, th theme) string {
 func banner() string {
 	th := detectTheme()
 	mode := resolveBannerMode()
-	greenStyle := lipgloss.NewStyle().Foreground(th.green).Bold(true)
+	bannerGreen := lipgloss.NewStyle().Foreground(th.green).Bold(true)
 	plainStyle := lipgloss.NewStyle().Foreground(th.dim)
 
 	var b strings.Builder
@@ -146,7 +133,7 @@ func banner() string {
 			case bannerPlain:
 				b.WriteString(plainStyle.Render(line))
 			case bannerClassic:
-				b.WriteString(greenStyle.Render(line))
+				b.WriteString(bannerGreen.Render(line))
 			default:
 				b.WriteString(flameLine(line, th))
 			}
@@ -169,12 +156,12 @@ func banner() string {
 				b.WriteString(plainStyle.Render(l.text))
 				b.WriteString(plainStyle.Render(l.right))
 			case bannerClassic:
-				b.WriteString(greenStyle.Render(l.left))
-				b.WriteString(greenStyle.Render(l.text))
-				b.WriteString(greenStyle.Render(l.right))
+				b.WriteString(bannerGreen.Render(l.left))
+				b.WriteString(bannerGreen.Render(l.text))
+				b.WriteString(bannerGreen.Render(l.right))
 			default:
 				b.WriteString(flameWing(l.left, false, th.flame))
-				b.WriteString(greenStyle.Render(l.text))
+				b.WriteString(bannerGreen.Render(l.text))
 				b.WriteString(flameWing(l.right, true, th.flame))
 			}
 			b.WriteString("\n")

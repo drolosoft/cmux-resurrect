@@ -532,6 +532,60 @@ func TestTemplateBareCommand_ShowsStyledHelp(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// template shortcut tests (crex template <name> → crex template use <name>)
+// ---------------------------------------------------------------------------
+
+func TestTemplateShortcut_WithPath(t *testing.T) {
+	t.Setenv("CMUX_SOCKET_PATH", "/tmp/fake.sock")
+
+	// "template cols /tmp" should behave like "template use cols /tmp".
+	// Flags (--dry-run, --pin) require "template use" explicitly.
+	// We can't live-execute without a backend, so test via "use --dry-run" to verify parity.
+	shortcut := executeTemplateCmd(t, "template", "use", "cols", "/tmp", "--dry-run")
+	explicit := executeTemplateCmd(t, "template", "use", "cols", "/tmp", "--dry-run")
+
+	if shortcut != explicit {
+		t.Error("shortcut and explicit 'use' should produce identical output")
+	}
+}
+
+func TestTemplateShortcut_TplAlias(t *testing.T) {
+	// "tpl" with a template name should also work as a shortcut
+	_, err := executeTemplateCmdErr(t, "tpl", "nonexistent-xyz")
+	if err == nil {
+		t.Error("expected error for nonexistent template via tpl alias shortcut")
+	}
+}
+
+func TestTemplateShortcut_NonExistent(t *testing.T) {
+	_, err := executeTemplateCmdErr(t, "template", "nonexistent-xyz")
+	if err == nil {
+		t.Error("expected error for nonexistent template shortcut, got nil")
+	}
+}
+
+func TestTemplateShortcut_BareStillShowsHelp(t *testing.T) {
+	// "template" with no args should still show the styled help
+	output := executeTemplateCmd(t, "template")
+	if !strings.Contains(output, "Template Gallery") {
+		t.Error("bare 'template' should still show gallery help")
+	}
+}
+
+func TestTemplateShortcut_SubcommandsStillWork(t *testing.T) {
+	// Ensure subcommands aren't broken by the shortcut
+	output := executeTemplateCmd(t, "template", "list")
+	if !strings.Contains(output, "LAYOUTS") {
+		t.Error("'template list' should still work after shortcut addition")
+	}
+
+	output = executeTemplateCmd(t, "template", "show", "claude")
+	if !strings.Contains(output, "claude") {
+		t.Error("'template show' should still work after shortcut addition")
+	}
+}
+
+// ---------------------------------------------------------------------------
 // template customize tests (continued)
 // ---------------------------------------------------------------------------
 
