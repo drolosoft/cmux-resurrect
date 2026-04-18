@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"syscall"
@@ -20,8 +21,16 @@ type Watcher struct {
 	Name          string
 	Interval      time.Duration
 	WorkspaceFile string // MD file path; if set, also updates the MD on each tick
+	LogWriter     io.Writer // if set, log to this writer instead of stderr
 
 	lastHash string
+}
+
+func (w *Watcher) logWriter() io.Writer {
+	if w.LogWriter != nil {
+		return w.LogWriter
+	}
+	return os.Stderr
 }
 
 // Run starts the watch loop, blocking until interrupted.
@@ -38,7 +47,7 @@ func (w *Watcher) Run() error {
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Fprintf(os.Stderr, "\nStopping watcher. Final save...\n")
+			fmt.Fprintf(w.logWriter(), "\nStopping watcher. Final save...\n")
 			w.saveOnce()
 			return nil
 		case <-ticker.C:
@@ -51,7 +60,7 @@ func (w *Watcher) saveOnce() {
 	saver := &Saver{Client: w.Client, Store: w.Store}
 	layout, err := saver.Save(w.Name, "autosave")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "  watch save error: %v\n", err)
+		fmt.Fprintf(w.logWriter(), "  watch save error: %v\n", err)
 		return
 	}
 
@@ -68,11 +77,11 @@ func (w *Watcher) saveOnce() {
 	if w.WorkspaceFile != "" {
 		exporter := &Exporter{Client: w.Client}
 		if err := exporter.ExportToMD(w.WorkspaceFile); err != nil {
-			fmt.Fprintf(os.Stderr, "  watch md update error: %v\n", err)
+			fmt.Fprintf(w.logWriter(), "  watch md update error: %v\n", err)
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "  saved %d workspaces at %s\n",
+	fmt.Fprintf(w.logWriter(), "  saved %d workspaces at %s\n",
 		len(layout.Workspaces),
 		time.Now().Format("15:04:05"))
 }
