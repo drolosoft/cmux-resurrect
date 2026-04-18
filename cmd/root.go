@@ -30,6 +30,13 @@ var rootCmd = &cobra.Command{
 		}
 		metas, err := store.List()
 		if err != nil || len(metas) == 0 {
+			if !configExists() {
+				fmt.Print(banner())
+				fmt.Println()
+				fmt.Println(dimStyle.Render("  First time? Run ") + greenStyle.Render("crex setup") + dimStyle.Render(" to get started."))
+				fmt.Println()
+				return nil
+			}
 			fmt.Print(banner())
 			fmt.Print(styledHelp())
 			return nil
@@ -107,4 +114,10 @@ func newClient() client.Backend {
 
 func newStore() (persist.Store, error) {
 	return persist.NewFileStore(cfg.LayoutsDir)
+}
+
+func configExists() bool {
+	path := config.DefaultConfigPath()
+	_, err := os.Stat(path)
+	return err == nil
 }
