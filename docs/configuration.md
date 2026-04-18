@@ -59,7 +59,7 @@ CREX_BANNER=classic crex
 | `CREX_THEME` | Force dark or light palette | `dark`, `light` |
 | `CREX_BANNER` | Override banner style | `flame`, `classic`, `plain` |
 
-Both are useful when auto-detection fails (e.g. tmux blocking OSC queries) or for scripting.
+Both are useful when auto-detection fails (e.g. terminal multiplexers blocking OSC 11 passthrough) or for scripting.
 
 ## Override with Flags
 

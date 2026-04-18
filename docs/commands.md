@@ -13,7 +13,7 @@
 | `crex edit <name>` | | ✏️ Open layout in `$EDITOR` |
 | `crex delete <name>` | `rm` | 🗑️ Delete a saved layout |
 | `crex import-from-md` | | 📥 Create workspaces from a Workspace Blueprint |
-| `crex export-to-md` | | 📤 Export live cmux state to a Workspace Blueprint |
+| `crex export-to-md` | | 📤 Export live terminal state to a Workspace Blueprint |
 | `crex watch [name]` | | ⏱️ Auto-save at interval (default: 5m) |
 | `crex workspace add` | `ws add` | ➕ Add workspace entry to the Blueprint |
 | `crex workspace remove` | `ws rm` | ➖ Remove workspace entry from the Blueprint |
@@ -24,7 +24,7 @@
 | `crex template show <name>` | `tpl show` | 🔍 Preview a template with ASCII diagram |
 | `crex template use <template> [path]` | `tpl use` | 🚀 Create a workspace from a gallery template |
 | `crex template customize <name>` | `tpl customize` | ✏️ Copy a gallery template into your Blueprint |
-| `crex completion` | | 🔤 Generate shell completion scripts (bash, zsh, fish, powershell) |
+| `crex completion` | | 🔤 Generate shell completion scripts (bash, zsh, fish) |
 
 ## Key Flags
 

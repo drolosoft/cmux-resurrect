@@ -5,7 +5,7 @@
 ## Prerequisites
 
 - Go 1.26+
-- cmux in `$PATH`
+- cmux in `$PATH` (for cmux backend) or Ghostty 1.3+ (for Ghostty backend)
 
 ## Build Targets
 
@@ -24,9 +24,9 @@ make clean              # 🗑️ remove bin/
 
 ## 🖥️ Platform Compatibility
 
-crex is a companion to cmux. **If your Mac runs cmux, it runs crex** — no extra dependencies, no compatibility surprises.
+crex works with both cmux and Ghostty. **If your Mac runs either one, it runs crex** — no extra dependencies, no compatibility surprises. The backend is auto-detected at startup.
 
-The binary is pure Go with zero CGO dependencies, which means it compiles natively for every platform cmux supports.
+The binary is pure Go with zero CGO dependencies.
 
 | Platform | Architecture | Status |
 |----------|-------------|--------|

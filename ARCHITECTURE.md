@@ -1,25 +1,29 @@
-# 🏗️ Architecture — cmux-resurrect
+# 🏗️ Architecture — crex (cmux-resurrect)
 
-crex supports multiple terminal backends through the `Backend` interface in `internal/client/`.
+crex supports multiple terminal backends through the `Backend` interface in `internal/client/`. The backend is auto-detected at startup: cmux (via `CMUX_SOCKET_PATH`) or Ghostty (via AppleScript probe).
 
 > Internal documentation for contributors and anyone wanting to understand or extend the project.
 
 ## How It Works
 
 ```
-┌──────────────────┐         ┌──────────────────┐
-│  🖥️ cmux          │ ◄─────► │  ⚡ crex CLI     │
-│  (Ghostty mux)   │  cmux   │  (Go binary)     │
-└──────────────────┘  CLI    └────────┬─────────┘
-                      calls           │
-                            ┌─────────┼─────────┐
-                            ▼                   ▼
-                   ┌──────────────┐    ┌──────────────┐
-                   │ 💾 Layouts    │    │ 📝 Workspace  │
-                   │ (TOML files) │    │ (Blueprint)   │
-                   │ ~/.config/   │    │ Obsidian-ok    │
-                   │ crex/layouts│    │ (.md)        │
-                   └──────────────┘    └──────────────┘
+┌──────────────────┐                    ┌──────────────────┐
+│  🖥️ cmux          │ ◄── cmux CLI ───► │                  │
+│  (terminal mux)  │                    │  ⚡ crex CLI     │
+└──────────────────┘                    │  (Go binary)     │
+                                        │                  │
+┌──────────────────┐                    │  auto-detects    │
+│  👻 Ghostty       │ ◄── AppleScript ► │  active backend  │
+│  (terminal)      │                    └────────┬─────────┘
+└──────────────────┘                             │
+                                       ┌─────────┼─────────┐
+                                       ▼                   ▼
+                              ┌──────────────┐    ┌──────────────┐
+                              │ 💾 Layouts    │    │ 📝 Workspace  │
+                              │ (TOML files) │    │ (Blueprint)   │
+                              │ ~/.config/   │    │ Obsidian-ok   │
+                              │ crex/layouts │    │ (.md)         │
+                              └──────────────┘    └──────────────┘
 ```
 
 ## Flows
@@ -27,30 +31,32 @@ crex supports multiple terminal backends through the `Backend` interface in `int
 ### 💾 Save
 
 ```
-cmux tree --json → parse TreeResponse
-  → for each workspace: cmux sidebar-state → parse CWD
+Backend.Tree() → parse TreeResponse
+  → for each workspace: Backend.SidebarState() → parse CWD
     → build model.Layout
       → serialize to TOML
         → write to ~/.config/crex/layouts/<name>.toml
 ```
 
+> cmux backend: `cmux tree --json`, `cmux sidebar-state`. Ghostty backend: AppleScript queries.
+
 ### 🔄 Restore
 
 ```
 read TOML → parse model.Layout
-  → cmux ping (verify cmux is running)
+  → Backend.Ping() (verify backend is running)
     → for each workspace (ordered by index):
-      1. cmux new-workspace --cwd <cwd>
-      2. cmux rename-workspace --workspace <ref> <title>
-      3. for each pane[i>0]: cmux new-split <direction> --workspace <ref>
-      4. for each pane with command: cmux send --surface <ref> "command\n"
-      5. cmux focus-pane (if pane.focus=true)
-    → cmux select-workspace (restore active tab)
+      1. Backend.NewWorkspace(cwd)
+      2. Backend.RenameWorkspace(ref, title)
+      3. for each pane[i>0]: Backend.NewSplit(direction, ref)
+      4. for each pane with command: Backend.Send(ref, "command\n")
+      5. Backend.FocusPane(if pane.focus=true)
+    → Backend.SelectWorkspace (restore active tab)
 ```
 
 ### 📥 Import from Blueprint
 
-Parses Workspace Blueprint (.md) → resolves templates into pane definitions → creates any workspaces that don't already exist in the running cmux instance.
+Parses Workspace Blueprint (.md) → resolves templates into pane definitions → creates any workspaces that don't already exist in the running terminal.
 
 ### 📤 Export to Blueprint
 
@@ -121,7 +127,7 @@ The `cmd/template_show.go` file contains hardcoded diagram rendering functions f
 ## Client Interface
 
 ```go
-type CmuxClient interface {
+type Backend interface {
     Ping() error
     Tree() (*TreeResponse, error)
     SidebarState(workspaceRef string) (*SidebarState, error)
@@ -137,7 +143,7 @@ type CmuxClient interface {
 }
 ```
 
-The CLI backend can be swapped for a direct socket connection without touching any business logic.
+Implementations: `CLIClient` (cmux via exec) and `GhosttyClient` (Ghostty via AppleScript). New backends can be added without touching business logic.
 
 ## Ref Detection Strategy
 
@@ -171,8 +177,9 @@ The Markdown parser preserves everything after the Templates section as opaque t
 
 ## Known Limitations
 
-| Limitation | Reason |
-|-----------|--------|
-| Split direction not captured from live state | cmux tree JSON doesn't expose it; defaults to "right", editable in TOML |
-| Pane CWD not per-pane | cmux sidebar-state returns one CWD per workspace, not per pane |
-| Autosave rotation not implemented | `max_autosaves` config field exists but rotation logic is pending |
+| Limitation | Backends | Reason |
+|-----------|----------|--------|
+| Split direction not captured from live state | Both | Neither backend exposes split direction; defaults to "right", editable in TOML |
+| Pane CWD not per-pane | Both | Both backends return one CWD per workspace, not per pane |
+| Autosave rotation not implemented | Both | `max_autosaves` config field exists but rotation logic is pending |
+| launchd auto-save uses cmux socket | cmux only | Ghostty users run `crex watch` directly (no socket activation) |

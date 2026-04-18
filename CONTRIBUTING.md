@@ -34,7 +34,7 @@ Requires Go 1.26+.
 
 ```bash
 make test              # unit tests
-make test-integration  # integration tests (requires cmux)
+make test-integration  # integration tests (requires cmux or Ghostty)
 ```
 
 Test fixtures live in `testdata/`. Add new fixtures there when testing new layout formats.
@@ -52,4 +52,4 @@ Use [GitHub Issues](https://github.com/drolosoft/cmux-resurrect/issues) with:
 - Steps to reproduce
 - Expected vs actual behavior
 - crex version (`crex version`)
-- OS and cmux version
+- OS, terminal backend (cmux or Ghostty), and its version

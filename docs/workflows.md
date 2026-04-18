@@ -2,13 +2,13 @@
 
 # 🔑 Two Workflows
 
-crex offers two distinct ways to manage your cmux workspaces.
+crex offers two distinct ways to manage your terminal workspaces.
 
 ## 💾 Save / Restore — Session Recovery
 
-**Use case**: cmux crashed, your machine rebooted, or you want to switch between layouts.
+**Use case**: your terminal crashed, your machine rebooted, or you want to switch between layouts.
 
-`save` takes an exact snapshot of your running cmux session — every workspace, split, CWD, pinned state, and active tab — and writes it to a TOML file. `restore` reads that TOML and recreates everything exactly as it was.
+`save` takes an exact snapshot of your running session — every workspace, split, CWD, pinned state, and active tab — and writes it to a TOML file. `restore` reads that TOML and recreates everything exactly as it was.
 
 ```sh
 # End of day: snapshot your layout
@@ -22,9 +22,9 @@ Think of it as **backup and recovery**. The TOML file is a photograph of your se
 
 ## 📥 Import from Markdown — Workspace as Code
 
-**Use case**: you maintain a Workspace Blueprint describing your ideal workspace setup, and you want cmux to match it.
+**Use case**: you maintain a Workspace Blueprint describing your ideal workspace setup, and you want your terminal to match it.
 
-`import-from-md` reads a Workspace Blueprint (.md, compatible with Obsidian), resolves templates into pane layouts, and creates only the workspaces that **don't already exist** in cmux. Running it twice does nothing the second time — it's idempotent.
+`import-from-md` reads a Workspace Blueprint (.md, compatible with Obsidian), resolves templates into pane layouts, and creates only the workspaces that **don't already exist**. Running it twice does nothing the second time — it's idempotent.
 
 ```sh
 # Define your workspaces in a .md file, then:
@@ -35,7 +35,7 @@ crex workspace add api ~/projects/api -t dev --icon "⚙️"
 crex import-from-md
 ```
 
-Think of it as **infrastructure as code** for your terminal. The Workspace Blueprint is the source of truth; `import-from-md` makes cmux match it. The reverse operation, `export-to-md`, captures your live cmux state back into the Blueprint.
+Think of it as **infrastructure as code** for your terminal. The Workspace Blueprint is the source of truth; `import-from-md` makes your terminal match it. The reverse operation, `export-to-md`, captures your live state back into the Blueprint.
 
 ## Side by Side
 
@@ -75,7 +75,9 @@ cmux select-workspace --workspace workspace:new_0
 14 commands for 4 workspaces
 ```
 
-Every `cmux` command listed. Nothing executed. Inspect, verify, **then** run without `--dry-run`.
+Every backend command listed. Nothing executed. Inspect, verify, **then** run without `--dry-run`.
+
+> The dry-run output above shows cmux commands. When running with the Ghostty backend, equivalent AppleScript commands are shown instead.
 
 ---
 

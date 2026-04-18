@@ -203,6 +203,6 @@ If crex saved you time or made your workflow easier, consider buying me a coffee
 
 **MIT License** — free to use, modify, and distribute.
 
-Born from a real need: a crashed cmux session took an hour of carefully arranged workspaces with it. `crex` exists so that never happens again.
+Born from a real need: a crashed cmux session took an hour of carefully arranged workspaces with it. `crex` now protects your workspaces across both cmux and Ghostty — so that never happens again.
 
 **Forged by [Drolosoft](https://drolosoft.com)** · *Tools we wish existed*

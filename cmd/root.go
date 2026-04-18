@@ -61,7 +61,7 @@ func updateRootLong() {
 	if isCmuxBranding() {
 		rootCmd.Long = "crex (cmux-resurrect) saves, restores, and templates your terminal workspaces.\nWorks with cmux and Ghostty. Inspired by tmux-resurrect."
 	} else {
-		rootCmd.Long = "crex saves, restores, and templates your terminal workspaces.\nWorks with Ghostty. Inspired by tmux-resurrect."
+		rootCmd.Long = "crex saves, restores, and templates your terminal workspaces.\nWorks with Ghostty and cmux. Inspired by tmux-resurrect."
 	}
 }
 

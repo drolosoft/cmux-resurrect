@@ -2,7 +2,7 @@
 
 # 🔤 Shell Completion
 
-crex supports **tab completion** for commands, subcommands, layout names, workspace names, and flag values across **bash, zsh, fish, and PowerShell**.
+crex supports **tab completion** for commands, subcommands, layout names, workspace names, and flag values across **bash, zsh, and fish**.
 
 ## What Gets Completed
 

@@ -14,11 +14,13 @@ func appTitle() string {
 }
 
 // appTagline returns the tagline appropriate for the active backend.
+// Both paths mention both backends — crex always supports cmux and Ghostty.
+// The active backend is listed first for relevance.
 func appTagline() string {
 	if cachedBackend == client.BackendCmux {
 		return "Terminal workspace manager for cmux and Ghostty \u2014 your sessions, resurrected."
 	}
-	return "Terminal workspace manager for Ghostty \u2014 your sessions, resurrected."
+	return "Terminal workspace manager for Ghostty and cmux \u2014 your sessions, resurrected."
 }
 
 // isCmuxBranding returns true when cmux-specific branding should be shown.

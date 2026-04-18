@@ -2,7 +2,9 @@
 
 # 🍎 Auto-Save with launchd
 
-The `watch` command runs as a macOS service, auto-saving when cmux is active.
+The `watch` command runs as a macOS service, auto-saving when your terminal multiplexer is active.
+
+> **Note:** The launchd service below uses the cmux socket for activation. Ghostty users can run `crex watch` directly from their shell or `.zprofile`.
 
 ## Install the Service
 
@@ -14,7 +16,7 @@ make uninstall-service  # remove it
 ## How It Works
 
 - ⏱️ Runs `crex watch autosave --interval 5m`
-- 🔌 Only starts when `/tmp/cmux.sock` exists (cmux is running)
+- 🔌 Only starts when `/tmp/cmux.sock` exists (cmux backend; see note above for Ghostty)
 - 📄 Logs to `/tmp/crex-watch.log`
 - 🛡️ Throttles restarts to every 30s
 - 🔗 Content-hash deduplication — no duplicate files when layout hasn't changed
