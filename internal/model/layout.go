@@ -2,7 +2,7 @@ package model
 
 import "time"
 
-// Layout represents a complete cmux session layout.
+// Layout represents a complete terminal session layout.
 type Layout struct {
 	Name        string      `toml:"name"`
 	Description string      `toml:"description,omitempty"`

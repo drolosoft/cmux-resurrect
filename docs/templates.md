@@ -15,6 +15,7 @@ crex ships with 16 ready-to-use workspace templates for common developer workflo
 crex template list                    # browse all templates
 crex template show claude             # preview with ASCII diagram
 crex template use claude ~/project    # create workspace instantly
+crex template claude ~/project        # shortcut for the above
 crex template customize claude        # fork to your Blueprint
 ```
 

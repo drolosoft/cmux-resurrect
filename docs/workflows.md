@@ -77,7 +77,7 @@ cmux select-workspace --workspace workspace:new_0
 
 Every backend command listed. Nothing executed. Inspect, verify, **then** run without `--dry-run`.
 
-> The dry-run output above shows cmux commands. When running with the Ghostty backend, equivalent AppleScript commands are shown instead.
+> **Backend note:** The dry-run output above shows cmux commands. When running with the Ghostty backend, equivalent AppleScript commands are shown instead. The `--dry-run` flag works the same way regardless of backend.
 
 ---
 

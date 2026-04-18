@@ -4,7 +4,7 @@
 > to run code blocks step-by-step with the play button,
 > or use it as a manual reference.
 
-Test every command end-to-end against a running cmux instance.
+Test every command end-to-end against a running terminal backend (cmux or Ghostty). The commands are identical for both backends -- only the underlying driver differs.
 
 ## Version Compatibility
 

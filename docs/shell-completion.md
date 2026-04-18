@@ -233,7 +233,7 @@ Uses `rootCmd.GenBashCompletionV2()`, `GenZshCompletion()`, `GenFishCompletion()
 |---|---|---|
 | `restore` | `--mode` | `replace` (Close existing workspaces), `add` (Keep existing) |
 | `watch` | `--interval` | `1m`, `5m`, `10m`, `30m` |
-| `ws add` | `--template` | `dev`, `go`, `single`, `monitor` |
+| `ws add` | `--template` | All 16 gallery templates (e.g. `dev`, `claude`, `ide`, `single`, ...) |
 | root | `--config` | `.toml` files (via `MarkPersistentFlagFilename`) |
 | root | `--layouts-dir` | directories (via `MarkPersistentFlagDirname`) |
 | root | `--workspace-file` | `.md` files (via `MarkPersistentFlagFilename`) |

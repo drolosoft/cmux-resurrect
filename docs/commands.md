@@ -70,6 +70,8 @@ Displays the template's icon, description, ASCII diagram, category, pane count, 
 
 ### `crex template use <template> [path]`
 
+> **Shortcut:** `crex template <name>` is equivalent to `crex template use <name>`.
+
 ```sh
 crex template use claude ~/project    # create workspace at path
 crex template use ide                 # create workspace in current dir

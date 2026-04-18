@@ -57,8 +57,8 @@ Now `crex <TAB>` shows all commands, `crex restore <TAB>` completes your saved l
 ### Try it
 
 ```sh
-crex save my-day                # snapshot your current layout
-crex save my-day --dry-run      # or preview first without saving
+crex save my-day                          # snapshot your current layout
+crex save my-day -d "Friday deep work"    # with a description
 ```
 
 ---
@@ -66,8 +66,9 @@ crex save my-day --dry-run      # or preview first without saving
 ## 💾 Save & Restore
 
 ```sh
-crex save my-day              # snapshot your layout
-crex restore my-day           # bring it all back
+crex save my-day                          # snapshot your layout
+crex save my-day -d "Friday deep work"    # add a description (preserved across re-saves)
+crex restore my-day                       # bring it all back
 ```
 
 Every workspace, split, CWD, pinned state, and startup command — captured and restored. Layouts are saved to `~/.config/crex/layouts/`.
@@ -122,7 +123,7 @@ crex ships with 16 ready-to-use workspace templates for common developer workflo
 ```sh
 crex template list                    # browse all templates
 crex template show claude             # preview with ASCII diagram
-crex template use claude ~/project    # create workspace instantly
+crex template claude ~/project        # create workspace instantly (shortcut)
 crex template customize claude        # fork to your Blueprint
 ```
 
@@ -150,6 +151,8 @@ crex template use dev   # same templates, any backend
 ```
 
 All features — save, restore, import, export, templates, Blueprints — work identically across backends. The template gallery is 100% backend-agnostic.
+
+**Adaptive Themes** — crex auto-detects your terminal's dark/light background and adjusts banner colors. Three styles available: `flame` (gradient, default), `classic` (solid green), `plain` (gray). Set `banner_style` in `config.toml` or use `CREX_BANNER`; override detection with `CREX_THEME=dark|light`. See [Configuration](docs/configuration.md).
 
 ---
 

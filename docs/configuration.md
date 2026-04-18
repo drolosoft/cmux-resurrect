@@ -28,6 +28,8 @@ banner_style = "flame"
 | 📄 Config file | `~/.config/crex/config.toml` |
 | 📁 Layouts dir | `~/.config/crex/layouts/` |
 | 📝 Workspace Blueprint | `~/.config/crex/workspaces.md` |
+| ⏱️ Watch interval | `5m` |
+| 🔄 Max autosaves | `10` |
 | 🎨 Banner style | `flame` |
 
 ## Banner Styles
