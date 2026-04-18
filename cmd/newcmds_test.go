@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -142,4 +143,58 @@ func TestE2E_SetupCompletion_NoPositionalArgs(t *testing.T) {
 	if len(names) > 0 {
 		t.Errorf("setup should have no positional completions, got %v", names)
 	}
+}
+
+// ---------------------------------------------------------------------------
+// 7. Blueprint Command Wiring
+// ---------------------------------------------------------------------------
+
+func TestBlueprintCmd_IsRegistered(t *testing.T) {
+	found := false
+	for _, cmd := range rootCmd.Commands() {
+		if cmd.Name() == "blueprint" {
+			found = true
+			if !slices.Contains(cmd.Aliases, "bp") {
+				t.Error("blueprint command should have 'bp' alias")
+			}
+			break
+		}
+	}
+	if !found {
+		t.Error("blueprint command not registered on root")
+	}
+}
+
+func TestWorkspaceLegacy_IsHidden(t *testing.T) {
+	for _, cmd := range rootCmd.Commands() {
+		if cmd.Name() == "workspace" {
+			if !cmd.Hidden {
+				t.Error("workspace command should be hidden")
+			}
+			return
+		}
+	}
+	t.Error("workspace legacy command not registered")
+}
+
+func TestBlueprintCmd_HasSubcommands(t *testing.T) {
+	for _, cmd := range rootCmd.Commands() {
+		if cmd.Name() == "blueprint" {
+			subs := []string{"add", "remove", "list", "toggle"}
+			for _, sub := range subs {
+				found := false
+				for _, sc := range cmd.Commands() {
+					if sc.Name() == sub {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("blueprint missing subcommand %q", sub)
+				}
+			}
+			return
+		}
+	}
+	t.Fatal("blueprint command not found")
 }
