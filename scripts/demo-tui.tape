@@ -1,6 +1,6 @@
 # crex v1.5.0 interactive shell demo — recorded with github.com/charmbracelet/vhs
 #
-# Run via: vhs scripts/demo-tui.tape (needs Ghostty or cmux running)
+# Run via: ./scripts/record-demo-tui.sh (needs Ghostty or cmux running)
 
 Output assets/demo-tui.gif
 Set FontSize 14
@@ -12,9 +12,9 @@ Set TypingSpeed 30ms
 Set CursorBlink false
 Set Shell "bash"
 
-# Hidden setup
+# Hidden setup: alias crex to use demo config
 Hide
-Type "alias crex='/tmp/crex-v150'"
+Type "alias crex='/tmp/crex-demo-tui-bin --config /tmp/crex-demo-tui-env/config.toml'"
 Enter
 Sleep 500ms
 Type "clear"
@@ -24,7 +24,7 @@ Show
 
 # ── Scene 1: Launch the interactive shell ─────────────────
 
-Type "# Launch the interactive shell"
+Type "# Interactive shell"
 Enter
 Sleep 500ms
 Type "crex tui"

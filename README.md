@@ -104,6 +104,8 @@ crex❯ help                   show all commands
 
 Listings show numbered items — use the number in any follow-up command. Arrow keys browse listings inline. The shell adapts to your terminal's dark or light theme automatically.
 
+<p align="center"><img src="assets/demo-tui.gif" alt="crex interactive shell" width="800"></p>
+
 ## 📥 Workspace Blueprints
 
 Define your workspaces in Obsidian-compatible Markdown. Import creates only what's missing — it's idempotent.
