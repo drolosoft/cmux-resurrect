@@ -11,8 +11,8 @@ import (
 
 var exportToMDCmd = &cobra.Command{
 	Use:   "export-to-md",
-	Short: "Export live state to a Workspace Blueprint",
-	Long:  "Captures current workspaces and writes them to a Workspace Blueprint (.md) with default templates.",
+	Short: "Export live state to a Blueprint",
+	Long:  "Captures current tabs and writes them to a Blueprint (.md) with default templates.",
 	RunE:  runExportToMD,
 }
 
@@ -36,7 +36,7 @@ func runExportToMD(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	fmt.Fprintf(os.Stderr, "Exported %d workspaces to %s\n", len(wf.Projects), wsFile)
+	fmt.Fprintf(os.Stderr, "Exported %d %s to %s\n", len(wf.Projects), unitName(len(wf.Projects)), wsFile)
 	for _, p := range wf.Projects {
 		check := "[x]"
 		if !p.Enabled {

@@ -13,8 +13,8 @@ var importDryRun bool
 
 var importFromMDCmd = &cobra.Command{
 	Use:   "import-from-md",
-	Short: "Create workspaces from a Workspace Blueprint",
-	Long:  "Reads a Workspace Blueprint (.md), resolves templates, and creates any workspaces that don't already exist.",
+	Short: "Create tabs from a Blueprint",
+	Long:  "Reads a Blueprint (.md), resolves templates, and creates any tabs that don't already exist.",
 	RunE:  runImportFromMD,
 }
 
@@ -38,7 +38,7 @@ func runImportFromMD(cmd *cobra.Command, args []string) error {
 
 	enabled := wf.EnabledProjects()
 	if len(enabled) == 0 {
-		fmt.Fprintln(os.Stderr, dimStyle.Render("  No enabled workspaces in Workspace Blueprint."))
+		fmt.Fprintln(os.Stderr, dimStyle.Render("  No enabled entries in Blueprint."))
 		return nil
 	}
 
@@ -88,7 +88,7 @@ func runImportFromMD(cmd *cobra.Command, args []string) error {
 
 	if importDryRun {
 		fmt.Fprintf(os.Stderr, "%s\n\n",
-			greenStyle.Render(fmt.Sprintf("✅ Would create %d workspaces", result.Created)))
+			greenStyle.Render(fmt.Sprintf("✅ Would create %d %s", result.Created, unitName(result.Created))))
 	} else {
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintf(os.Stderr, "%s\n\n",

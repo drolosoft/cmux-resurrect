@@ -1,6 +1,10 @@
 package cmd
 
-import "github.com/drolosoft/cmux-resurrect/internal/client"
+import (
+	"strings"
+
+	"github.com/drolosoft/cmux-resurrect/internal/client"
+)
 
 // cachedBackend stores the detected backend, evaluated once at package init.
 var cachedBackend = client.Detect()
@@ -26,4 +30,25 @@ func appTagline() string {
 // isCmuxBranding returns true when cmux-specific branding should be shown.
 func isCmuxBranding() bool {
 	return cachedBackend == client.BackendCmux
+}
+
+// unitName returns the backend-adaptive label for a terminal tab/workspace.
+// Ghostty users see "tab(s)", cmux users see "workspace(s)".
+func unitName(count int) string {
+	if cachedBackend == client.BackendGhostty {
+		if count == 1 {
+			return "tab"
+		}
+		return "tabs"
+	}
+	if count == 1 {
+		return "workspace"
+	}
+	return "workspaces"
+}
+
+// unitNameCap returns unitName with the first letter capitalized.
+func unitNameCap(count int) string {
+	s := unitName(count)
+	return strings.ToUpper(s[:1]) + s[1:]
 }

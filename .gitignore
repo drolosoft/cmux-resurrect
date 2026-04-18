@@ -42,3 +42,4 @@ completions/
 # Private
 CLAUDE.md
 .claude/
+.superpowers/

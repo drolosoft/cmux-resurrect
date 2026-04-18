@@ -49,7 +49,7 @@ func runShow(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(os.Stderr, "   %s\n", dimStyle.Render(layout.Description))
 	}
 	saved := layout.SavedAt.Local().Format("Jan 02, 2006 15:04")
-	fmt.Fprintf(os.Stderr, "   %s\n", dimStyle.Render(fmt.Sprintf("Saved %s · %d workspaces", saved, len(layout.Workspaces))))
+	fmt.Fprintf(os.Stderr, "   %s\n", dimStyle.Render(fmt.Sprintf("Saved %s · %d %s", saved, len(layout.Workspaces), unitName(len(layout.Workspaces)))))
 	fmt.Fprintln(os.Stderr)
 
 	for _, ws := range layout.Workspaces {

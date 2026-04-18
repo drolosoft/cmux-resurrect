@@ -16,7 +16,7 @@ var restoreMode string
 var restoreCmd = &cobra.Command{
 	Use:   "restore [name]",
 	Short: "Restore a saved layout",
-	Long:  "Recreates workspaces, splits, and sends commands from a saved layout.\n\nYou will be asked whether to replace your current workspaces or add to them.\nUse --mode to skip the interactive prompt (useful for scripts).\n\nIf no layout name is given, an interactive picker is shown.",
+	Long:  "Recreates tabs, pane arrangements, and sends commands from a saved layout.\n\nYou will be asked whether to replace your current tabs or add to them.\nUse --mode to skip the interactive prompt (useful for scripts).\n\nIf no layout name is given, an interactive picker is shown.",
 	Args:  cobra.MaximumNArgs(1),
 	RunE:  runRestore,
 }
@@ -27,8 +27,8 @@ func init() {
 	restoreCmd.ValidArgsFunction = completeLayoutNames
 	_ = restoreCmd.RegisterFlagCompletionFunc("mode", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return []string{
-			"replace\tClose existing workspaces first",
-			"add\tKeep existing workspaces",
+			"replace\tClose existing " + unitName(2) + " first",
+			"add\tKeep existing " + unitName(2),
 		}, cobra.ShellCompDirectiveNoFileComp
 	})
 	rootCmd.AddCommand(restoreCmd)
@@ -147,16 +147,16 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		}
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintf(os.Stderr, "%s\n\n",
-			greenStyle.Render(fmt.Sprintf("✅ %d commands for %d workspaces", len(result.Commands)-countBlanks(result.Commands), result.WorkspacesTotal)))
+			greenStyle.Render(fmt.Sprintf("✅ %d commands for %d %s", len(result.Commands)-countBlanks(result.Commands), result.WorkspacesTotal, unitName(result.WorkspacesTotal))))
 		return nil
 	}
 
 	fmt.Fprintln(os.Stderr)
 	if result.WorkspacesClosed > 0 {
-		fmt.Fprintf(os.Stderr, "%s\n", dimStyle.Render(fmt.Sprintf("  Closed %d existing workspaces", result.WorkspacesClosed)))
+		fmt.Fprintf(os.Stderr, "%s\n", dimStyle.Render(fmt.Sprintf("  Closed %d existing %s", result.WorkspacesClosed, unitName(result.WorkspacesClosed))))
 	}
 	fmt.Fprintf(os.Stderr, "%s\n\n",
-		greenStyle.Render(fmt.Sprintf("✅ Restored %d/%d workspaces", result.WorkspacesOK, result.WorkspacesTotal)))
+		greenStyle.Render(fmt.Sprintf("✅ Restored %d/%d %s", result.WorkspacesOK, result.WorkspacesTotal, unitName(result.WorkspacesTotal))))
 	if len(result.Errors) > 0 {
 		fmt.Fprintf(os.Stderr, "%s\n", yellowStyle.Render("⚠️  Errors:"))
 		for _, e := range result.Errors {
@@ -181,8 +181,8 @@ func countBlanks(cmds []string) int {
 func askRestoreMode() (orchestrate.RestoreMode, error) {
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintf(os.Stderr, "%s\n", headingStyle.Render("How do you want to restore?"))
-	fmt.Fprintf(os.Stderr, "  %s  %s\n", cyanStyle.Render("[r]"), "Replace — close all current workspaces, then restore")
-	fmt.Fprintf(os.Stderr, "  %s  %s\n", cyanStyle.Render("[a]"), "Add     — keep current workspaces, add restored ones")
+	fmt.Fprintf(os.Stderr, "  %s  %s\n", cyanStyle.Render("[r]"), fmt.Sprintf("Replace — close all current %s, then restore", unitName(2)))
+	fmt.Fprintf(os.Stderr, "  %s  %s\n", cyanStyle.Render("[a]"), fmt.Sprintf("Add     — keep current %s, add restored ones", unitName(2)))
 	fmt.Fprintf(os.Stderr, "\n%s ", dimStyle.Render("Choice [r/a]:"))
 
 	reader := bufio.NewReader(os.Stdin)

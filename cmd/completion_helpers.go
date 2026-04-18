@@ -29,7 +29,7 @@ func completeLayoutNames(cmd *cobra.Command, args []string, toComplete string) (
 	for _, m := range metas {
 		desc := m.Description
 		if desc == "" {
-			desc = fmt.Sprintf("%d workspaces", m.WorkspaceCount)
+			desc = fmt.Sprintf("%d %s", m.WorkspaceCount, unitName(m.WorkspaceCount))
 		}
 		names = append(names, fmt.Sprintf("%s\t%s", m.Name, desc))
 	}
@@ -65,10 +65,10 @@ func completeTemplateTags(cmd *cobra.Command, args []string, toComplete string) 
 	return tags, cobra.ShellCompDirectiveNoFileComp
 }
 
-// completeWorkspaceNames provides dynamic completion of project names
-// from the Workspace Blueprint.
-// Used by: ws remove, ws toggle.
-func completeWorkspaceNames(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+// completeBlueprintNames provides dynamic completion of project names
+// from the Blueprint.
+// Used by: blueprint remove, blueprint toggle.
+func completeBlueprintNames(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if len(args) > 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
