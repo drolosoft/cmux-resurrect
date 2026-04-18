@@ -6,6 +6,31 @@
 
 Test every command end-to-end against a running cmux instance.
 
+## Version Compatibility
+
+| cmux version | Status   | Notes                                                                                            |
+|--------------|----------|--------------------------------------------------------------------------------------------------|
+| 0.62.1       | Verified | Fixture `testdata/responses/sidebar-state-api.txt` matches live output shape.                    |
+| 0.63.2       | Verified | Full test suite passes (8 packages, all areas green). Upgraded 2026-04-18.                       |
+
+When bumping the local cmux install, run these spot checks:
+
+```sh
+# Confirm socket and parseable output shape
+cmux ping
+cmux sidebar-state --workspace workspace:1
+
+# End-to-end save/restore against the new binary
+crex save compat-check
+crex restore compat-check --dry-run
+```
+
+Upstream 0.63.2 notes worth watching when you next upgrade:
+- `tmux-compat split-window surface resolution` -- affects `NewSplit` ref detection (internal/client/cli.go).
+- `session restore suppression on relaunch` -- parallel to our restore; verify `crex restore` after a fresh cmux relaunch is deterministic.
+- `CLI commands briefly stealing focus` -- validate multi-workspace `save` still produces stable `focused_cwd`.
+- `editable workspace descriptions` -- crex now captures this via `workspace.description` in the saved TOML (see `model.Workspace`).
+
 ## Prerequisites
 
 ```sh

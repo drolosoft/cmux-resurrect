@@ -5,7 +5,7 @@ COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS := -ldflags "-s -w -X github.com/drolosoft/cmux-resurrect/cmd.Version=$(VERSION) -X github.com/drolosoft/cmux-resurrect/cmd.Commit=$(COMMIT) -X github.com/drolosoft/cmux-resurrect/cmd.Date=$(DATE)"
 
-.PHONY: build build-all test test-integration install install-long install-both clean lint fmt completions
+.PHONY: build build-all test test-integration validate install install-long install-both clean lint fmt completions
 
 build:
 	go build $(LDFLAGS) -o bin/$(BINARY) ./cmd/crex
@@ -49,6 +49,17 @@ install-both: install
 test:
 	go test ./... -v -count=1
 
+# Validate v1.3.x features: shortcut, theme, descriptions, branding × both backends
+validate:
+	@echo "═══ Validation suite: shortcut + theme + descriptions + branding ═══"
+	go test ./cmd/ -run TestValidate -v -count=1
+	@echo ""
+	@echo "═══ Full test suite ═══"
+	go test ./... -count=1
+	@echo ""
+	go vet ./...
+	@echo "═══ All checks passed ═══"
+
 test-integration:
 	go test ./... -v -count=1 -tags integration
 
@@ -85,8 +96,8 @@ uninstall-service:
 # Show install options
 help:
 	@echo ""
-	@echo "  cmux-resurrect — Build & Install"
-	@echo "  ─────────────────────────────────"
+	@echo "  crex (cmux-resurrect) — Build & Install"
+	@echo "  ──────────────────────────────────────────"
 	@echo ""
 	@echo "  make build          Build the binary (current platform)"
 	@echo "  make build-all      Cross-compile for macOS + Linux"
@@ -95,6 +106,7 @@ help:
 	@echo "  make install-both   Install both names (crex + cmux-resurrect)"
 	@echo ""
 	@echo "  make test           Run unit tests"
+	@echo "  make validate       Run v1.3.x feature validation (shortcut, theme, branding)"
 	@echo "  make lint           Run go vet"
 	@echo "  make clean          Remove build artifacts"
 	@echo ""
