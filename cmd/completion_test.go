@@ -212,8 +212,9 @@ func TestCompleteLayoutNames_WithLayouts(t *testing.T) {
 	if !strings.Contains(completions[0], "Friday standup layout") {
 		t.Errorf("completions[0] = %q, expected description", completions[0])
 	}
-	if !strings.Contains(completions[1], "5 workspaces") {
-		t.Errorf("completions[1] = %q, expected workspace count fallback", completions[1])
+	expected := "5 " + unitName(5)
+	if !strings.Contains(completions[1], expected) {
+		t.Errorf("completions[1] = %q, expected %q fallback", completions[1], expected)
 	}
 }
 
