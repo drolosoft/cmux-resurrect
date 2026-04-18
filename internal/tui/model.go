@@ -224,11 +224,3 @@ func keyMatches(msg tea.KeyMsg, b interface{ Keys() []string }) bool {
 	return false
 }
 
-// View renders the model. Full rendering lives in view.go (Task 9).
-// This stub is enough for the build to compile.
-func (m Model) View() string {
-	if m.quitting {
-		return ""
-	}
-	return "crex — use arrow keys / j k to navigate"
-}
