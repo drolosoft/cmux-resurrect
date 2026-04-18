@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/drolosoft/cmux-resurrect/internal/client"
 )
@@ -46,9 +47,13 @@ func WriteConfigIfNotExists(path, watchInterval string, maxAutosaves int) (bool,
 		return false, err
 	}
 
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return false, fmt.Errorf("create config dir: %w", err)
+	}
+
 	content := GenerateDefaultConfig(watchInterval, maxAutosaves)
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		return false, err
+		return false, fmt.Errorf("write config: %w", err)
 	}
 	return true, nil
 }

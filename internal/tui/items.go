@@ -11,7 +11,7 @@ type ItemKind int
 
 const (
 	KindLayout   ItemKind = iota
-	KindTemplate ItemKind = iota
+	KindTemplate
 )
 
 // Item is a single entry in the TUI list, representing either a saved layout
