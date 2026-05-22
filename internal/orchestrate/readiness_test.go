@@ -32,20 +32,22 @@ func (m *readinessMockClient) SidebarState(ref string) (*client.SidebarState, er
 }
 
 // Implement remaining Backend interface methods as no-ops:
-func (m *readinessMockClient) Ping() error                                               { return nil }
-func (m *readinessMockClient) Tree() (*client.TreeResponse, error)                       { return nil, nil }
-func (m *readinessMockClient) ListWorkspaces() ([]client.WorkspaceInfo, error)           { return nil, nil }
-func (m *readinessMockClient) NewWorkspace(opts client.NewWorkspaceOpts) (string, error) { return "", nil }
-func (m *readinessMockClient) RenameWorkspace(ref, title string) error                   { return nil }
-func (m *readinessMockClient) SelectWorkspace(ref string) error                          { return nil }
-func (m *readinessMockClient) NewSplit(dir, ref string) (string, error)                  { return "", nil }
-func (m *readinessMockClient) NewPane(opts client.NewPaneOpts) (string, error)           { return "", nil }
-func (m *readinessMockClient) FocusPane(pane, ws string) error                           { return nil }
-func (m *readinessMockClient) Send(ws, surf, text string) error                          { return nil }
-func (m *readinessMockClient) PinWorkspace(ref string) error                             { return nil }
-func (m *readinessMockClient) UnpinWorkspace(ref string) error                           { return nil }
-func (m *readinessMockClient) CloseWorkspace(ref string) error                           { return nil }
-func (m *readinessMockClient) DryRunFormatter() client.DryRunFormatter                   { return client.CmuxDryRun{} }
+func (m *readinessMockClient) Ping() error                                     { return nil }
+func (m *readinessMockClient) Tree() (*client.TreeResponse, error)             { return nil, nil }
+func (m *readinessMockClient) ListWorkspaces() ([]client.WorkspaceInfo, error) { return nil, nil }
+func (m *readinessMockClient) NewWorkspace(opts client.NewWorkspaceOpts) (string, error) {
+	return "", nil
+}
+func (m *readinessMockClient) RenameWorkspace(ref, title string) error         { return nil }
+func (m *readinessMockClient) SelectWorkspace(ref string) error                { return nil }
+func (m *readinessMockClient) NewSplit(dir, ref string) (string, error)        { return "", nil }
+func (m *readinessMockClient) NewPane(opts client.NewPaneOpts) (string, error) { return "", nil }
+func (m *readinessMockClient) FocusPane(pane, ws string) error                 { return nil }
+func (m *readinessMockClient) Send(ws, surf, text string) error                { return nil }
+func (m *readinessMockClient) PinWorkspace(ref string) error                   { return nil }
+func (m *readinessMockClient) UnpinWorkspace(ref string) error                 { return nil }
+func (m *readinessMockClient) CloseWorkspace(ref string) error                 { return nil }
+func (m *readinessMockClient) DryRunFormatter() client.DryRunFormatter         { return client.CmuxDryRun{} }
 
 func TestWaitForShellReady_StabilizesQuickly(t *testing.T) {
 	mc := &readinessMockClient{cwdSeq: []string{"/tmp"}, fallback: "/tmp"}
