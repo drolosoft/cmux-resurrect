@@ -57,7 +57,7 @@ features:
     description: Detect and restore AI CLI sessions
     cmux: supported
     ghostty: supported
-    notes: "Claude Code, OpenCode, Codex"
+    notes: "Claude Code, OpenCode, Codex, Amp"
 
   - name: workspace-blueprint
     description: Markdown workspace definitions

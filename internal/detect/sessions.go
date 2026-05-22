@@ -1,6 +1,7 @@
-// Package detect discovers running AI CLI sessions (Claude Code, OpenCode, Codex)
-// and returns resume commands for each. All functions are best-effort: if any
-// detection step fails, it is silently skipped. The caller never sees an error.
+// Package detect discovers running AI CLI sessions (Claude Code, OpenCode,
+// Codex, Amp) and returns resume commands for each. All functions are
+// best-effort: if any detection step fails, it is silently skipped.
+// The caller never sees an error.
 package detect
 
 import (
@@ -13,23 +14,26 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
 // Session represents a detected AI CLI session.
 type Session struct {
-	Tool    string // "claude", "opencode", "codex"
+	Tool    string // "claude", "opencode", "codex", "amp"
 	CWD     string // working directory of the process
 	Command string // full resume command (e.g. "claude --resume <id>")
 }
 
 // detector defines how to detect and resolve sessions for one AI tool.
 // Each tool registers its process name, title patterns, and detection logic.
+// The Detect function receives both the working directory and the PID of
+// the running process; tools that don't need the PID may ignore it.
 type detector struct {
 	Name          string   // tool name (used as Session.Tool)
 	ProcessName   string   // binary name as shown by ps (e.g. "claude")
 	TitlePatterns []string // substrings in terminal title confirming the tool
-	Detect        func(cwd string) *Session
+	Detect        func(cwd, pid string) *Session
 }
 
 // registry holds all known AI tool detectors. To add a new tool,
@@ -55,6 +59,12 @@ var registry = []detector{
 		ProcessName:   "codex",
 		TitlePatterns: []string{"Codex", "codex"},
 		Detect:        detectCodex,
+	},
+	{
+		Name:          "amp",
+		ProcessName:   "amp",
+		TitlePatterns: []string{"Amp", "amp"},
+		Detect:        detectAmp,
 	},
 }
 
@@ -90,12 +100,20 @@ type DetectedSessions struct {
 // This function never returns an error. If detection fails at any stage,
 // it returns whatever it found — possibly empty maps.
 func AISessions() DetectedSessions {
+	// Per-invocation caches (e.g. the `amp threads list` result) live until
+	// the next call so each save sees fresh data.
+	resetAmpCache()
+
 	result := DetectedSessions{
 		ByCWD:  make(map[string][]Session),
 		ByTool: make(map[string][]Session),
 	}
 
-	// Deduplicate by (tool, cwd) to avoid redundant detection.
+	// Deduplicate detector invocations:
+	//   - CWD-based tools (claude/opencode/codex): one call per (tool, cwd),
+	//     since multiple instances in the same CWD resolve to the same session.
+	//   - PID-based tools (amp): one call per (tool, pid), so two amp
+	//     instances in the same CWD each get their own thread.
 	seen := make(map[string]bool)
 
 	// Build process name → detector lookup.
@@ -107,13 +125,16 @@ func AISessions() DetectedSessions {
 	procs := listAIProcesses(detectorByName)
 	for _, p := range procs {
 		key := p.tool + ":" + p.cwd
+		if p.tool == "amp" {
+			key = p.tool + ":" + p.pid
+		}
 		if seen[key] {
 			continue
 		}
 		seen[key] = true
 
 		d := detectorByName[p.tool]
-		s := d.Detect(p.cwd)
+		s := d.Detect(p.cwd, p.pid)
 		if s != nil {
 			result.ByCWD[s.CWD] = append(result.ByCWD[s.CWD], *s)
 			result.ByTool[s.Tool] = append(result.ByTool[s.Tool], *s)
@@ -167,7 +188,6 @@ func listAIProcesses(detectors map[string]detector) []aiProcess {
 		return nil
 	}
 
-	// Batch all PIDs into a single lsof call for performance.
 	cwds := batchCWDs(pids)
 
 	var result []aiProcess
@@ -181,16 +201,19 @@ func listAIProcesses(detectors map[string]detector) []aiProcess {
 	return result
 }
 
-// batchCWDs resolves working directories for multiple PIDs in a single lsof call.
-// lsof supports comma-separated PIDs: lsof -p pid1,pid2,pid3 -Fn.
-// Output groups are separated by "p<pid>" lines.
+// batchCWDs returns each PID's working directory in a single lsof call.
+//
+// While walking the output it also opportunistically seeds the amp
+// thread cache: every amp process keeps an open write handle on its
+// per-thread log file (~/.cache/amp/logs/threads/T-<id>.log), and that
+// path is already in this lsof output. Picking it up here means amp
+// detection adds no extra subprocess work.
 func batchCWDs(pids []struct{ pid, tool string }) map[string]string {
-	result := make(map[string]string)
+	cwds := make(map[string]string)
 	if len(pids) == 0 {
-		return result
+		return cwds
 	}
 
-	// Build comma-separated PID list.
 	pidStrs := make([]string, len(pids))
 	for i, p := range pids {
 		pidStrs[i] = p.pid
@@ -200,27 +223,46 @@ func batchCWDs(pids []struct{ pid, tool string }) map[string]string {
 	defer cancel()
 	out, err := exec.CommandContext(ctx, "lsof", "-p", strings.Join(pidStrs, ","), "-Fn").Output()
 	if err != nil {
-		return result
+		return cwds
 	}
 
-	// Parse output: "p<pid>" starts a new process section,
-	// "fcwd" + "n<path>" gives the CWD for that process.
-	var currentPID string
-	lines := strings.Split(string(out), "\n")
-	for i, line := range lines {
-		if strings.HasPrefix(line, "p") {
-			currentPID = line[1:]
+	// `lsof -Fn` emits one process group at a time:
+	//   p<pid>
+	//   f<fd>       (e.g. fcwd, f21, f0u)
+	//   n<path>
+	//   f<fd>
+	//   n<path>
+	//   ...
+	//
+	// Each `f` line names a file descriptor; the following `n` line gives
+	// that fd's path. We capture `fcwd` as the cwd; we also recognize the
+	// amp per-thread log path and seed the amp cache as a side effect.
+	var currentPID, lastFD string
+	for _, line := range strings.Split(string(out), "\n") {
+		if line == "" {
+			continue
 		}
-		if line == "fcwd" && i+1 < len(lines) && strings.HasPrefix(lines[i+1], "n") {
-			result[currentPID] = lines[i+1][1:]
+		switch line[0] {
+		case 'p':
+			currentPID = line[1:]
+			lastFD = ""
+		case 'f':
+			lastFD = line[1:]
+		case 'n':
+			path := line[1:]
+			if lastFD == "cwd" {
+				cwds[currentPID] = path
+			} else if id := threadIDFromLogPath(path); id != "" {
+				seedAmpThread(currentPID, id)
+			}
 		}
 	}
-	return result
+	return cwds
 }
 
 // detectClaude finds the active session ID for a Claude Code instance by CWD.
 // Sessions are stored as .jsonl files in ~/.claude/projects/<path-with-dashes>/.
-func detectClaude(cwd string) *Session {
+func detectClaude(cwd, _ string) *Session {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil
@@ -283,7 +325,7 @@ func detectClaude(cwd string) *Session {
 // detectOpenCode finds the active session for an OpenCode instance by CWD.
 // Sessions are stored in ~/.local/share/opencode/opencode.db (SQLite).
 // We shell out to the sqlite3 CLI (ships with macOS) to avoid CGO dependencies.
-func detectOpenCode(cwd string) *Session {
+func detectOpenCode(cwd, _ string) *Session {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil
@@ -330,7 +372,7 @@ var validSessionID = regexp.MustCompile(`^[a-zA-Z0-9_\-]+$`)
 // Codex 0.128+ stores sessions as JSONL files under ~/.codex/sessions/YYYY/MM/DD/.
 // The first line of each file contains session metadata with "id" and "cwd".
 // Falls back to the legacy rollout-*.json format in ~/.codex/sessions/ root.
-func detectCodex(cwd string) *Session {
+func detectCodex(cwd, _ string) *Session {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil
@@ -479,4 +521,91 @@ func detectCodexLegacy(sessDir, cwd string) *Session {
 		CWD:     cwd,
 		Command: "codex resume " + rollout.Session.ID,
 	}
+}
+
+// detectAmp finds the active thread for a running Amp CLI instance.
+//
+// Each amp process holds an open write handle on its per-thread log file
+// (~/.cache/amp/logs/threads/T-<id>.log) for the entire session lifetime.
+// During AISessions() we batch-list every AI process's open files with a
+// single lsof call (see batchProcessInfo) and seed the pid→thread map as
+// a side effect, so by the time detectAmp runs it's a pure map lookup.
+//
+// The mapping is per-pid precise, so two amp instances sharing a CWD each
+// resolve to their own thread.
+func detectAmp(cwd, pid string) *Session {
+	if pid == "" {
+		return nil
+	}
+	id := ampCache.threadFor(pid)
+	if id == "" || !validSessionID.MatchString(id) {
+		return nil
+	}
+	return &Session{
+		Tool:    "amp",
+		CWD:     cwd,
+		Command: "amp threads continue " + id,
+	}
+}
+
+// ampCache holds the pid→threadID mapping for amp processes, populated as
+// a side effect of the AISessions() lsof pass. Reset between invocations
+// via resetAmpCache.
+var ampCache = &ampThreadCache{}
+
+type ampThreadCache struct {
+	mu    sync.Mutex
+	byPID map[string]string // pid → threadID
+}
+
+// resetAmpCache clears the cached pid→thread map. Called at the top of
+// AISessions().
+func resetAmpCache() {
+	ampCache.mu.Lock()
+	defer ampCache.mu.Unlock()
+	ampCache.byPID = nil
+}
+
+// seedAmpThread records a (pid → threadID) mapping discovered during the
+// lsof pass.
+func seedAmpThread(pid, threadID string) {
+	ampCache.mu.Lock()
+	defer ampCache.mu.Unlock()
+	if ampCache.byPID == nil {
+		ampCache.byPID = make(map[string]string)
+	}
+	ampCache.byPID[pid] = threadID
+}
+
+// threadFor returns the thread ID for pid, or "" if none is known.
+func (c *ampThreadCache) threadFor(pid string) string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.byPID[pid]
+}
+
+// ampLogPathPrefix and ampLogPathSuffix bracket the per-thread log path
+// `.../logs/threads/T-<id>.log` as it appears in lsof output. We extract
+// the thread ID by stripping these — no regex needed.
+const (
+	ampLogPathPrefix = "/logs/threads/"
+	ampLogPathSuffix = ".log"
+)
+
+// threadIDFromLogPath returns the T-<id> suffix of a per-thread log path
+// or "" if the path isn't one.
+func threadIDFromLogPath(path string) string {
+	i := strings.LastIndex(path, ampLogPathPrefix)
+	if i < 0 {
+		return ""
+	}
+	name := path[i+len(ampLogPathPrefix):]
+	if !strings.HasSuffix(name, ampLogPathSuffix) {
+		return ""
+	}
+	id := strings.TrimSuffix(name, ampLogPathSuffix)
+	if !strings.HasPrefix(id, "T-") {
+		return ""
+	}
+	return id
 }

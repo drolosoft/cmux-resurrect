@@ -235,6 +235,7 @@ var aiResumePatterns = []string{
 	"claude --resume ",
 	"opencode --session ",
 	"codex resume ",
+	"amp threads continue ",
 }
 
 // clearAutoDetectedCommands removes all AI resume commands from the layout.

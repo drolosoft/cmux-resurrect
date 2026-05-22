@@ -105,7 +105,7 @@ crex❯ save my-day
    └── →right 🌐 http://localhost:3000/
 ```
 
-Detected commands are restored automatically. AI tools (Claude, OpenCode, Codex) get upgraded with session IDs; everything else (`npm run dev`, `nvim`, `htop`, `make watch`, etc.) is saved and re-executed as-is. Restored commands are prefixed with a space so they don't pollute your shell history.
+Detected commands are restored automatically. AI tools (Claude, OpenCode, Codex, Amp) get upgraded with session IDs; everything else (`npm run dev`, `nvim`, `htop`, `make watch`, etc.) is saved and re-executed as-is. Restored commands are prefixed with a space so they don't pollute your shell history.
 
 <p align="center"><img src="assets/save-my-day.png" alt="crex save my-day" width="700"></p>
 
@@ -142,7 +142,7 @@ Listings show numbered items — use the number in any follow-up command. Arrow 
 
 Define your terminal layout in Obsidian-compatible Markdown. Import creates only what's missing — it's idempotent.
 
-**Resume AI coding sessions across restarts** — Claude Code, OpenCode, and Codex all persist conversations locally. crex restores the terminals and tells each tool to continue where you left off:
+**Resume AI coding sessions across restarts** — Claude Code, OpenCode, Codex, and Amp all persist conversations locally. crex restores the terminals and tells each tool to continue where you left off:
 
 ```markdown
 ## Projects
@@ -280,7 +280,7 @@ All features — save, restore, import, export, templates, Blueprints — work i
 | 🧩 | Manual pane recreation | **16 built-in templates** + custom Blueprints |
 | 🌐 | Terminal panes only | **Browser panes** — save and restore browser panels with URLs |
 | 🔍 | No process detection | **Foreground detection** — auto-captures running commands (npm, nvim, htop, etc.) |
-| 🤖 | No AI support | **AI session resume** — Claude, OpenCode, Codex resume mid-conversation |
+| 🤖 | No AI support | **AI session resume** — Claude, OpenCode, Codex, Amp resume mid-conversation |
 | 📥 | One-way restore | **Bidirectional** — import from and export to Markdown |
 | 👁️ | Execute immediately | **Dry-run mode** — preview every command first |
 | ⏱️ | Manual saves | **Watch daemon** — background auto-save, deduped, shell hooks, zero-maintenance |

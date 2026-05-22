@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Added
+- **Amp thread resume detection** — `save` now captures running [Amp](https://ampcode.com) sessions and emits `amp threads continue T-<id>` on restore. Each amp process keeps its per-thread log file open, which we read via the lsof pass that already runs for CWD detection — so detection is per-pid precise (two amp instances in the same CWD each resolve to their own thread) and adds zero extra subprocesses
+
+---
+
 ## [v1.13.1] — 2026-05-14
 
 ### Fixed
