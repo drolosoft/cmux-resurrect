@@ -52,6 +52,14 @@ crex completion fish | source    # fish — run once
 
 Now `crex <TAB>` shows all commands, `crex restore <TAB>` completes your saved layout names, and flags like `--mode` complete their values. See [docs/shell-completion.md](docs/shell-completion.md) for the full guide.
 
+### Update
+
+```sh
+crex update                               # self-update to the latest version
+```
+
+Detects your install method (Homebrew or `go install`) and runs the right upgrade command. Also available in the TUI as `update`.
+
 ### Try it
 
 ```sh
@@ -202,6 +210,7 @@ crex export-to-md             # capture live state to Blueprint
 | Claude Code | Process + terminal title | `claude --resume <session-id>` |
 | OpenCode | Process + terminal title | `opencode --session <session-id>` |
 | Codex | Process + terminal title | `codex resume <session-id>` |
+| Amp | Process + per-PID thread log | `amp threads continue <thread-id>` |
 
 **How it works:**
 
@@ -210,7 +219,7 @@ crex export-to-md             # capture live state to Blueprint
 
 ```sh
 crex save my-day          # AI sessions captured automatically
-crex restore my-day       # Claude/OpenCode/Codex resume mid-conversation
+crex restore my-day       # Claude/OpenCode/Codex/Amp resume mid-conversation
 ```
 
 **Limitations:**
