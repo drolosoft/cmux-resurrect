@@ -86,6 +86,13 @@ func CheckLatestVersion() (string, error) {
 	req.Header.Set("User-Agent", "crex/update")
 	req.Header.Set("Accept", "application/vnd.github+json")
 
+	// Use GITHUB_TOKEN or GH_TOKEN if available (5,000 req/hr vs 60 unauthenticated).
+	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	} else if token := os.Getenv("GH_TOKEN"); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
