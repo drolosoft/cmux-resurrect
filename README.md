@@ -1,4 +1,4 @@
-<p align="center"><img src="assets/icon-crex-golden.png" alt="crex logo" width="120"></p>
+<p align="center"><img src="assets/icon-crex-fire.png" alt="crex logo" width="120"></p>
 
 <h1 align="center">crex <sup><sub>(cmux-resurrect)</sub></sup></h1>
 
