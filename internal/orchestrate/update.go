@@ -79,13 +79,23 @@ func DetectInstallMethod() InstallMethod {
 // CheckLatestVersion queries GitHub for the latest release tag.
 // Returns the tag name (e.g. "v1.14.0") or an error.
 func CheckLatestVersion() (string, error) {
+	req, err := http.NewRequest("GET", githubReleasesAPI, nil)
+	if err != nil {
+		return "", fmt.Errorf("build request: %w", err)
+	}
+	req.Header.Set("User-Agent", "crex/update")
+	req.Header.Set("Accept", "application/vnd.github+json")
+
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Get(githubReleasesAPI)
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("network error: %w", err)
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusTooManyRequests {
+		return "", fmt.Errorf("GitHub API rate limit exceeded — try again in a few minutes")
+	}
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("GitHub API returned %d", resp.StatusCode)
 	}
