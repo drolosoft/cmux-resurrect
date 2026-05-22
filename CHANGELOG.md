@@ -7,10 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [v1.14.0] — 2026-05-22
 
 ### Added
-- **Amp thread resume detection** — `save` now captures running [Amp](https://ampcode.com) sessions and emits `amp threads continue T-<id>` on restore. Each amp process keeps its per-thread log file open, which we read via the lsof pass that already runs for CWD detection — so detection is per-pid precise (two amp instances in the same CWD each resolve to their own thread) and adds zero extra subprocesses
+- **Revision-tracked snapshots** — layouts now carry a monotonic `revision` counter that increments on each content change. The watch daemon uses revision comparison instead of SHA-256 hashing for cheaper, more informative change detection. Log output includes the revision number
+- **Stability-based shell readiness** — `waitForShellReady` now uses two-phase detection: CWD polling (phase 1) followed by state-diff stability polling (phase 2). Declares ready after 3 consecutive identical reads instead of a fixed 1-second sleep. Configurable via `stable_duration` in config.toml
+- **EnsureWorkspace API** — new `EnsureWorkspace()` function with four policies: `CreateOnly`, `CreateOrReuse`, `ReuseOnly`, `ForceRecreate`. Encapsulates workspace detection + creation into a single call for both CLI restore and TUI
+- **`crex update` command** — self-update via CLI (`crex update`) or TUI (`update`). Auto-detects install method (Homebrew, `go install`, manual) and runs the appropriate upgrade. Checks GitHub API for latest release before updating
+- **Amp thread resume detection** — `save` now captures running [Amp](https://ampcode.com) sessions and emits `amp threads continue T-<id>` on restore. Each amp process keeps its per-thread log file open, which we read via the lsof pass that already runs for CWD detection — so detection is per-pid precise (two amp instances in the same CWD each resolve to their own thread) and adds zero extra subprocesses (contributed by [@Flo4604](https://github.com/Flo4604))
+- **Playwright terminal locators** — new `scripts/e2e-helpers.js` module with `getByText()`, `waitForText()`, `waitForStable()`, `expectVisible()`, and `sendCommand()` for E2E tests
+- **Feature inventory** — machine-readable `features.yaml` documenting 20 features across cmux and Ghostty backends
+- **Golden phoenix icon** — new logo for README and Drolosoft website
 
 ---
 
@@ -349,3 +356,4 @@ Initial public release.
 [v1.12.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.12.0
 [v1.13.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.13.0
 [v1.13.1]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.13.1
+[v1.14.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.14.0
