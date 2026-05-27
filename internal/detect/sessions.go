@@ -92,9 +92,9 @@ var registry = []detector{
 	{Name: "pi", ProcessName: "pi", TitlePatterns: []string{"Pi"}, Detect: detectProcessAware("pi")},
 	{Name: "rovo", ProcessName: "rovo", TitlePatterns: []string{"Rovo", "rovo"}, Detect: detectProcessAware("rovo")},
 	{Name: "hermes", ProcessName: "hermes", TitlePatterns: []string{"Hermes", "hermes"}, Detect: detectProcessAware("hermes")},
-	{Name: "codebuddy", ProcessName: "codebuddy", TitlePatterns: []string{"CodeBuddy", "codebuddy"}, Detect: detectProcessAware("codebuddy")},
-	{Name: "factory", ProcessName: "factory", TitlePatterns: []string{"Factory", "factory"}, Detect: detectProcessAware("factory")},
-	{Name: "qoder", ProcessName: "qoder", TitlePatterns: []string{"Qoder", "qoder"}, Detect: detectProcessAware("qoder")},
+	{Name: "codebuddy", ProcessName: "codebuddy-cli", TitlePatterns: []string{"CodeBuddy", "codebuddy"}, Detect: detectProcessAware("codebuddy")},
+	{Name: "factory", ProcessName: "factory-droid", TitlePatterns: []string{"Factory", "factory"}, Detect: detectProcessAware("factory")},
+	{Name: "qoder", ProcessName: "qodercli", TitlePatterns: []string{"Qoder", "qoder"}, Detect: detectProcessAware("qoder")},
 }
 
 // ProcessNames returns the set of binary names for all registered AI tools.
