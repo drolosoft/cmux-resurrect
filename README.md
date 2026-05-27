@@ -13,11 +13,24 @@
   <a href="https://github.com/manaflow-ai/cmux"><img src="https://img.shields.io/badge/cmux-ecosystem-blueviolet.svg" alt="cmux"></a>
 </p>
 
-> **Save, restore, and template your terminal workspaces — for [cmux](https://github.com/manaflow-ai/cmux) and [Ghostty](https://ghostty.org/).**
+> **Design, manage, and automate terminal workspaces — for [cmux](https://github.com/manaflow-ai/cmux) and [Ghostty](https://ghostty.org/).**
 
-Inspired by [tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect), **crex** was born to do for [cmux](https://github.com/manaflow-ai/cmux) what tmux-resurrect does for tmux — and then went further. With an **interactive shell**, a **template gallery**, **Blueprints**, and a **watch daemon**, crex saves your entire layout and brings it back: all your tabs, pane arrangements, working directories, pinned state, and startup commands. Named after the corncrake (*Crex crex*), a bird that returns to the same ground year after year — your terminal's own phoenix.
+cmux now [restores your last session natively](https://cmux.com/blog/session-restore) — and that's great news. **crex** goes further: it's a **workspace management tool** that gives you a library of named layouts, a template gallery, Markdown Blueprints, and generic command detection — all working across both cmux and Ghostty. Where cmux restores your last session on relaunch, crex lets you design, name, switch between, and automate entire workspace configurations. Named after the corncrake (*Crex crex*), a bird that returns to the same ground year after year — your terminal's own phoenix.
 
 <p align="center"><img src="assets/demo.gif" alt="crex demo" width="800"></p>
+
+### cmux now has built-in session restore — here's what crex adds
+
+| | cmux native restore | crex |
+|---|---|---|
+| 🔄 | Restores last session on relaunch | **Named layout library** — `save my-day`, `save devops`, switch anytime |
+| 📦 | Single session (last state) | **Multiple saved layouts** with descriptions and timestamps |
+| 📐 | No templates | **16 built-in templates** — from simple splits to full IDE setups |
+| 📝 | JSON snapshots (internal) | **Markdown Blueprints** — Obsidian-compatible, version-controlled, shareable |
+| 🔍 | 15 registered AI tools via hooks | **Any foreground process** — npm, vim, htop, AI tools, all detected via `ps` |
+| 🖥️ | cmux only | **cmux + Ghostty** — same tool, any backend |
+| ⚡ | Automatic on relaunch | **On-demand** — restore specific layouts, filter by workspace, dry-run preview |
+| ⏱️ | Saves on quit | **Watch daemon** — background auto-save with revision tracking |
 
 ---
 
@@ -113,7 +126,7 @@ crex❯ save my-day
    └── →right 🌐 http://localhost:3000/
 ```
 
-Detected commands are restored automatically. AI tools (Claude, OpenCode, Codex, Amp) get upgraded with session IDs; everything else (`npm run dev`, `nvim`, `htop`, `make watch`, etc.) is saved and re-executed as-is. Restored commands are prefixed with a space so they don't pollute your shell history.
+Detected commands are restored automatically. AI tools (Claude, OpenCode, Codex, Amp, Gemini, Copilot, Grok, and others) get upgraded with session IDs; everything else (`npm run dev`, `nvim`, `htop`, `make watch`, etc.) is saved and re-executed as-is. Restored commands are prefixed with a space so they don't pollute your shell history.
 
 <p align="center"><img src="assets/save-my-day.png" alt="crex save my-day" width="700"></p>
 
@@ -150,7 +163,7 @@ Listings show numbered items — use the number in any follow-up command. Arrow 
 
 Define your terminal layout in Obsidian-compatible Markdown. Import creates only what's missing — it's idempotent.
 
-**Resume AI coding sessions across restarts** — Claude Code, OpenCode, Codex, and Amp all persist conversations locally. crex restores the terminals and tells each tool to continue where you left off:
+**Resume AI coding sessions across restarts** — Claude Code, OpenCode, Codex, Amp, Gemini CLI, Copilot, Grok, and more all persist conversations locally. crex restores the terminals and tells each tool to continue where you left off:
 
 ```markdown
 ## Projects
@@ -207,10 +220,16 @@ crex export-to-md             # capture live state to Blueprint
 
 | Tool | Detection | Resume command |
 |------|-----------|----------------|
-| Claude Code | Process + terminal title | `claude --resume <session-id>` |
-| OpenCode | Process + terminal title | `opencode --session <session-id>` |
-| Codex | Process + terminal title | `codex resume <session-id>` |
-| Amp | Process + per-PID thread log | `amp threads continue <thread-id>` |
+| Claude Code | Full resume | `claude --resume <session-id>` |
+| OpenCode | Full resume | `opencode --session <session-id>` |
+| Codex | Full resume | `codex resume <session-id>` |
+| Amp | Full resume | `amp threads continue <thread-id>` |
+| Gemini CLI | Full resume | `gemini --resume <session-id>` |
+| Copilot | Full resume | `copilot --continue` |
+| Grok Build | Full resume | `grok --continue` |
+| Cursor | Process-aware | Captured as running command |
+| Aider | Process-aware | Captured as running command |
+| + 6 more | Process-aware | Pi, Rovo Dev, Hermes, CodeBuddy, Factory, Qoder |
 
 **How it works:**
 
@@ -219,7 +238,7 @@ crex export-to-md             # capture live state to Blueprint
 
 ```sh
 crex save my-day          # AI sessions captured automatically
-crex restore my-day       # Claude/OpenCode/Codex/Amp resume mid-conversation
+crex restore my-day       # AI sessions resume mid-conversation (15 tools supported)
 ```
 
 **Limitations:**
@@ -289,7 +308,7 @@ All features — save, restore, import, export, templates, Blueprints — work i
 | 🧩 | Manual pane recreation | **16 built-in templates** + custom Blueprints |
 | 🌐 | Terminal panes only | **Browser panes** — save and restore browser panels with URLs |
 | 🔍 | No process detection | **Foreground detection** — auto-captures running commands (npm, nvim, htop, etc.) |
-| 🤖 | No AI support | **AI session resume** — Claude, OpenCode, Codex, Amp resume mid-conversation |
+| 🤖 | No AI support | **AI session resume** — 15 tools detected, 7 with full session resume |
 | 📥 | One-way restore | **Bidirectional** — import from and export to Markdown |
 | 👁️ | Execute immediately | **Dry-run mode** — preview every command first |
 | ⏱️ | Manual saves | **Watch daemon** — background auto-save, deduped, shell hooks, zero-maintenance |
