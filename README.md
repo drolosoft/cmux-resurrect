@@ -17,9 +17,7 @@
 
 **16 built-in templates** for instant workspace setup. **Markdown Blueprints** you can version-control and share. **Auto-detection** of 15 AI coding tools and any foreground process. Works on both **cmux** and **Ghostty**.
 
-Named after the corncrake (*Crex crex*) — a bird that returns to the same ground year after year. The phoenix 🐦‍🔥 of the grasslands!
-
-Your terminal workspaces, resurrected.
+Named after the corncrake (*Crex crex*) — a bird that returns to the same ground year after year. Like a phoenix 🐦‍🔥 of the grasslands, that returns back to resurrect our terminal workspaces.
 
 <p align="center"><img src="assets/demo.gif" alt="crex demo" width="800"></p>
 
