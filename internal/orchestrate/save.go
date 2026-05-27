@@ -152,12 +152,54 @@ func (s *Saver) buildWorkspace(tw client.TreeWorkspace) (*model.Workspace, error
 		ws.Panes = append(ws.Panes, pane)
 	}
 
+	// Infer split directions from pane pixel geometry when available.
+	if gp, ok := s.Client.(client.PaneGeometryProvider); ok {
+		if paneList, err := gp.PaneList(tw.Ref); err == nil {
+			applySplitGeometry(ws, paneList)
+		}
+		// Silently fall back to default "right" if PaneList fails.
+	}
+
 	// Ensure at least one pane.
 	if len(ws.Panes) == 0 {
 		ws.Panes = []model.Pane{{Type: "terminal", Focus: true}}
 	}
 
 	return ws, nil
+}
+
+// applySplitGeometry uses pane pixel geometry to set correct split directions,
+// ratios, and focus targets on the workspace panes. Replaces the default
+// "all splits are right" heuristic with BSP tree inference.
+func applySplitGeometry(ws *model.Workspace, paneList *client.PaneListResponse) {
+	if len(paneList.Panes) <= 1 || len(ws.Panes) <= 1 {
+		return
+	}
+
+	splits := InferSplitDirections(paneList.Panes)
+	if splits == nil {
+		return // BSP reconstruction failed, keep defaults
+	}
+
+	// Build lookup by pane index.
+	byIndex := make(map[int]PaneSplitInfo, len(splits))
+	for _, s := range splits {
+		byIndex[s.PaneIndex] = s
+	}
+
+	for i := range ws.Panes {
+		info, ok := byIndex[ws.Panes[i].Index]
+		if !ok {
+			continue
+		}
+		ws.Panes[i].Split = info.Direction
+		ws.Panes[i].FocusTarget = info.FocusTarget
+
+		// Only store ratio if it's meaningfully different from 0.5 (equal split).
+		if info.Ratio > 0 && (info.Ratio < 0.48 || info.Ratio > 0.52) {
+			ws.Panes[i].SplitRatio = info.Ratio
+		}
+	}
 }
 
 // deduplicateWorkspaces removes ghost workspaces that share a title with
@@ -429,7 +471,7 @@ func layoutContentChanged(a, b *model.Layout) bool {
 		}
 		for j := range wa.Panes {
 			pa, pb := &wa.Panes[j], &wb.Panes[j]
-			if pa.Type != pb.Type || pa.Split != pb.Split || pa.Command != pb.Command || pa.URL != pb.URL || pa.Focus != pb.Focus {
+			if pa.Type != pb.Type || pa.Split != pb.Split || pa.Command != pb.Command || pa.URL != pb.URL || pa.Focus != pb.Focus || pa.SplitRatio != pb.SplitRatio {
 				return true
 			}
 		}
@@ -468,12 +510,17 @@ func mergeUserEdits(live, existing *model.Layout) {
 			}
 			ep := &ew.Panes[j]
 			lp := &lw.Panes[j]
-			// Preserve user-set split direction.
-			if ep.Split != "" && ep.Split != "right" {
+			// Preserve user-set split direction only when geometry
+			// inference is unavailable (live split == default "right").
+			// When geometry detected a real direction, trust it over
+			// the existing file — the user may have repositioned panes.
+			if lp.Split == "right" && ep.Split != "" && ep.Split != "right" {
 				lp.Split = ep.Split
 			}
-			// Preserve user-set command.
-			if ep.Command != "" {
+			// Preserve user-set command, but never for browser panes
+			// (browser panes don't run shell commands; a stale command
+			// from a previous pane at this index would leak through).
+			if ep.Command != "" && lp.Type != "browser" {
 				lp.Command = ep.Command
 			}
 		}
