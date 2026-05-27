@@ -322,6 +322,10 @@ func needsResize(ratio float64) bool {
 }
 
 // resizeAfterSplit adjusts a newly created pane to match the saved split ratio.
+// NOTE: uses estimated workspace dimensions (1000x800) and cell sizes (9x20px).
+// This is approximate — actual sizes vary by monitor, font, and window size.
+// A future improvement could query PaneList during restore for exact container
+// dimensions, but this heuristic is good enough for typical setups.
 func resizeAfterSplit(r *Restorer, paneRef, workspaceRef, direction string, ratio float64) {
 	resizer, ok := r.Client.(client.PaneResizer)
 	if !ok {
@@ -332,6 +336,7 @@ func resizeAfterSplit(r *Restorer, paneRef, workspaceRef, direction string, rati
 	delta := ratio - 0.5
 
 	// Estimate cells: assume 9px/col, 20px/row as typical defaults.
+	// These are approximations — see NOTE above.
 	const cellW, cellH = 9.0, 20.0
 
 	var resizeDir string
