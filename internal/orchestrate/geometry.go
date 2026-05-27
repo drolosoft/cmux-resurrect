@@ -55,9 +55,9 @@ func InferSplitDirections(panes []client.PaneListPane) []PaneSplitInfo {
 
 // paneRect is an internal representation of a pane's geometry.
 type paneRect struct {
-	index    int
-	x, y    float64
-	w, h    float64
+	index int
+	x, y  float64
+	w, h  float64
 }
 
 // bspNode is a node in a binary space partition tree.
