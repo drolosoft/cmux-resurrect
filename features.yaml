@@ -57,7 +57,7 @@ features:
     description: Detect and restore AI CLI sessions
     cmux: supported
     ghostty: supported
-    notes: "Claude Code, OpenCode, Codex, Amp"
+    notes: "Full resume: Claude, OpenCode, Codex, Amp, Gemini, Copilot, Grok. Process-aware: Cursor, Aider, Pi, Rovo, Hermes, CodeBuddy, Factory, Qoder"
 
   - name: workspace-blueprint
     description: Markdown workspace definitions
