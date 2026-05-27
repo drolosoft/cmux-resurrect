@@ -2,6 +2,7 @@ package orchestrate
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -397,5 +398,199 @@ func TestLayoutContentChanged_NilHandling(t *testing.T) {
 	}
 	if layoutContentChanged(nil, nil) {
 		t.Error("nil vs nil should not report changed")
+	}
+}
+
+// geometryMockClient extends mockClient with PaneGeometryProvider.
+type geometryMockClient struct {
+	mockClient
+	paneListByRef map[string]*client.PaneListResponse
+}
+
+func (m *geometryMockClient) PaneList(workspaceRef string) (*client.PaneListResponse, error) {
+	resp, ok := m.paneListByRef[workspaceRef]
+	if !ok {
+		return nil, fmt.Errorf("no geometry for %s", workspaceRef)
+	}
+	return resp, nil
+}
+
+func TestSave_GeometryInfersAsideLayout(t *testing.T) {
+	// Tree with one workspace, 3 panes (aside layout).
+	treeResp := &client.TreeResponse{
+		Windows: []client.TreeWindow{{
+			Ref: "window:1",
+			Workspaces: []client.TreeWorkspace{{
+				Ref:   "workspace:1",
+				Title: "dev",
+				Index: 0,
+				Panes: []client.TreePane{
+					{Index: 0, Focused: true, Surfaces: []client.TreeSurface{{Type: "terminal", TTY: ""}}},
+					{Index: 1, Surfaces: []client.TreeSurface{{Type: "browser", URL: strPtr("http://localhost:3000")}}},
+					{Index: 2, Surfaces: []client.TreeSurface{{Type: "terminal", TTY: ""}}},
+				},
+			}},
+		}},
+	}
+
+	gmc := &geometryMockClient{
+		mockClient: mockClient{
+			treeResp:    treeResp,
+			sidebarCWDs: map[string]string{"workspace:1": "/home/user/project"},
+		},
+		paneListByRef: map[string]*client.PaneListResponse{
+			"workspace:1": {
+				WorkspaceRef:   "workspace:1",
+				ContainerFrame: client.ContainerFrame{Width: 1000, Height: 800},
+				Panes: []client.PaneListPane{
+					{Index: 0, PixelFrame: client.PixelFrame{X: 0, Y: 0, Width: 500, Height: 800}},
+					{Index: 1, PixelFrame: client.PixelFrame{X: 500, Y: 0, Width: 500, Height: 400}},
+					{Index: 2, PixelFrame: client.PixelFrame{X: 500, Y: 400, Width: 500, Height: 400}},
+				},
+			},
+		},
+	}
+
+	dir := t.TempDir()
+	store, _ := persist.NewFileStore(dir)
+	saver := &Saver{Client: gmc, Store: store}
+
+	layout, err := saver.Save("geo-test", "")
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+
+	ws := layout.Workspaces[0]
+	if len(ws.Panes) != 3 {
+		t.Fatalf("panes = %d, want 3", len(ws.Panes))
+	}
+
+	// Pane 0: no split.
+	if ws.Panes[0].Split != "" {
+		t.Errorf("pane 0: split = %q, want empty", ws.Panes[0].Split)
+	}
+	// Pane 1: split right (geometry-detected).
+	if ws.Panes[1].Split != "right" {
+		t.Errorf("pane 1: split = %q, want right", ws.Panes[1].Split)
+	}
+	// Pane 2: split down (geometry-detected, NOT the default "right").
+	if ws.Panes[2].Split != "down" {
+		t.Errorf("pane 2: split = %q, want down", ws.Panes[2].Split)
+	}
+}
+
+func strPtr(s string) *string { return &s }
+
+func TestMergeUserEdits_NoBrowserCommandLeak(t *testing.T) {
+	live := &model.Layout{
+		Name: "test",
+		Workspaces: []model.Workspace{{
+			Title: "ws1",
+			Panes: []model.Pane{
+				{Type: "terminal"},
+				{Type: "terminal", Split: "right", Command: "lnav /tmp/app.log"},
+				{Type: "browser", Split: "right", URL: "http://localhost:3000"},
+			},
+		}},
+	}
+	existing := &model.Layout{
+		Name: "test",
+		Workspaces: []model.Workspace{{
+			Title: "ws1",
+			Panes: []model.Pane{
+				{Type: "terminal"},
+				{Type: "terminal", Split: "right", Command: "lnav /tmp/app.log"},
+				{Type: "browser", Split: "right", Command: "lnav /tmp/app.log", URL: "http://localhost:3000"},
+			},
+		}},
+	}
+
+	mergeUserEdits(live, existing)
+
+	// The browser pane must NOT inherit the terminal command.
+	if got := live.Workspaces[0].Panes[2].Command; got != "" {
+		t.Errorf("browser pane leaked command = %q, want empty", got)
+	}
+}
+
+func TestSave_NoGeometry_FallsBackToRight(t *testing.T) {
+	// mockClient does NOT implement PaneGeometryProvider.
+	treeResp := &client.TreeResponse{
+		Windows: []client.TreeWindow{{
+			Ref: "window:1",
+			Workspaces: []client.TreeWorkspace{{
+				Ref:   "workspace:1",
+				Title: "compat",
+				Index: 0,
+				Panes: []client.TreePane{
+					{Index: 0, Focused: true, Surfaces: []client.TreeSurface{{Type: "terminal", TTY: ""}}},
+					{Index: 1, Surfaces: []client.TreeSurface{{Type: "terminal", TTY: ""}}},
+					{Index: 2, Surfaces: []client.TreeSurface{{Type: "terminal", TTY: ""}}},
+				},
+			}},
+		}},
+	}
+
+	mc := &mockClient{
+		treeResp:    treeResp,
+		sidebarCWDs: map[string]string{"workspace:1": "/tmp"},
+	}
+
+	dir := t.TempDir()
+	store, _ := persist.NewFileStore(dir)
+	saver := &Saver{Client: mc, Store: store}
+
+	layout, err := saver.Save("compat-test", "")
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+
+	ws := layout.Workspaces[0]
+	for i := 1; i < len(ws.Panes); i++ {
+		if ws.Panes[i].Split != "right" {
+			t.Errorf("pane %d: split = %q, want right (default)", i, ws.Panes[i].Split)
+		}
+		if ws.Panes[i].SplitRatio != 0 {
+			t.Errorf("pane %d: split_ratio = %f, want 0 (not set)", i, ws.Panes[i].SplitRatio)
+		}
+	}
+}
+
+func TestSplitRatio_TOMLRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := persist.NewFileStore(dir)
+
+	layout := &model.Layout{
+		Name:    "ratio-test",
+		Version: 1,
+		SavedAt: time.Now().UTC(),
+		Workspaces: []model.Workspace{{
+			Title: "ws1",
+			CWD:   "/tmp",
+			Panes: []model.Pane{
+				{Type: "terminal", Focus: true, FocusTarget: -1},
+				{Type: "terminal", Split: "right", SplitRatio: 0.30, Index: 1, FocusTarget: -1},
+				{Type: "terminal", Split: "down", Index: 2, FocusTarget: -1},
+			},
+		}},
+	}
+
+	if err := store.Save("ratio-test", layout); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+
+	loaded, err := store.Load("ratio-test")
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	pane1 := loaded.Workspaces[0].Panes[1]
+	if pane1.SplitRatio != 0.30 {
+		t.Errorf("pane 1: split_ratio = %f, want 0.30", pane1.SplitRatio)
+	}
+
+	pane2 := loaded.Workspaces[0].Panes[2]
+	if pane2.SplitRatio != 0 {
+		t.Errorf("pane 2: split_ratio = %f, want 0", pane2.SplitRatio)
 	}
 }
