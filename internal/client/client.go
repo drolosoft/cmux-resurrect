@@ -1,5 +1,7 @@
 package client
 
+import "fmt"
+
 // Backend abstracts interaction with a terminal multiplexer/emulator.
 // Implementations exist for cmux (CLIClient) and Ghostty (planned).
 type Backend interface {
@@ -48,4 +50,21 @@ type Backend interface {
 
 	// DryRunFormatter returns a formatter for generating dry-run command output.
 	DryRunFormatter() DryRunFormatter
+}
+
+// ErrNotSupported is returned by backends that don't support an optional operation.
+var ErrNotSupported = fmt.Errorf("operation not supported by this backend")
+
+// PaneGeometryProvider is optionally implemented by backends that expose
+// pane pixel geometry. Used during save to infer split directions and ratios.
+// Backends that don't support this are detected via type assertion; save
+// falls back to default split directions.
+type PaneGeometryProvider interface {
+	PaneList(workspaceRef string) (*PaneListResponse, error)
+}
+
+// PaneResizer is optionally implemented by backends that support
+// programmatic pane resizing. Used during restore to apply saved split ratios.
+type PaneResizer interface {
+	ResizePane(opts ResizePaneOpts) error
 }

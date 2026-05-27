@@ -96,3 +96,40 @@ type NewPaneOpts struct {
 	WorkspaceRef string
 	URL          string // for browser panes
 }
+
+// PaneListResponse is the parsed output of `cmux rpc pane.list`.
+type PaneListResponse struct {
+	WorkspaceRef   string         `json:"workspace_ref"`
+	ContainerFrame ContainerFrame `json:"container_frame"`
+	Panes          []PaneListPane `json:"panes"`
+}
+
+// ContainerFrame is the workspace container dimensions.
+type ContainerFrame struct {
+	Width  float64 `json:"width"`
+	Height float64 `json:"height"`
+}
+
+// PaneListPane is a pane with pixel geometry from pane.list.
+type PaneListPane struct {
+	Ref        string     `json:"ref"`
+	Index      int        `json:"index"`
+	Focused    bool       `json:"focused"`
+	PixelFrame PixelFrame `json:"pixel_frame"`
+}
+
+// PixelFrame is the pixel position and size of a pane.
+type PixelFrame struct {
+	X      float64 `json:"x"`
+	Y      float64 `json:"y"`
+	Width  float64 `json:"width"`
+	Height float64 `json:"height"`
+}
+
+// ResizePaneOpts for resizing a pane.
+type ResizePaneOpts struct {
+	PaneRef      string
+	WorkspaceRef string
+	Direction    string // "L", "R", "U", "D"
+	Amount       int    // cells
+}

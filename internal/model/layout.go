@@ -32,7 +32,8 @@ type Pane struct {
 	Focus       bool   `toml:"focus,omitempty"`
 	URL         string `toml:"url,omitempty"`
 	Index       int    `toml:"index,omitempty"`
-	FocusTarget int    `toml:"focus_target,omitempty"`
+	FocusTarget int     `toml:"focus_target,omitempty"`
+	SplitRatio  float64 `toml:"split_ratio,omitempty"`
 }
 
 // LayoutMeta holds summary info about a saved layout (for list command).
