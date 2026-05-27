@@ -159,6 +159,11 @@ func (tu *TemplateUser) execute(panes []model.Pane, opts TemplateUseOpts, title 
 				tu.progress(fmt.Sprintf("pane %d new-pane browser: %v", i, err))
 				continue
 			}
+			// NewPane (browser) doesn't transfer focus — do it explicitly
+			// so subsequent splits target the browser pane's region.
+			paneRef := fmt.Sprintf("pane:%d", i)
+			_ = tu.Client.FocusPane(paneRef, ref)
+			time.Sleep(DelayAfterSelect)
 		} else {
 			surfaceRef, err := tu.Client.NewSplit(direction, ref)
 			if err != nil {
