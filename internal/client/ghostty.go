@@ -76,6 +76,16 @@ func (g *GhosttyClient) UnpinWorkspace(ref string) error {
 	return nil // Ghostty does not support pinning tabs
 }
 
+// PaneList is not supported by Ghostty (no geometry API).
+func (g *GhosttyClient) PaneList(workspaceRef string) (*PaneListResponse, error) {
+	return nil, ErrNotSupported
+}
+
+// ResizePane is not supported by Ghostty (always equal splits).
+func (g *GhosttyClient) ResizePane(opts ResizePaneOpts) error {
+	return ErrNotSupported
+}
+
 // parseTabIndex extracts the 1-based tab index from a ref like "tab:3".
 func parseTabIndex(ref string) (int, error) {
 	parts := strings.SplitN(ref, ":", 2)

@@ -285,3 +285,68 @@ func (c *CLIClient) Send(workspaceRef, surfaceRef, text string) error {
 	_, err := c.run(args...)
 	return err
 }
+
+// PaneList returns pane geometry for a workspace. Implements PaneGeometryProvider.
+func (c *CLIClient) PaneList(workspaceRef string) (*PaneListResponse, error) {
+	// Resolve workspace ref to UUID (pane.list RPC requires workspace_id).
+	uuid, err := c.resolveWorkspaceUUID(workspaceRef)
+	if err != nil {
+		return nil, fmt.Errorf("resolve workspace UUID: %w", err)
+	}
+
+	params := fmt.Sprintf(`{"workspace_id": %q}`, uuid)
+	out, err := c.run("rpc", "pane.list", params)
+	if err != nil {
+		return nil, fmt.Errorf("pane.list: %w", err)
+	}
+
+	var resp PaneListResponse
+	if err := json.Unmarshal([]byte(out), &resp); err != nil {
+		return nil, fmt.Errorf("parse pane.list: %w", err)
+	}
+	return &resp, nil
+}
+
+// resolveWorkspaceUUID maps a workspace ref (e.g. "workspace:16") to its UUID
+// by querying the tree with --id-format both.
+func (c *CLIClient) resolveWorkspaceUUID(workspaceRef string) (string, error) {
+	out, err := c.run("tree", "--json", "--id-format", "both")
+	if err != nil {
+		return "", err
+	}
+
+	// Parse tree with id fields included.
+	var raw struct {
+		Windows []struct {
+			Workspaces []struct {
+				ID  string `json:"id"`
+				Ref string `json:"ref"`
+			} `json:"workspaces"`
+		} `json:"windows"`
+	}
+	if err := json.Unmarshal([]byte(out), &raw); err != nil {
+		return "", fmt.Errorf("parse tree: %w", err)
+	}
+
+	for _, w := range raw.Windows {
+		for _, ws := range w.Workspaces {
+			if ws.Ref == workspaceRef {
+				return ws.ID, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("workspace %s not found in tree", workspaceRef)
+}
+
+// ResizePane resizes a pane in the given direction. Implements PaneResizer.
+func (c *CLIClient) ResizePane(opts ResizePaneOpts) error {
+	if opts.Amount <= 0 {
+		return nil // no-op for zero or negative
+	}
+	args := []string{"resize-pane", "--pane", opts.PaneRef, "-" + opts.Direction, "--amount", fmt.Sprintf("%d", opts.Amount)}
+	if opts.WorkspaceRef != "" {
+		args = append(args, "--workspace", opts.WorkspaceRef)
+	}
+	_, err := c.run(args...)
+	return err
+}
