@@ -98,7 +98,7 @@ func CheckLatestVersion() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("network error: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusTooManyRequests {
 		return "", fmt.Errorf("GitHub API rate limit exceeded — try again in a few minutes")
