@@ -13,7 +13,11 @@
 
 > **Design, manage, and automate terminal workspaces — for [cmux](https://github.com/manaflow-ai/cmux) and [Ghostty](https://ghostty.org/).**
 
-cmux now [restores your last session natively](https://cmux.com/blog/session-restore) — and that's great news. **crex** goes further: it's a **workspace management tool** that gives you a library of named layouts, a template gallery, Markdown Blueprints, and generic command detection — all working across both cmux and Ghostty. Where cmux restores your last session on relaunch, crex lets you design, name, switch between, and automate entire workspace configurations. Named after the corncrake (*Crex crex*), a bird that returns to the same ground year after year — your terminal's own phoenix.
+**crex** is a terminal workspace manager. Save layouts by name, restore them anytime, switch between them in seconds.
+
+**16 built-in templates** for instant workspace setup. **Markdown Blueprints** you can version-control and share. **Auto-detection** of 15 AI coding tools and any foreground process. Works on both **cmux** and **Ghostty**.
+
+Named after the corncrake (*Crex crex*) — a bird that returns to the same ground year after year.
 
 <p align="center"><img src="assets/demo.gif" alt="crex demo" width="800"></p>
 
