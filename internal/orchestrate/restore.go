@@ -255,12 +255,21 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 				result.Errors = append(result.Errors, fmt.Sprintf("  pane %d new-pane browser: %v", i, err))
 				continue
 			}
+			// Apply saved split ratio if available.
+			if needsResize(pane.SplitRatio) {
+				resizeAfterSplit(r, "", ref, direction, pane.SplitRatio)
+			}
 			// Browser panes don't have a shell — skip command sending.
 		} else {
 			surfaceRef, err := r.Client.NewSplit(direction, ref)
 			if err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("  pane %d split: %v", i, err))
 				continue
+			}
+
+			// Apply saved split ratio if available.
+			if needsResize(pane.SplitRatio) {
+				resizeAfterSplit(r, surfaceRef, ref, direction, pane.SplitRatio)
 			}
 
 			if pane.Command != "" {
@@ -304,6 +313,73 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 	}
 
 	return ref, nil
+}
+
+// needsResize returns true if a split ratio requires a resize after creation.
+// Splits default to 50/50; ratios within ±2% of 0.5 are treated as equal.
+func needsResize(ratio float64) bool {
+	return ratio > 0 && (ratio < 0.48 || ratio > 0.52)
+}
+
+// resizeAfterSplit adjusts a newly created pane to match the saved split ratio.
+func resizeAfterSplit(r *Restorer, paneRef, workspaceRef, direction string, ratio float64) {
+	resizer, ok := r.Client.(client.PaneResizer)
+	if !ok {
+		return
+	}
+
+	// Delta from 50% to target. Negative means shrink the new pane.
+	delta := ratio - 0.5
+
+	// Estimate cells: assume 9px/col, 20px/row as typical defaults.
+	const cellW, cellH = 9.0, 20.0
+
+	var resizeDir string
+	var amount int
+	switch direction {
+	case "right":
+		amount = int(1000 * delta / cellW)
+		if delta < 0 {
+			resizeDir = "L"
+		} else {
+			resizeDir = "R"
+		}
+	case "left":
+		amount = int(1000 * delta / cellW)
+		if delta < 0 {
+			resizeDir = "R"
+		} else {
+			resizeDir = "L"
+		}
+	case "down":
+		amount = int(800 * delta / cellH)
+		if delta < 0 {
+			resizeDir = "U"
+		} else {
+			resizeDir = "D"
+		}
+	case "up":
+		amount = int(800 * delta / cellH)
+		if delta < 0 {
+			resizeDir = "D"
+		} else {
+			resizeDir = "U"
+		}
+	}
+
+	if amount < 0 {
+		amount = -amount
+	}
+	if amount == 0 {
+		return
+	}
+
+	_ = resizer.ResizePane(client.ResizePaneOpts{
+		PaneRef:      paneRef,
+		WorkspaceRef: workspaceRef,
+		Direction:    resizeDir,
+		Amount:       amount,
+	})
 }
 
 func (r *Restorer) dryRunWorkspace(ws model.Workspace, result *RestoreResult) (string, error) {
