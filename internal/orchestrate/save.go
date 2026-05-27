@@ -233,9 +233,13 @@ func debugDetection(layout *model.Layout, treeWorkspaces []client.TreeWorkspace)
 // These are cleared before re-detection to prevent stale commands from persisting.
 var aiResumePatterns = []string{
 	"claude --resume ",
+	"claude --continue",
 	"opencode --session ",
 	"codex resume ",
 	"amp threads continue ",
+	"gemini --resume ",
+	"copilot --continue",
+	"grok --continue",
 }
 
 // clearAutoDetectedCommands removes all AI resume commands from the layout.
