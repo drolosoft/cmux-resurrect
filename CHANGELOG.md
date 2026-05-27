@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.15.0] — 2026-05-27
+
+### Added
+- **AI tool expansion to 15 tools** — full session resume for Claude Code, OpenCode, Codex, Amp, Gemini CLI, Copilot, and Grok Build. Process-aware detection for Cursor, Aider, Pi, Rovo Dev, Hermes Agent, CodeBuddy, Factory, and Qoder
+- **Gemini CLI detection** — discovers sessions via SHA-256 project hash in `~/.gemini/tmp/`, resumes with `gemini --resume <id>`
+- **Copilot detection** — matches workspace CWD against `~/.copilot/session-state/*/workspace.yaml`, resumes with `copilot --continue`
+- **Grok Build detection** — queries `~/.grok/grok.db` (SQLite) for session by CWD, resumes with `grok --continue`
+- **Fire phoenix icon** — new logo for README and Drolosoft website
+
+### Changed
+- **Repositioned as workspace management tool** — README updated to celebrate cmux's native session restore and clarify crex's role: named layout library, templates, Blueprints, and multi-backend support on top of cmux and Ghostty
+- **New comparison section** — side-by-side table showing what cmux restores natively vs what crex adds
+
+### Fixed
+- **`crex update` rate limits** — added `User-Agent` header and `GITHUB_TOKEN`/`GH_TOKEN` support for authenticated GitHub API requests (5,000 req/hr vs 60 unauthenticated)
+
+---
+
 ## [v1.14.0] — 2026-05-22
 
 ### Added
@@ -357,3 +375,4 @@ Initial public release.
 [v1.13.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.13.0
 [v1.13.1]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.13.1
 [v1.14.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.14.0
+[v1.15.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.15.0
