@@ -255,16 +255,17 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 				result.Errors = append(result.Errors, fmt.Sprintf("  pane %d new-pane browser: %v", i, err))
 				continue
 			}
-			// NewPane (browser) does NOT transfer focus like NewSplit does.
-			// Explicitly focus the new pane so subsequent splits target it
-			// instead of the previous terminal pane. Without this, an
-			// "aside" layout (left + browser/terminal stacked right) would
-			// restore as a "shelf" layout (top row + full-width bottom).
-			paneRef := fmt.Sprintf("pane:%d", i)
-			if err := r.Client.FocusPane(paneRef, ref); err != nil {
-				result.Errors = append(result.Errors, fmt.Sprintf("  pane %d focus after browser: %v", i, err))
+			// NewPane (browser) may not transfer focus like NewSplit.
+			// Focus the new pane so subsequent splits target it, not pane 0.
+			// Uses pane:N format (workspace-local index) — CLIClient converts
+			// to plain index for cmux, Ghostty handles it natively.
+			if i < lastPane {
+				paneRef := fmt.Sprintf("pane:%d", i)
+				if err := r.Client.FocusPane(paneRef, ref); err != nil {
+					result.Errors = append(result.Errors, fmt.Sprintf("  pane %d focus after browser: %v", i, err))
+				}
+				time.Sleep(DelayAfterSelect)
 			}
-			time.Sleep(DelayAfterSelect)
 			// Apply saved split ratio if available.
 			if needsResize(pane.SplitRatio) {
 				resizeAfterSplit(r, "", ref, direction, pane.SplitRatio)

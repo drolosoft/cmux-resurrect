@@ -263,7 +263,15 @@ func (c *CLIClient) NewPane(opts NewPaneOpts) (string, error) {
 }
 
 func (c *CLIClient) FocusPane(paneRef, workspaceRef string) error {
-	args := []string{"focus-pane", "--pane", paneRef}
+	// cmux interprets "pane:N" as a global sequential ref, but the restore
+	// code passes workspace-local indexes (e.g. "pane:1" means pane at
+	// index 1 in this workspace). Extract the index and pass it as a plain
+	// number, which cmux correctly resolves within the workspace scope.
+	ref := paneRef
+	if workspaceRef != "" && strings.HasPrefix(paneRef, "pane:") {
+		ref = strings.TrimPrefix(paneRef, "pane:")
+	}
+	args := []string{"focus-pane", "--pane", ref}
 	if workspaceRef != "" {
 		args = append(args, "--workspace", workspaceRef)
 	}
