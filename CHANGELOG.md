@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.16.0] — 2026-05-27
+
+### Added
+- **Geometry-aware save** — `crex save` now calls `cmux rpc pane.list` to read pane pixel positions and reconstructs the binary split tree (BSP) to infer correct split directions and ratios. An aside layout (left + stacked right) now saves as `split = "down"` instead of the old default `split = "right"`
+- **Split ratio preservation** — saved layouts capture the split proportion (e.g. 70/30) and restore applies it via `cmux resize-pane`. Ratios near 50/50 are omitted to keep TOMLs clean
+- **Optional `PaneGeometryProvider` interface** — backends that expose pane pixel geometry get automatic split inference; backends without it (Ghostty) fall back to the existing default behavior. Zero changes to the `Backend` interface
+
+### Fixed
+- **Browser pane command leak** — `mergeUserEdits` no longer copies stale terminal commands onto browser panes when pane types change between saves
+- **Browser pane focus during restore** — after creating a browser pane, the restore now correctly focuses it so subsequent splits target the right region. Fixed for both cmux (index-based) and Ghostty (pane:N format)
+- **AI tool binary names** — corrected process names for CodeBuddy (`codebuddy-cli`), Factory (`factory-droid`), and Qoder (`qodercli`)
+
+### Changed
+- **README rewrite** — scannable intro, product-first messaging, Ghostty badge
+
+---
+
 ## [v1.15.0] — 2026-05-27
 
 ### Added
@@ -376,3 +393,4 @@ Initial public release.
 [v1.13.1]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.13.1
 [v1.14.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.14.0
 [v1.15.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.15.0
+[v1.16.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.16.0
