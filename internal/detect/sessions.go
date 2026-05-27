@@ -1,13 +1,15 @@
 // Package detect discovers running AI CLI sessions (Claude Code, OpenCode,
-// Codex, Amp) and returns resume commands for each. All functions are
-// best-effort: if any detection step fails, it is silently skipped.
-// The caller never sees an error.
+// Codex, Amp, Gemini CLI, Copilot, Grok, and others) and returns resume
+// commands for each. All functions are best-effort: if any detection step
+// fails, it is silently skipped. The caller never sees an error.
 package detect
 
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,7 +22,7 @@ import (
 
 // Session represents a detected AI CLI session.
 type Session struct {
-	Tool    string // "claude", "opencode", "codex", "amp"
+	Tool    string // e.g. "claude", "opencode", "codex", "amp", "gemini", "copilot", "grok"
 	CWD     string // working directory of the process
 	Command string // full resume command (e.g. "claude --resume <id>")
 }
@@ -66,6 +68,33 @@ var registry = []detector{
 		TitlePatterns: []string{"Amp", "amp"},
 		Detect:        detectAmp,
 	},
+	{
+		Name:          "gemini",
+		ProcessName:   "gemini",
+		TitlePatterns: []string{"◇ ", "✦ ", "✋ ", "Gemini", "gemini"},
+		Detect:        detectGemini,
+	},
+	{
+		Name:          "copilot",
+		ProcessName:   "copilot",
+		TitlePatterns: []string{"Copilot", "copilot"},
+		Detect:        detectCopilot,
+	},
+	{
+		Name:          "grok",
+		ProcessName:   "grok",
+		TitlePatterns: []string{"Grok", "grok"},
+		Detect:        detectGrok,
+	},
+	// Tier 2: Process-aware detectors — recognized but no session file parsing.
+	{Name: "cursor", ProcessName: "cursor-agent", TitlePatterns: []string{"Cursor", "cursor"}, Detect: detectProcessAware("cursor")},
+	{Name: "aider", ProcessName: "aider", TitlePatterns: []string{"Aider", "aider"}, Detect: detectProcessAware("aider")},
+	{Name: "pi", ProcessName: "pi", TitlePatterns: []string{"Pi"}, Detect: detectProcessAware("pi")},
+	{Name: "rovo", ProcessName: "rovo", TitlePatterns: []string{"Rovo", "rovo"}, Detect: detectProcessAware("rovo")},
+	{Name: "hermes", ProcessName: "hermes", TitlePatterns: []string{"Hermes", "hermes"}, Detect: detectProcessAware("hermes")},
+	{Name: "codebuddy", ProcessName: "codebuddy", TitlePatterns: []string{"CodeBuddy", "codebuddy"}, Detect: detectProcessAware("codebuddy")},
+	{Name: "factory", ProcessName: "factory", TitlePatterns: []string{"Factory", "factory"}, Detect: detectProcessAware("factory")},
+	{Name: "qoder", ProcessName: "qoder", TitlePatterns: []string{"Qoder", "qoder"}, Detect: detectProcessAware("qoder")},
 }
 
 // ProcessNames returns the set of binary names for all registered AI tools.
@@ -546,6 +575,152 @@ func detectAmp(cwd, pid string) *Session {
 		CWD:     cwd,
 		Command: "amp threads continue " + id,
 	}
+}
+
+// detectProcessAware returns a Detect function for tools where we recognize
+// the process but don't know the session file format. The tool name is
+// captured as the command.
+func detectProcessAware(tool string) func(cwd, pid string) *Session {
+	return func(cwd, _ string) *Session {
+		return &Session{Tool: tool, CWD: cwd, Command: tool}
+	}
+}
+
+// geminiProjectHash returns the SHA-256 hex digest of a directory path.
+func geminiProjectHash(dir string) string {
+	h := sha256.Sum256([]byte(dir))
+	return fmt.Sprintf("%x", h)
+}
+
+// detectGemini finds the active session for a Gemini CLI instance by CWD.
+// Sessions are stored as JSON files in ~/.gemini/tmp/<sha256-of-cwd>/chats/.
+func detectGemini(cwd, _ string) *Session {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+
+	hash := geminiProjectHash(cwd)
+	chatsDir := filepath.Join(home, ".gemini", "tmp", hash, "chats")
+
+	entries, err := os.ReadDir(chatsDir)
+	if err != nil {
+		return nil
+	}
+
+	type fileInfo struct {
+		name    string
+		modTime int64
+	}
+	var sessions []fileInfo
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		sessions = append(sessions, fileInfo{name: e.Name(), modTime: info.ModTime().UnixNano()})
+	}
+	if len(sessions) == 0 {
+		return nil
+	}
+
+	sort.Slice(sessions, func(i, j int) bool {
+		return sessions[i].modTime > sessions[j].modTime
+	})
+
+	// Extract session ID from filename: session-YYYY-MM-DDTHH-mm-<id>.json
+	// Splitting "session-2026-05-27T14-30-<id>" on "-" yields 6 fields;
+	// the session ID is always the last one.
+	name := strings.TrimSuffix(sessions[0].name, ".json")
+	parts := strings.Split(name, "-")
+	if len(parts) < 6 {
+		return nil
+	}
+	sessionID := parts[len(parts)-1]
+	if sessionID == "" || !validSessionID.MatchString(sessionID) {
+		return nil
+	}
+
+	return &Session{
+		Tool:    "gemini",
+		CWD:     cwd,
+		Command: "gemini --resume " + sessionID,
+	}
+}
+
+// detectCopilot finds the active session for a GitHub Copilot CLI instance.
+// Sessions are stored in ~/.copilot/session-state/<UUID>/workspace.yaml.
+// Uses `copilot --continue` which auto-selects by CWD.
+func detectCopilot(cwd, _ string) *Session {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+
+	stateDir := filepath.Join(home, ".copilot", "session-state")
+	entries, err := os.ReadDir(stateDir)
+	if err != nil {
+		return nil
+	}
+
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		yamlPath := filepath.Join(stateDir, e.Name(), "workspace.yaml")
+		data, err := os.ReadFile(yamlPath)
+		if err != nil {
+			continue
+		}
+		for _, line := range strings.Split(string(data), "\n") {
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, "cwd:") {
+				sessionCWD := strings.TrimSpace(strings.TrimPrefix(line, "cwd:"))
+				if sessionCWD == cwd {
+					return &Session{
+						Tool:    "copilot",
+						CWD:     cwd,
+						Command: "copilot --continue",
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// detectGrok finds the active session for a Grok Build CLI instance.
+// Sessions are stored in ~/.grok/grok.db (SQLite).
+// Uses `grok --continue` which auto-selects the latest session by CWD.
+func detectGrok(cwd, _ string) *Session {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+
+	dbPath := filepath.Join(home, ".grok", "grok.db")
+	if _, err := os.Stat(dbPath); err != nil {
+		return nil
+	}
+
+	query := `SELECT id FROM sessions WHERE cwd = '` + escapeSQLite(cwd) + `' ORDER BY updated_at DESC LIMIT 1;`
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "sqlite3", "-readonly", dbPath, query).Output()
+	if err != nil {
+		// SQLite unavailable — fall back to --continue.
+		return &Session{Tool: "grok", CWD: cwd, Command: "grok --continue"}
+	}
+
+	sessionID := strings.TrimSpace(string(out))
+	if sessionID == "" {
+		return nil
+	}
+
+	return &Session{Tool: "grok", CWD: cwd, Command: "grok --continue"}
 }
 
 // ampCache holds the pid→threadID mapping for amp processes, populated as

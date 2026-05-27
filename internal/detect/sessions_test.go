@@ -304,6 +304,113 @@ func TestDetectAmp_UnseededPID(t *testing.T) {
 	}
 }
 
+func TestDetectProcessAware(t *testing.T) {
+	detect := detectProcessAware("mytool")
+	s := detect("/tmp/project", "12345")
+	if s == nil {
+		t.Fatal("expected session, got nil")
+	}
+	if s.Tool != "mytool" {
+		t.Errorf("Tool = %q, want mytool", s.Tool)
+	}
+	if s.CWD != "/tmp/project" {
+		t.Errorf("CWD = %q, want /tmp/project", s.CWD)
+	}
+	if s.Command != "mytool" {
+		t.Errorf("Command = %q, want mytool", s.Command)
+	}
+}
+
+func TestDetectGemini_NoSessionDir(t *testing.T) {
+	s := detectGemini("/nonexistent/path/that/does/not/exist", "")
+	if s != nil {
+		t.Error("expected nil for nonexistent CWD")
+	}
+}
+
+func TestDetectGemini_WithSession(t *testing.T) {
+	dir := t.TempDir()
+	home := os.Getenv("HOME")
+
+	hash := geminiProjectHash(dir)
+	chatsDir := filepath.Join(home, ".gemini", "tmp", hash, "chats")
+	if err := os.MkdirAll(chatsDir, 0o755); err != nil {
+		t.Skip("cannot create test dir in ~/.gemini")
+	}
+	defer os.RemoveAll(filepath.Join(home, ".gemini", "tmp", hash))
+
+	sessionFile := filepath.Join(chatsDir, "session-2026-05-27T14-30-abc12345.json")
+	if err := os.WriteFile(sessionFile, []byte(`{"id":"abc12345"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	s := detectGemini(dir, "")
+	if s == nil {
+		t.Fatal("expected session, got nil")
+	}
+	if s.Tool != "gemini" {
+		t.Errorf("Tool = %q, want gemini", s.Tool)
+	}
+	if !strings.HasPrefix(s.Command, "gemini --resume ") {
+		t.Errorf("Command = %q, want prefix 'gemini --resume '", s.Command)
+	}
+}
+
+func TestGeminiProjectHash(t *testing.T) {
+	hash := geminiProjectHash("/tmp")
+	if len(hash) != 64 {
+		t.Errorf("hash length = %d, want 64", len(hash))
+	}
+	if geminiProjectHash("/tmp") != hash {
+		t.Error("hash should be deterministic")
+	}
+	if geminiProjectHash("/var") == hash {
+		t.Error("different paths should give different hashes")
+	}
+}
+
+func TestDetectCopilot_NoSessionDir(t *testing.T) {
+	s := detectCopilot("/nonexistent/path", "")
+	if s != nil {
+		t.Error("expected nil for nonexistent CWD")
+	}
+}
+
+func TestDetectCopilot_WithSession(t *testing.T) {
+	dir := t.TempDir()
+	home := os.Getenv("HOME")
+
+	sessionID := "c52c23e5-5cbe-4786-b046-528839201e7a"
+	sessionDir := filepath.Join(home, ".copilot", "session-state", sessionID)
+	if err := os.MkdirAll(sessionDir, 0o755); err != nil {
+		t.Skip("cannot create test dir in ~/.copilot")
+	}
+	defer os.RemoveAll(filepath.Join(home, ".copilot", "session-state", sessionID))
+
+	yaml := "cwd: " + dir + "\nname: test-session\n"
+	if err := os.WriteFile(filepath.Join(sessionDir, "workspace.yaml"), []byte(yaml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	s := detectCopilot(dir, "")
+	if s == nil {
+		t.Fatal("expected session, got nil")
+	}
+	if s.Tool != "copilot" {
+		t.Errorf("Tool = %q, want copilot", s.Tool)
+	}
+	if s.Command != "copilot --continue" {
+		t.Errorf("Command = %q, want 'copilot --continue'", s.Command)
+	}
+}
+
+func TestDetectGrok_NoDB(t *testing.T) {
+	s := detectGrok("/nonexistent/path", "")
+	if s != nil {
+		t.Error("expected nil when DB doesn't exist")
+	}
+}
+
 func TestThreadIDFromLogPath(t *testing.T) {
 	cases := []struct {
 		input, want string
