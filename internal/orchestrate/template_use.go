@@ -3,6 +3,7 @@ package orchestrate
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/drolosoft/cmux-resurrect/internal/client"
@@ -113,31 +114,54 @@ func (tu *TemplateUser) execute(panes []model.Pane, opts TemplateUseOpts, title 
 	}
 	time.Sleep(DelayAfterSelect)
 
-	// 3. Create splits and send commands.
+	// 3. Create all splits first (structure), then apply resizes and commands.
+	// This avoids focus interference: resize-pane and interactive commands
+	// (nvim, lazygit) can steal focus from the pane we need for the next split.
+	//
+	// cmux reindexes panes by position after each split, so we track actual
+	// pane refs (from the tree) to use for FocusTarget instead of indices.
+	type deferredAction struct {
+		paneIdx    int
+		surfaceRef string
+		paneRef    string // actual cmux pane ref for focus
+		command    string
+		ratio      float64
+		direction  string
+	}
+	var deferred []deferredAction
+
+	// paneRefs maps creation index → actual cmux pane ref.
+	paneRefs := make(map[int]string)
+
+	// Resolve the first pane's ref from the tree.
+	if tree, err := tu.Client.Tree(); err == nil {
+		for _, w := range tree.Windows {
+			for _, ws := range w.Workspaces {
+				if ws.Ref == ref && len(ws.Panes) > 0 {
+					paneRefs[0] = ws.Panes[0].Ref
+				}
+			}
+		}
+	}
+
 	for i, pane := range panes {
 		if i == 0 {
+			// Main pane command deferred to after all splits.
 			if pane.Type == "browser" && pane.Command != "" {
-				// First pane is always terminal; open URL as fallback.
-				if err := waitForShellReady(tu.Client, ref, ""); err != nil {
-					tu.progress(fmt.Sprintf("pane %d shell not ready: %v", i, err))
-				} else if err := tu.Client.Send(ref, "", noHistoryCmd(fmt.Sprintf("open %q", pane.Command))); err != nil {
-					tu.progress(fmt.Sprintf("pane %d open url: %v", i, err))
-				}
+				deferred = append(deferred, deferredAction{paneIdx: 0, paneRef: paneRefs[0], command: fmt.Sprintf("open %q", pane.Command)})
 			} else if pane.Command != "" {
-				if err := waitForShellReady(tu.Client, ref, ""); err != nil {
-					tu.progress(fmt.Sprintf("pane %d shell not ready: %v", i, err))
-				} else if err := tu.Client.Send(ref, "", noHistoryCmd(pane.Command)); err != nil {
-					tu.progress(fmt.Sprintf("pane %d send: %v", i, err))
-				}
+				deferred = append(deferred, deferredAction{paneIdx: 0, paneRef: paneRefs[0], command: pane.Command})
 			}
 			continue
 		}
 
 		// Focus a specific pane before splitting (for quad, etc.)
+		// Use the actual pane ref we tracked, not a position-based index.
 		if pane.FocusTarget >= 0 {
-			targetRef := fmt.Sprintf("pane:%d", pane.FocusTarget)
-			if err := tu.Client.FocusPane(targetRef, ref); err != nil {
-				tu.progress(fmt.Sprintf("pane %d focus target: %v", i, err))
+			if actualRef, ok := paneRefs[pane.FocusTarget]; ok {
+				if err := tu.Client.FocusPane(actualRef, ref); err != nil {
+					tu.progress(fmt.Sprintf("pane %d focus target: %v", i, err))
+				}
 			}
 			time.Sleep(DelayAfterSelect)
 		}
@@ -147,8 +171,8 @@ func (tu *TemplateUser) execute(panes []model.Pane, opts TemplateUseOpts, title 
 			direction = "right"
 		}
 
+		var surfaceRef string
 		if pane.Type == "browser" {
-			// Browser panes use NewPane instead of NewSplit.
 			_, err := tu.Client.NewPane(client.NewPaneOpts{
 				Type:         "browser",
 				Direction:    direction,
@@ -159,37 +183,106 @@ func (tu *TemplateUser) execute(panes []model.Pane, opts TemplateUseOpts, title 
 				tu.progress(fmt.Sprintf("pane %d new-pane browser: %v", i, err))
 				continue
 			}
-			// NewPane (browser) doesn't transfer focus — do it explicitly
-			// so subsequent splits target the browser pane's region.
-			paneRef := fmt.Sprintf("pane:%d", i)
-			_ = tu.Client.FocusPane(paneRef, ref)
-			time.Sleep(DelayAfterSelect)
 		} else {
-			surfaceRef, err := tu.Client.NewSplit(direction, ref)
+			var err error
+			surfaceRef, err = tu.Client.NewSplit(direction, ref)
 			if err != nil {
 				tu.progress(fmt.Sprintf("pane %d split: %v", i, err))
 				continue
 			}
+		}
 
-			if pane.Command != "" {
-				if err := waitForShellReady(tu.Client, ref, surfaceRef); err != nil {
-					tu.progress(fmt.Sprintf("pane %d shell not ready: %v", i, err))
-				} else if err := tu.Client.Send(ref, surfaceRef, noHistoryCmd(pane.Command)); err != nil {
-					tu.progress(fmt.Sprintf("pane %d send: %v", i, err))
+		// Resolve the new pane's actual ref from the tree (indices shift after splits).
+		if tree, err := tu.Client.Tree(); err == nil {
+			for _, w := range tree.Windows {
+				for _, ws := range w.Workspaces {
+					if ws.Ref != ref {
+						continue
+					}
+					// The new pane is the one whose ref we haven't seen yet.
+					seen := make(map[string]bool)
+					for _, r := range paneRefs {
+						seen[r] = true
+					}
+					for _, p := range ws.Panes {
+						if !seen[p.Ref] {
+							paneRefs[i] = p.Ref
+							break
+						}
+					}
 				}
-			} else {
-				time.Sleep(DelayAfterSplit)
+			}
+		}
+
+		// Focus the new pane using its actual ref.
+		if actualRef, ok := paneRefs[i]; ok {
+			_ = tu.Client.FocusPane(actualRef, ref)
+		}
+		time.Sleep(DelayAfterSelect)
+
+		// Defer commands and resizes to after all splits.
+		if pane.Command != "" || needsResize(pane.SplitRatio) {
+			deferred = append(deferred, deferredAction{
+				paneIdx:    i,
+				surfaceRef: surfaceRef,
+				paneRef:    paneRefs[i],
+				command:    pane.Command,
+				ratio:      pane.SplitRatio,
+				direction:  direction,
+			})
+		}
+	}
+
+	// 4. Apply deferred resizes and commands now that all splits are done.
+	if resizer, ok := tu.Client.(client.PaneResizer); ok {
+		for _, d := range deferred {
+			if !needsResize(d.ratio) {
+				continue
+			}
+			delta := d.ratio - 0.5
+			amount := int(absf(delta) * 950) // pixels, ~950px workspace height
+			if d.direction == "right" || d.direction == "left" {
+				amount = int(absf(delta) * 1400)
+			}
+			if amount > 0 {
+				resizeDir := strings.ToUpper(d.direction[:1])
+				target := "pane:0"
+				if delta > 0 {
+					target = fmt.Sprintf("pane:%d", d.paneIdx)
+				}
+				_ = resizer.ResizePane(client.ResizePaneOpts{
+					PaneRef:      target,
+					WorkspaceRef: ref,
+					Direction:    resizeDir,
+					Amount:       amount,
+				})
 			}
 		}
 	}
 
-	// 4. Wait for shell to settle, then rename.
+	// 5. Send deferred commands using actual pane refs.
+	for _, d := range deferred {
+		if d.command == "" {
+			continue
+		}
+		if d.paneRef != "" {
+			_ = tu.Client.FocusPane(d.paneRef, ref)
+		}
+		time.Sleep(DelayAfterSelect)
+		if err := waitForShellReady(tu.Client, ref, d.surfaceRef); err != nil {
+			tu.progress(fmt.Sprintf("pane %d shell not ready: %v", d.paneIdx, err))
+		} else if err := tu.Client.Send(ref, d.surfaceRef, noHistoryCmd(d.command)); err != nil {
+			tu.progress(fmt.Sprintf("pane %d send: %v", d.paneIdx, err))
+		}
+	}
+
+	// 6. Wait for shell to settle, then rename.
 	time.Sleep(DelayBeforeRename)
 	if err := tu.Client.RenameWorkspace(ref, title); err != nil {
 		tu.progress(fmt.Sprintf("rename: %v", err))
 	}
 
-	// 5. Pin if requested.
+	// 7. Pin if requested.
 	if opts.Pin {
 		if err := tu.Client.PinWorkspace(ref); err != nil {
 			tu.progress(fmt.Sprintf("pin: %v", err))

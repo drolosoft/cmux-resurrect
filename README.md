@@ -283,6 +283,8 @@ See [docs/templates.md](docs/templates.md) for the full gallery with diagrams.
 | [cmux](https://github.com/manaflow-ai/cmux) | Full support (original backend) | macOS | 0.62.1, 0.63.2 | Auto-detected via `CMUX_SOCKET_PATH` |
 | [Ghostty](https://ghostty.org/) | Full support (AppleScript API) | macOS | 1.3 | Auto-detected when Ghostty is running |
 
+> **Ghostty split sizing.** Ghostty's AppleScript API does not support programmatic split resizing — all splits are equal (50/50). Templates with `split_ratio` (e.g., the IDE template's 70/30 split) will use equal splits on Ghostty. The layout structure is correct; only proportions differ.
+
 > **macOS only.** Both backends rely on macOS-native APIs (cmux is a macOS terminal multiplexer; the Ghostty backend uses AppleScript). Linux support will follow once Ghostty ships a cross-platform scripting API ([ghostty-org/ghostty#2353](https://github.com/ghostty-org/ghostty/discussions/2353)).
 
 crex auto-detects your terminal backend — no flags needed. Just run your commands and crex figures out the rest:

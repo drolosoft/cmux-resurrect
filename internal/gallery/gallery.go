@@ -102,6 +102,7 @@ func BuildPanes(tmpl *model.Template) []model.Pane {
 			Command:     tp.Command,
 			Focus:       tp.Focus,
 			FocusTarget: tp.FocusTarget,
+			SplitRatio:  tp.SplitRatio,
 		}
 		if pane.Type == "" {
 			pane.Type = "terminal"
@@ -129,6 +130,7 @@ func buildPanesFromTemplate(tmpl *model.Template) []model.Pane {
 			Command:     tp.Command,
 			Focus:       tp.Focus,
 			FocusTarget: tp.FocusTarget,
+			SplitRatio:  tp.SplitRatio,
 		}
 		if pane.Type == "" {
 			pane.Type = "terminal"
@@ -258,10 +260,16 @@ func parseGalleryPaneLine(line string) model.TemplatePan {
 			tp.Split = strings.TrimSuffix(parts[1], ":")
 		}
 		tp.Type = "terminal"
-		// Support explicit type after direction: "split right browser:"
+		// Parse optional modifiers after direction: "split down 30% browser:"
 		for _, p := range parts[2:] {
-			if strings.TrimSuffix(p, ":") == "browser" {
+			cleaned := strings.TrimSuffix(p, ":")
+			if cleaned == "browser" {
 				tp.Type = "browser"
+			}
+			if strings.HasSuffix(cleaned, "%") {
+				if pct, err := strconv.ParseFloat(strings.TrimSuffix(cleaned, "%"), 64); err == nil {
+					tp.SplitRatio = pct / 100.0
+				}
 			}
 		}
 	default:

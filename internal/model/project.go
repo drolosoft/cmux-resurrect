@@ -24,14 +24,15 @@ type Template struct {
 
 // TemplatePan is a pane definition within a template.
 type TemplatePan struct {
-	Enabled     bool   // [x] or [ ]
-	IsMain      bool   // "main" keyword = first pane
-	Split       string // "right", "down", "left", "up"
-	Type        string // "terminal" (default), "browser"
-	Command     string // command in backticks
-	Focus       bool   // "(focused)" suffix — gets final focus
-	FocusTarget int    // pane index to focus BEFORE this split (-1 = no refocus)
-	Name        string // display label: "main", "console", "git"
+	Enabled     bool    // [x] or [ ]
+	IsMain      bool    // "main" keyword = first pane
+	Split       string  // "right", "down", "left", "up"
+	Type        string  // "terminal" (default), "browser"
+	Command     string  // command in backticks
+	Focus       bool    // "(focused)" suffix — gets final focus
+	FocusTarget int     // pane index to focus BEFORE this split (-1 = no refocus)
+	SplitRatio  float64 // 0.0 = equal; e.g. 0.30 = new pane takes 30%
+	Name        string  // display label: "main", "console", "git"
 }
 
 // WorkspaceFile is the full parsed content of the MD file.

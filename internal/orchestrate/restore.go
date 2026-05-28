@@ -333,69 +333,84 @@ func needsResize(ratio float64) bool {
 }
 
 // resizeAfterSplit adjusts a newly created pane to match the saved split ratio.
-// NOTE: uses estimated workspace dimensions (1000x800) and cell sizes (9x20px).
-// This is approximate — actual sizes vary by monitor, font, and window size.
-// A future improvement could query PaneList during restore for exact container
-// dimensions, but this heuristic is good enough for typical setups.
+// cmux resize-pane -D/-U/-L/-R grows the TARGET pane in that direction.
+// To shrink the new pane (ratio < 0.5), we grow its SIBLING in the split direction.
+// paneRef targets the sibling (pane 0 for the first split); pass "0" for the
+// first split or the actual ref of the pane that was split.
 func resizeAfterSplit(r *Restorer, paneRef, workspaceRef, direction string, ratio float64) {
 	resizer, ok := r.Client.(client.PaneResizer)
 	if !ok {
 		return
 	}
 
-	// Delta from 50% to target. Negative means shrink the new pane.
+	// Delta: positive means new pane should be larger than 50%.
 	delta := ratio - 0.5
 
-	// Estimate cells: assume 9px/col, 20px/row as typical defaults.
-	// These are approximations — see NOTE above.
+	// Estimate cells from approximate workspace dimensions.
 	const cellW, cellH = 9.0, 20.0
 
 	var resizeDir string
 	var amount int
+	var targetPane string
+
 	switch direction {
-	case "right":
-		amount = int(1000 * delta / cellW)
+	case "right", "left":
+		amount = int(1000 * absf(delta) / cellW)
 		if delta < 0 {
-			resizeDir = "L"
+			// New pane should be smaller → grow the sibling (pane 0) in split direction.
+			targetPane = "pane:0"
+			if direction == "right" {
+				resizeDir = "R"
+			} else {
+				resizeDir = "L"
+			}
 		} else {
-			resizeDir = "R"
+			// New pane should be bigger → grow it.
+			targetPane = paneRef
+			if direction == "right" {
+				resizeDir = "R"
+			} else {
+				resizeDir = "L"
+			}
 		}
-	case "left":
-		amount = int(1000 * delta / cellW)
+	case "down", "up":
+		amount = int(800 * absf(delta) / cellH)
 		if delta < 0 {
-			resizeDir = "R"
+			// New pane should be smaller → grow the sibling (pane 0).
+			targetPane = "pane:0"
+			if direction == "down" {
+				resizeDir = "D"
+			} else {
+				resizeDir = "U"
+			}
 		} else {
-			resizeDir = "L"
-		}
-	case "down":
-		amount = int(800 * delta / cellH)
-		if delta < 0 {
-			resizeDir = "U"
-		} else {
-			resizeDir = "D"
-		}
-	case "up":
-		amount = int(800 * delta / cellH)
-		if delta < 0 {
-			resizeDir = "D"
-		} else {
-			resizeDir = "U"
+			// New pane should be bigger → grow it.
+			targetPane = paneRef
+			if direction == "down" {
+				resizeDir = "D"
+			} else {
+				resizeDir = "U"
+			}
 		}
 	}
 
-	if amount < 0 {
-		amount = -amount
-	}
 	if amount == 0 {
 		return
 	}
 
 	_ = resizer.ResizePane(client.ResizePaneOpts{
-		PaneRef:      paneRef,
+		PaneRef:      targetPane,
 		WorkspaceRef: workspaceRef,
 		Direction:    resizeDir,
 		Amount:       amount,
 	})
+}
+
+func absf(f float64) float64 {
+	if f < 0 {
+		return -f
+	}
+	return f
 }
 
 func (r *Restorer) dryRunWorkspace(ws model.Workspace, result *RestoreResult) (string, error) {

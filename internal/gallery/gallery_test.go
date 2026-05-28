@@ -155,7 +155,7 @@ func TestQuadFocusTargets(t *testing.T) {
 
 func TestNonQuadTemplatesHaveDefaultFocusTarget(t *testing.T) {
 	for _, tmpl := range List() {
-		if tmpl.Name == "quad" || tmpl.Name == "ide" {
+		if tmpl.Name == "quad" {
 			continue
 		}
 		for i, p := range tmpl.Panes {
@@ -341,42 +341,32 @@ func TestIDETemplate(t *testing.T) {
 	if !ok {
 		t.Fatal("Get(\"ide\") returned false")
 	}
-	if len(tmpl.Panes) != 4 {
-		t.Fatalf("ide panes = %d, want 4", len(tmpl.Panes))
+	if len(tmpl.Panes) != 3 {
+		t.Fatalf("ide panes = %d, want 3", len(tmpl.Panes))
 	}
-	// P0: main terminal (tree/shell sidebar), not focused.
+	// P0: nvim . (full top, focused).
 	if !tmpl.Panes[0].IsMain {
 		t.Error("pane 0 should be main")
 	}
-	if tmpl.Panes[0].Focus {
-		t.Error("pane 0 should not be focused")
+	if tmpl.Panes[0].Command != "nvim ." {
+		t.Errorf("pane 0 command = %q, want \"nvim .\"", tmpl.Panes[0].Command)
 	}
-	// P1: split right, nvim editor, focused.
-	if tmpl.Panes[1].Split != "right" {
-		t.Errorf("pane 1 split = %q, want \"right\"", tmpl.Panes[1].Split)
+	if !tmpl.Panes[0].Focus {
+		t.Error("pane 0 should be focused")
 	}
-	if tmpl.Panes[1].Command != "nvim" {
-		t.Errorf("pane 1 command = %q, want \"nvim\"", tmpl.Panes[1].Command)
+	// P1: split down 30%, lazygit (bottom-left).
+	if tmpl.Panes[1].Split != "down" {
+		t.Errorf("pane 1 split = %q, want \"down\"", tmpl.Panes[1].Split)
 	}
-	if !tmpl.Panes[1].Focus {
-		t.Error("pane 1 should be focused")
+	if tmpl.Panes[1].Command != "lazygit" {
+		t.Errorf("pane 1 command = %q, want \"lazygit\"", tmpl.Panes[1].Command)
 	}
-	// P2: split down, terminal (shell).
-	if tmpl.Panes[2].Split != "down" {
-		t.Errorf("pane 2 split = %q, want \"down\"", tmpl.Panes[2].Split)
+	if tmpl.Panes[1].SplitRatio != 0.30 {
+		t.Errorf("pane 1 SplitRatio = %f, want 0.30", tmpl.Panes[1].SplitRatio)
 	}
-	if tmpl.Panes[2].Type != "terminal" {
-		t.Errorf("pane 2 type = %q, want \"terminal\"", tmpl.Panes[2].Type)
-	}
-	// P3: split down @focus=0, lazygit (below tree).
-	if tmpl.Panes[3].Split != "down" {
-		t.Errorf("pane 3 split = %q, want \"down\"", tmpl.Panes[3].Split)
-	}
-	if tmpl.Panes[3].Command != "lazygit" {
-		t.Errorf("pane 3 command = %q, want \"lazygit\"", tmpl.Panes[3].Command)
-	}
-	if tmpl.Panes[3].FocusTarget != 0 {
-		t.Errorf("pane 3 FocusTarget = %d, want 0", tmpl.Panes[3].FocusTarget)
+	// P2: split right, terminal (bottom-right).
+	if tmpl.Panes[2].Split != "right" {
+		t.Errorf("pane 2 split = %q, want \"right\"", tmpl.Panes[2].Split)
 	}
 }
 
