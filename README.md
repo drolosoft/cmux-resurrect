@@ -92,6 +92,8 @@ crex tui                                  # interactive shell
 crex template use ide
 ```
 
+<p align="center"><img src="assets/demo-ide.gif" alt="crex template use ide" width="800"></p>
+
 Creates a workspace with **nvim** (70% top, with neo-tree), **lazygit** (bottom-left), and a **terminal** (bottom-right) — ready to code in seconds:
 
 <p align="center"><img src="assets/template-ide.png" alt="crex IDE template" width="800"></p>
