@@ -2,11 +2,11 @@
 name: ide
 category: layout
 icon: "⧉"
-description: Full IDE layout
+description: Sidebar, editor, lazygit, terminal
 tags: [4-pane, development]
 ---
 ### ide
 - [x] main terminal:
-- [x] split right: (focused)
+- [x] split right: `nvim` (focused)
 - [x] split down:
-- [x] split right:
+- [x] split down: `lazygit` @focus=0

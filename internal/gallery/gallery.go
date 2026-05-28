@@ -258,6 +258,12 @@ func parseGalleryPaneLine(line string) model.TemplatePan {
 			tp.Split = strings.TrimSuffix(parts[1], ":")
 		}
 		tp.Type = "terminal"
+		// Support explicit type after direction: "split right browser:"
+		for _, p := range parts[2:] {
+			if strings.TrimSuffix(p, ":") == "browser" {
+				tp.Type = "browser"
+			}
+		}
 	default:
 		tp.Type = "terminal"
 	}

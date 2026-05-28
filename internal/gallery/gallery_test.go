@@ -59,6 +59,9 @@ func TestIconUniquenessWithinCategory(t *testing.T) {
 
 func TestLayoutTemplatesHaveNoCommands(t *testing.T) {
 	for _, tmpl := range ListByCategory("layout") {
+		if tmpl.Name == "ide" {
+			continue // ide is a layout with starter commands
+		}
 		for _, p := range tmpl.Panes {
 			if p.Command != "" {
 				t.Errorf("layout template %q pane has command %q", tmpl.Name, p.Command)
@@ -152,7 +155,7 @@ func TestQuadFocusTargets(t *testing.T) {
 
 func TestNonQuadTemplatesHaveDefaultFocusTarget(t *testing.T) {
 	for _, tmpl := range List() {
-		if tmpl.Name == "quad" {
+		if tmpl.Name == "quad" || tmpl.Name == "ide" {
 			continue
 		}
 		for i, p := range tmpl.Panes {
@@ -301,6 +304,16 @@ func TestParseGalleryPaneLine_CommandWithFocus(t *testing.T) {
 	}
 }
 
+func TestParseGalleryPaneLine_BrowserSplit(t *testing.T) {
+	tp := parseGalleryPaneLine("- [x] split down browser:")
+	if tp.Split != "down" {
+		t.Errorf("Split = %q, want \"down\"", tp.Split)
+	}
+	if tp.Type != "browser" {
+		t.Errorf("Type = %q, want \"browser\"", tp.Type)
+	}
+}
+
 func TestParseTemplateFile_MissingFrontmatter(t *testing.T) {
 	_, err := parseTemplateFile("no frontmatter here")
 	if err == nil {
@@ -331,19 +344,39 @@ func TestIDETemplate(t *testing.T) {
 	if len(tmpl.Panes) != 4 {
 		t.Fatalf("ide panes = %d, want 4", len(tmpl.Panes))
 	}
-	// First pane: main terminal, not focused.
+	// P0: main terminal (tree/shell sidebar), not focused.
 	if !tmpl.Panes[0].IsMain {
 		t.Error("pane 0 should be main")
 	}
 	if tmpl.Panes[0].Focus {
-		t.Error("pane 0 should not be focused in ide layout")
+		t.Error("pane 0 should not be focused")
 	}
-	// Second pane: split right, focused.
+	// P1: split right, nvim editor, focused.
 	if tmpl.Panes[1].Split != "right" {
 		t.Errorf("pane 1 split = %q, want \"right\"", tmpl.Panes[1].Split)
 	}
+	if tmpl.Panes[1].Command != "nvim" {
+		t.Errorf("pane 1 command = %q, want \"nvim\"", tmpl.Panes[1].Command)
+	}
 	if !tmpl.Panes[1].Focus {
-		t.Error("pane 1 should be focused in ide layout")
+		t.Error("pane 1 should be focused")
+	}
+	// P2: split down, terminal (shell).
+	if tmpl.Panes[2].Split != "down" {
+		t.Errorf("pane 2 split = %q, want \"down\"", tmpl.Panes[2].Split)
+	}
+	if tmpl.Panes[2].Type != "terminal" {
+		t.Errorf("pane 2 type = %q, want \"terminal\"", tmpl.Panes[2].Type)
+	}
+	// P3: split down @focus=0, lazygit (below tree).
+	if tmpl.Panes[3].Split != "down" {
+		t.Errorf("pane 3 split = %q, want \"down\"", tmpl.Panes[3].Split)
+	}
+	if tmpl.Panes[3].Command != "lazygit" {
+		t.Errorf("pane 3 command = %q, want \"lazygit\"", tmpl.Panes[3].Command)
+	}
+	if tmpl.Panes[3].FocusTarget != 0 {
+		t.Errorf("pane 3 FocusTarget = %d, want 0", tmpl.Panes[3].FocusTarget)
 	}
 }
 
