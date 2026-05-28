@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.17.0] — 2026-05-28
+
+### Added
+- **IDE template redesign** — shelf layout with `nvim .` (70% top, focused), `lazygit` (bottom-left), terminal (bottom-right). Uses the new `split_ratio` feature for the 70/30 split
+- **Split ratio in templates** — templates support `split down 30%:` syntax for non-equal splits. Applied via `cmux resize-pane` during template execution
+- **Browser type in split panes** — templates support `split right browser:` syntax for browser pane creation
+
+### Fixed
+- **Template split targeting** — cmux `new-split` does not transfer focus to new panes. Templates now explicitly focus each new pane and track actual pane refs (from the tree) to handle cmux's position-based reindexing. Fixes shelf, quad, aside, and dashboard layouts
+- **Template command deferral** — interactive commands (`nvim`, `lazygit`) are deferred until after all splits and resizes are applied. Prevents focus interference during pane creation
+
+### Changed
+- **README** — documented Ghostty split sizing limitation (always equal splits; `split_ratio` is cmux-only)
+
+---
+
 ## [v1.16.0] — 2026-05-27
 
 ### Added
@@ -394,3 +410,4 @@ Initial public release.
 [v1.14.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.14.0
 [v1.15.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.15.0
 [v1.16.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.16.0
+[v1.17.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.17.0
