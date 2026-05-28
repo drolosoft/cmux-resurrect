@@ -86,6 +86,18 @@ crex tui                                  # interactive shell
 
 <p align="center"><img src="assets/quickstart.gif" alt="crex quick start" width="800"></p>
 
+### One command, full IDE
+
+```sh
+crex template use ide
+```
+
+Creates a workspace with **nvim** (70% top, with neo-tree), **lazygit** (bottom-left), and a **terminal** (bottom-right) — ready to code in seconds:
+
+<p align="center"><img src="assets/template-ide.png" alt="crex IDE template" width="800"></p>
+
+16 templates ship built-in — from simple splits to monitoring dashboards. See [`crex template list`](docs/templates.md).
+
 ---
 
 ## 💾 Save & Restore
