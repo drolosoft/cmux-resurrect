@@ -429,32 +429,33 @@ func dashboardDiagram(panes []paneInfo) string {
 	return b.String()
 }
 
-// ideDiagram: file tree + editor + console + tools.
+// ideDiagram: editor on top (70%), lazygit + terminal on bottom (30%).
 //
-//	┌────────┬─────────────────────────┐
-//	│        │  label1                 │
-//	│ label0 │                         │
-//	│        ├────────────┬────────────┤
-//	│        │  label2    │  label3    │
-//	└────────┴────────────┴────────────┘
+//	┌──────────────────────────────────┐
+//	│            label0                │
+//	│                                  │
+//	│                                  │
+//	├────────────────┬─────────────────┤
+//	│    label1      │    label2       │
+//	└────────────────┴─────────────────┘
 func ideDiagram(panes []paneInfo) string {
-	lw := 8  // left (file tree) inner width
-	rw := 25 // right total inner width
-	rlw := 12
-	rrw := rw - rlw - 1
+	w := 34
+	inner := w - 2
+	blw := 16 // bottom-left inner width
+	brw := inner - blw - 1
 
-	l0 := fl(safePane(panes, 0), lw)
-	l1 := fl(safePane(panes, 1), rw)
-	l2 := fl(safePane(panes, 2), rlw)
-	l3 := fl(safePane(panes, 3), rrw)
+	l0 := fl(safePane(panes, 0), inner)
+	l1 := fl(safePane(panes, 1), blw)
+	l2 := fl(safePane(panes, 2), brw)
 
 	var b strings.Builder
-	b.WriteString("┌" + strings.Repeat("─", lw) + "┬" + strings.Repeat("─", rw) + "┐\n")
-	b.WriteString("│" + strings.Repeat(" ", lw) + "│" + l1 + "│\n")
-	b.WriteString("│" + l0 + "│" + strings.Repeat(" ", rw) + "│\n")
-	b.WriteString("│" + strings.Repeat(" ", lw) + "├" + strings.Repeat("─", rlw) + "┬" + strings.Repeat("─", rrw) + "┤\n")
-	b.WriteString("│" + strings.Repeat(" ", lw) + "│" + l2 + "│" + l3 + "│\n")
-	b.WriteString("└" + strings.Repeat("─", lw) + "┴" + strings.Repeat("─", rlw) + "┴" + strings.Repeat("─", rrw) + "┘")
+	b.WriteString("┌" + strings.Repeat("─", inner) + "┐\n")
+	b.WriteString("│" + l0 + "│\n")
+	b.WriteString("│" + strings.Repeat(" ", inner) + "│\n")
+	b.WriteString("│" + strings.Repeat(" ", inner) + "│\n")
+	b.WriteString("├" + strings.Repeat("─", blw) + "┬" + strings.Repeat("─", brw) + "┤\n")
+	b.WriteString("│" + l1 + "│" + l2 + "│\n")
+	b.WriteString("└" + strings.Repeat("─", blw) + "┴" + strings.Repeat("─", brw) + "┘")
 	return b.String()
 }
 
