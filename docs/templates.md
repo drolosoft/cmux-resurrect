@@ -156,22 +156,26 @@ Large main pane on top, three equal columns below.
 - **Splits:** main → down → right → right
 - **Use case:** Main editor with three utility panes, monitoring dashboard
 
-### ⧉ ide — Full IDE layout
+### ⧉ ide — Editor on top, terminal and lazygit below
 
-File tree sidebar, large editor area, console and tools at the bottom-right.
+nvim with neo-tree (70% top), lazygit (bottom-left), terminal (bottom-right). One command to a full development workspace.
 
 ```
-┌────────┬─────────────────────────┐
-│        │  shell *                │
-│ main   │                         │
-│        ├────────────┬────────────┤
-│        │  shell     │  shell     │
-└────────┴────────────┴────────────┘
+┌──────────────────────────────────┐
+│  nvim . *                        │
+│                                  │
+│                                  │
+├────────────────┬─────────────────┤
+│  lazygit       │  shell          │
+└────────────────┴─────────────────┘
 ```
 
-- **Panes:** 4
-- **Splits:** main → right (focused) → down → right
-- **Use case:** Full development environment with file browser, editor, terminal, and tools
+- **Panes:** 3
+- **Splits:** main (nvim ., focused) → down 30% (lazygit) → right (shell)
+- **Split ratio:** 70/30 top/bottom (cmux only — Ghostty uses equal splits)
+- **Use case:** Full development environment with file tree, editor, git, and terminal
+
+<p align="center"><img src="../assets/template-ide.png" alt="crex IDE template in action" width="700"></p>
 
 ---
 
