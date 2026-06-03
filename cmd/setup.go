@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/drolosoft/cmux-resurrect/internal/client"
 	"github.com/drolosoft/cmux-resurrect/internal/config"
@@ -33,7 +34,7 @@ func runSetup(cmd *cobra.Command, args []string) error {
 	o.ln()
 
 	// Step 1: Backend Detection
-	o.ln(cyanStyle.Render("Step 1/4") + dimStyle.Render(" — Backend Detection"))
+	o.ln(cyanStyle.Render("Step 1/5") + dimStyle.Render(" — Backend Detection"))
 	detected := client.Detect()
 	desc := setup.DescribeBackend(detected)
 	if detected != client.BackendUnknown {
@@ -44,7 +45,7 @@ func runSetup(cmd *cobra.Command, args []string) error {
 	o.ln()
 
 	// Step 2: Configuration
-	o.ln(cyanStyle.Render("Step 2/4") + dimStyle.Render(" — Configuration"))
+	o.ln(cyanStyle.Render("Step 2/5") + dimStyle.Render(" — Configuration"))
 	cfgPath := config.DefaultConfigPath()
 	created, err := setup.WriteConfigIfNotExists(cfgPath, "5m", 10)
 	if err != nil {
@@ -58,7 +59,7 @@ func runSetup(cmd *cobra.Command, args []string) error {
 	o.ln()
 
 	// Step 3: Layouts Directory
-	o.ln(cyanStyle.Render("Step 3/4") + dimStyle.Render(" — Layouts Directory"))
+	o.ln(cyanStyle.Render("Step 3/5") + dimStyle.Render(" — Layouts Directory"))
 	layoutsDir := config.DefaultLayoutsDir()
 	if err := os.MkdirAll(layoutsDir, 0o755); err != nil {
 		return fmt.Errorf("create layouts dir: %w", err)
@@ -67,7 +68,7 @@ func runSetup(cmd *cobra.Command, args []string) error {
 	o.ln()
 
 	// Step 4: First Save
-	o.ln(cyanStyle.Render("Step 4/4") + dimStyle.Render(" — First Save"))
+	o.ln(cyanStyle.Render("Step 4/5") + dimStyle.Render(" — First Save"))
 	switch {
 	case detected != client.BackendUnknown && setupDefaults:
 		if err := doFirstSave(o, detected); err != nil {
@@ -82,6 +83,40 @@ func runSetup(cmd *cobra.Command, args []string) error {
 	}
 	o.ln()
 
+	// Step 5: Quick Launch Hook
+	o.ln(cyanStyle.Render("Step 5/5") + dimStyle.Render(" — Quick Launch (Ctrl+G)"))
+	shell, rcFile, key := setup.OfferPopHook()
+	if rcFile != "" && key != "" {
+		if setupDefaults {
+			if err := setup.InstallHookToFile(rcFile, shell, key); err == nil {
+				o.f("  %s  Ctrl+G → crex pop installed to %s\n", greenStyle.Render("✓"), dimStyle.Render(rcFile))
+			} else {
+				o.f("  %s  Hook install skipped: %v\n", yellowStyle.Render("!"), err)
+			}
+		} else {
+			o.f("  Add Ctrl+G shortcut to open %s instantly?\n", cyanStyle.Render("crex pop"))
+			o.f("  This adds one line to %s\n\n", dimStyle.Render(rcFile))
+			o.f("  %s ", dimStyle.Render("[y/N]"))
+			var answer string
+			fmt.Scanln(&answer)
+			if strings.ToLower(strings.TrimSpace(answer)) == "y" {
+				if err := setup.InstallHookToFile(rcFile, shell, key); err != nil {
+					o.f("  %s  %v\n", yellowStyle.Render("!"), err)
+				} else {
+					o.f("  %s  Added to %s — restart your shell or: %s\n",
+						greenStyle.Render("✓"),
+						dimStyle.Render(rcFile),
+						cyanStyle.Render("source "+rcFile))
+				}
+			} else {
+				o.f("  %s  Skipped — you can always run: %s\n", dimStyle.Render("·"), cyanStyle.Render("crex pop"))
+			}
+		}
+	} else {
+		o.f("  %s  Shell not detected — you can run %s manually\n", dimStyle.Render("·"), cyanStyle.Render("crex pop"))
+	}
+	o.ln()
+
 	// Summary
 	o.ln(headingStyle.Render("Setup complete!"))
 	o.ln()
@@ -90,6 +125,7 @@ func runSetup(cmd *cobra.Command, args []string) error {
 	o.f("    %s  %s\n", cyanStyle.Render("crex list"), dimStyle.Render("list saved layouts"))
 	o.f("    %s  %s\n", cyanStyle.Render("crex restore my-day"), dimStyle.Render("restore a saved layout"))
 	o.f("    %s  %s\n", cyanStyle.Render("crex watch my-day"), dimStyle.Render("auto-save on a timer"))
+	o.f("    %s  %s\n", cyanStyle.Render("crex pop"), dimStyle.Render("quick workspace picker (Ctrl+G)"))
 	o.ln()
 	o.ln(dimStyle.Render("  crex <command> --help for flags and details"))
 	o.ln()

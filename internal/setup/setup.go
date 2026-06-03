@@ -9,6 +9,14 @@ import (
 	"github.com/drolosoft/cmux-resurrect/internal/client"
 )
 
+// OfferPopHook returns the detected shell, rc file path, and default key for crex pop.
+func OfferPopHook() (shell, rcFile, key string) {
+	shell = DetectShell()
+	rcFile = RCFilePath(shell)
+	key = DefaultKey(shell)
+	return
+}
+
 // DescribeBackend returns a human-readable name for the detected backend.
 func DescribeBackend(b client.DetectedBackend) string {
 	switch b {
