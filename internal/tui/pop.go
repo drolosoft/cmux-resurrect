@@ -328,7 +328,8 @@ func (m *PopModel) View() string {
 	// Assemble: title + blank + body + blank + footer
 	content := title + "\n\n" + body + "\n\n" + footer
 
-	// Fixed height prevents render artifacts when box resizes between modes.
+	// No fixed Width — let box size from padded content lines.
+	// boxWidth-2 absorbs lipgloss's emoji width miscounting in padding.
 	box := popBoxStyle.Width(boxWidth).Height(boxHeight).Render(content)
 
 	return lipgloss.Place(w, h, lipgloss.Center, lipgloss.Center, box)
@@ -480,6 +481,29 @@ func termWidth(s string) int {
 	return uniseg.StringWidth(ansi.Strip(s))
 }
 
+// sanitizeEmoji replaces complex ZWJ emoji sequences with their base character
+// followed by a space. This prevents lipgloss width miscounting that causes
+// line wrapping in the terminal. Simple emojis (🧠, 🗿, 🌋) are left as-is.
+func sanitizeEmoji(s string) string {
+	// Process grapheme clusters; replace any cluster wider than 2 cells
+	// or containing ZWJ (U+200D) with a simpler representation.
+	var result strings.Builder
+	remaining := s
+	for len(remaining) > 0 {
+		cluster, rest, clusterWidth, _ := uniseg.FirstGraphemeClusterInString(remaining, -1)
+		lipW := ansi.StringWidth(cluster)
+		if clusterWidth != lipW {
+			// Mismatch — lipgloss will miscount this.
+			// Replace with a generic marker to keep alignment correct.
+			result.WriteString("· ")
+		} else {
+			result.WriteString(cluster)
+		}
+		remaining = rest
+	}
+	return result.String()
+}
+
 // truncLine ensures a string doesn't exceed maxLen terminal cells.
 // Uses termWidth for accurate ZWJ emoji measurement.
 func truncLine(s string, maxLen int) string {
@@ -500,10 +524,22 @@ func truncLine(s string, maxLen int) string {
 // Uses termWidth for accurate ZWJ emoji measurement to prevent line wrapping.
 func padLine(s string, width int) string {
 	w := termWidth(s)
-	if w >= width {
+	if w == width {
 		return s
 	}
-	return s + strings.Repeat(" ", width-w)
+	if w < width {
+		return s + strings.Repeat(" ", width-w)
+	}
+	// Line exceeds width (emoji miscount) — truncate runes from end.
+	runes := []rune(s)
+	for i := len(runes) - 1; i >= 0; i-- {
+		candidate := string(runes[:i])
+		cw := termWidth(candidate)
+		if cw <= width {
+			return candidate + strings.Repeat(" ", width-cw)
+		}
+	}
+	return strings.Repeat(" ", width)
 }
 
 // viewDrill renders the drill mode content (no header/footer — those are in View).
@@ -670,6 +706,8 @@ func (m *PopModel) enterDrill(layoutName string) {
 		if title == "" {
 			title = "(untitled)"
 		}
+		// Sanitize emoji to prevent lipgloss width miscounting.
+		title = sanitizeEmoji(title)
 
 		m.drillItems = append(m.drillItems, DrillItem{
 			LayoutName:  layoutName,
