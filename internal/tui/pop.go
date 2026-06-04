@@ -289,7 +289,7 @@ func (m *PopModel) View() string {
 
 	boxWidth := clampInt(w-4, 40, 60)
 	boxHeight := clampInt(h-4, 12, 22)
-	innerWidth := boxWidth - 6  // border(2) + padding(4)
+	innerWidth := boxWidth - 6   // border(2) + padding(4)
 	innerHeight := boxHeight - 4 // border(2) + padding(2)
 
 	var content string

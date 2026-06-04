@@ -49,6 +49,11 @@ func runPop(cmd *cobra.Command, args []string) error {
 
 // popPicker launches the bubbletea PopModel and dispatches the chosen item.
 func popPicker() error {
+	store, err := newStore()
+	if err != nil {
+		return err
+	}
+
 	items, err := buildPopItems()
 	if err != nil {
 		return err
@@ -58,7 +63,7 @@ func popPicker() error {
 		return nil
 	}
 
-	m := tui.NewPopModel(items, 0, 0)
+	m := tui.NewPopModel(items, 0, 0, store.Load)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	finalModel, err := p.Run()
 	if err != nil {
@@ -70,16 +75,18 @@ func popPicker() error {
 		return nil
 	}
 
-	chosen := pm.Chosen()
-	if chosen == nil {
+	result := pm.Result()
+	if result == nil {
 		return nil
 	}
 
-	switch chosen.Kind {
+	switch result.Kind {
 	case "layout":
-		return doRestore(chosen.Name)
+		return doRestore(result.Name)
 	case "template":
-		return doTemplateUse(chosen.Name, ".")
+		return doTemplateUse(result.Name, ".")
+	case "workspace":
+		return doRestoreWorkspace(result.Name, result.WorkspaceTitle)
 	}
 	return nil
 }
@@ -185,6 +192,45 @@ func doRestore(name string) error {
 		}
 		fmt.Fprintln(os.Stderr)
 	}
+	return nil
+}
+
+// doRestoreWorkspace restores a single workspace from a layout using workspaceFilter.
+func doRestoreWorkspace(layoutName, workspaceTitle string) error {
+	cl := newClient()
+	store, err := newStore()
+	if err != nil {
+		return err
+	}
+
+	restorer := &orchestrate.Restorer{
+		Client: cl,
+		Store:  store,
+		OnProgress: func(title string, panes int, err error) {
+			t := padTitle(title)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "  %s  %s: %v\n", yellowStyle.Render("FAIL"), t, err)
+			} else {
+				fmt.Fprintf(os.Stderr, "  %s  %s (%d panes)\n", greenStyle.Render("OK"), t, panes)
+			}
+		},
+	}
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintf(os.Stderr, "%s %s > %s\n",
+		yellowStyle.Render("➕ Restoring"),
+		greenStyle.Render(layoutName),
+		cyanStyle.Render(workspaceTitle))
+
+	result, err := restorer.Restore(layoutName, false, orchestrate.RestoreModeAdd, workspaceTitle, true)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintf(os.Stderr, "  %s\n\n",
+		greenStyle.Render(fmt.Sprintf("✅ Restored %d/%d %s",
+			result.WorkspacesOK, result.WorkspacesTotal, unitName(result.WorkspacesTotal))))
 	return nil
 }
 
