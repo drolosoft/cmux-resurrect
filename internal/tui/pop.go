@@ -21,9 +21,9 @@ const (
 // popStyles holds the lipgloss styles used by PopModel.
 var (
 	popBoxStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.AdaptiveColor{Dark: "#FFB454", Light: "#D4820A"}).
-			Padding(1, 2)
+			Border(lipgloss.DoubleBorder()).
+			BorderForeground(lipgloss.Color("#FFD700")).
+			Padding(1, 3)
 
 	popMatchStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.AdaptiveColor{Dark: "#FFB454", Light: "#D4820A"}).
@@ -278,6 +278,10 @@ func (m *PopModel) updateDrill(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // View renders the centered box with the appropriate mode content.
 func (m *PopModel) View() string {
+	if m.quitting {
+		return ""
+	}
+
 	w := m.width
 	if w == 0 {
 		w = 80
@@ -287,244 +291,238 @@ func (m *PopModel) View() string {
 		h = 24
 	}
 
-	boxWidth := clampInt(w-4, 40, 60)
-	boxHeight := clampInt(h-4, 12, 22)
-	innerWidth := boxWidth - 6   // border(2) + padding(4)
+	boxWidth := clampInt(w-4, 44, 64)
+	boxHeight := clampInt(h-4, 14, 26)
+	innerWidth := boxWidth - 8   // border(2) + padding(6)
 	innerHeight := boxHeight - 4 // border(2) + padding(2)
 
-	var content string
+	// Build the dynamic title centered at top.
+	title := m.renderTitle(innerWidth)
+
+	// Build the list or drill content.
+	var body string
 	if m.mode == modeDrill {
-		content = m.viewDrill(innerWidth, innerHeight)
+		body = m.viewDrill(innerWidth, innerHeight-3) // reserve title lines
 	} else {
-		content = m.viewList(innerWidth, innerHeight)
+		body = m.viewList(innerWidth, innerHeight-3)
 	}
+
+	// Build the footer.
+	footer := m.renderFooter()
+
+	// Assemble: title + blank + body + blank + footer
+	content := title + "\n\n" + body + "\n\n" + footer
 
 	box := popBoxStyle.Width(boxWidth).Height(boxHeight).Render(content)
 
 	return lipgloss.Place(w, h, lipgloss.Center, lipgloss.Center, box)
 }
 
-// viewList renders the list mode content.
-func (m *PopModel) viewList(innerWidth, innerHeight int) string {
-	var b strings.Builder
-
-	// Header: "crex > filter_"
-	b.WriteString(popTitleStyle.Render("crex"))
-	b.WriteString(" > ")
-	if m.filter != "" {
-		b.WriteString(popFilterStyle.Render(m.filter))
+// renderTitle builds the centered dynamic title line.
+func (m *PopModel) renderTitle(width int) string {
+	var title string
+	switch {
+	case m.mode == modeDrill && m.filter != "":
+		title = popHeaderStyle.Render(m.drillLayout) + popDimStyle.Render(" > ") + popFilterStyle.Render("🔍 "+m.filter)
+	case m.mode == modeDrill:
+		title = popHeaderStyle.Render(m.drillLayout) + popDimStyle.Render(" > workspaces")
+	case m.filter != "":
+		title = popFilterStyle.Render("🔍 " + m.filter)
+	default:
+		title = popHeaderStyle.Render("crex pop")
 	}
-	b.WriteString(popDimStyle.Render("_"))
-	b.WriteString("\n")
+	// Center the title within the inner width.
+	return lipgloss.PlaceHorizontal(width, lipgloss.Center, title)
+}
 
-	// Footer (will be appended at end).
-	footer := popDimStyle.Render("↵ launch  tab drill  1-9 jump  esc")
+// renderFooter builds the contextual hint line.
+func (m *PopModel) renderFooter() string {
+	if m.mode == modeDrill {
+		return popDimStyle.Render("↵ restore    esc back    1-9 jump")
+	}
+	return popDimStyle.Render("↵ launch    tab drill    1-9 jump    esc quit")
+}
 
-	headerLines := 2 // prompt + blank line
-	footerLines := 2 // blank line + hints
-	listHeight := innerHeight - headerLines - footerLines
+// viewList renders the list mode content (no header/footer — those are in View).
+func (m *PopModel) viewList(innerWidth, listHeight int) string {
 	if listHeight < 1 {
 		listHeight = 1
 	}
 
 	if len(m.filtered) == 0 {
-		b.WriteString("\n")
-		b.WriteString(popDimStyle.Render("no results"))
-		b.WriteString("\n")
-	} else {
-		// Build all visible lines first, then apply scroll.
-		var lines []string
-		idx := 0
-		lastKind := ""
-		for i, item := range m.filtered {
-			// Section header when kind changes.
-			if item.Kind != lastKind {
-				if lastKind != "" {
-					lines = append(lines, "")
-				}
-				section := "LAYOUTS"
-				if item.Kind == "template" {
-					section = "TEMPLATES"
-				}
-				lines = append(lines, popSectionStyle.Render(section))
-				lastKind = item.Kind
-			}
+		return popDimStyle.Render("  no results")
+	}
 
-			num := fmt.Sprintf("[%d]", idx+1)
-			isCurrent := idx == m.cursor
-
-			var line strings.Builder
-			if isCurrent {
-				line.WriteString(popCursorStyle.Render("▸"))
-				line.WriteString(" ")
-				line.WriteString(popNumberStyle.Render(num))
-			} else {
-				line.WriteString("  ")
-				line.WriteString(popDimStyle.Render(num))
+	// Build all visible lines first, then apply scroll.
+	var lines []string
+	idx := 0
+	lastKind := ""
+	for i, item := range m.filtered {
+		// Section header when kind changes (with spacing).
+		if item.Kind != lastKind {
+			if lastKind != "" {
+				lines = append(lines, "") // breathing space between sections
 			}
+			section := "LAYOUTS"
+			if item.Kind == "template" {
+				section = "TEMPLATES"
+			}
+			lines = append(lines, popSectionStyle.Render(section))
+			lines = append(lines, "") // space after section header
+			lastKind = item.Kind
+		}
+
+		num := fmt.Sprintf("[%d]", idx+1)
+		isCurrent := idx == m.cursor
+
+		var line strings.Builder
+		if isCurrent {
+			line.WriteString(popCursorStyle.Render("▸"))
+			line.WriteString(" ")
+			line.WriteString(popNumberStyle.Render(num))
+		} else {
 			line.WriteString("  ")
+			line.WriteString(popDimStyle.Render(num))
+		}
+		line.WriteString("  ")
 
-			// Icon for templates.
-			if item.Icon != "" {
-				line.WriteString(item.Icon)
-				line.WriteString("  ")
-			}
+		// Icon for templates.
+		if item.Icon != "" {
+			line.WriteString(item.Icon)
+			line.WriteString("  ")
+		}
 
-			// Name with optional match highlighting.
-			nameStr := item.Name
-			if m.matchPositions != nil && i < len(m.matchPositions) && len(m.matchPositions[i]) > 0 {
+		// Name with optional match highlighting.
+		nameStr := item.Name
+		if m.matchPositions != nil && i < len(m.matchPositions) && len(m.matchPositions[i]) > 0 {
+			if isCurrent {
+				nameStr = highlightMatchesBold(item.Name, m.matchPositions[i])
+			} else {
 				nameStr = highlightMatches(item.Name, m.matchPositions[i])
-				if isCurrent {
-					// Wrap non-highlighted parts in bold.
-					nameStr = highlightMatchesBold(item.Name, m.matchPositions[i])
-				}
-			} else if isCurrent {
-				nameStr = popTitleStyle.Render(item.Name)
 			}
-			line.WriteString(nameStr)
+		} else if isCurrent {
+			nameStr = popTitleStyle.Render(item.Name)
+		}
+		line.WriteString(nameStr)
 
-			if item.Meta != "" {
-				line.WriteString("  ")
-				line.WriteString(popMetaStyle.Render(item.Meta))
-			}
-
-			// Drill indicator for layouts under cursor.
-			if isCurrent && item.Kind == "layout" {
-				line.WriteString(" ")
-				line.WriteString(popDimStyle.Render("→"))
-			}
-
-			lines = append(lines, line.String())
-			idx++
+		if item.Meta != "" {
+			line.WriteString("   ")
+			line.WriteString(popMetaStyle.Render(item.Meta))
 		}
 
-		// Find the line index where the cursor item lives.
-		cursorLine := m.findCursorLine(lines)
-
-		// Adjust offset to keep cursor visible.
-		if cursorLine < m.offset {
-			m.offset = cursorLine
-		}
-		if cursorLine >= m.offset+listHeight {
-			m.offset = cursorLine - listHeight + 1
-		}
-		if m.offset < 0 {
-			m.offset = 0
+		// Drill indicator for layouts under cursor.
+		if isCurrent && item.Kind == "layout" {
+			line.WriteString("  ")
+			line.WriteString(popDimStyle.Render("→"))
 		}
 
-		// Render visible slice.
-		b.WriteString("\n")
-		end := m.offset + listHeight
-		if end > len(lines) {
-			end = len(lines)
-		}
-		for i := m.offset; i < end; i++ {
-			b.WriteString(lines[i])
+		lines = append(lines, line.String())
+		idx++
+	}
+
+	// Find the line index where the cursor item lives.
+	cursorLine := m.findCursorLine(lines)
+
+	// Adjust offset to keep cursor visible.
+	if cursorLine < m.offset {
+		m.offset = cursorLine
+	}
+	if cursorLine >= m.offset+listHeight {
+		m.offset = cursorLine - listHeight + 1
+	}
+	if m.offset < 0 {
+		m.offset = 0
+	}
+
+	// Render visible slice.
+	var b strings.Builder
+	end := m.offset + listHeight
+	if end > len(lines) {
+		end = len(lines)
+	}
+	for i := m.offset; i < end; i++ {
+		b.WriteString(lines[i])
+		if i < end-1 {
 			b.WriteString("\n")
 		}
 	}
-
-	b.WriteString("\n")
-	b.WriteString(footer)
 
 	return b.String()
 }
 
-// viewDrill renders the drill mode content.
-func (m *PopModel) viewDrill(innerWidth, innerHeight int) string {
-	var b strings.Builder
-
-	// Breadcrumb: "crex > layoutName > _"
-	b.WriteString(popTitleStyle.Render("crex"))
-	b.WriteString(" > ")
-	b.WriteString(popHeaderStyle.Render(m.drillLayout))
-	b.WriteString(" > ")
-	if m.filter != "" {
-		b.WriteString(popFilterStyle.Render(m.filter))
-	}
-	b.WriteString(popDimStyle.Render("_"))
-	b.WriteString("\n")
-
-	footer := popDimStyle.Render("↵ restore  esc back  1-9 jump")
-
-	headerLines := 2
-	footerLines := 2
-	listHeight := innerHeight - headerLines - footerLines
+// viewDrill renders the drill mode content (no header/footer — those are in View).
+func (m *PopModel) viewDrill(innerWidth, listHeight int) string {
 	if listHeight < 1 {
 		listHeight = 1
 	}
 
-	sectionHeader := fmt.Sprintf("WORKSPACES in %s", m.drillLayout)
+	sectionHeader := popSectionStyle.Render(fmt.Sprintf("WORKSPACES"))
 
 	if len(m.drillFiltered) == 0 {
-		b.WriteString("\n")
-		b.WriteString(popSectionStyle.Render(sectionHeader))
-		b.WriteString("\n")
-		b.WriteString(popDimStyle.Render("no results"))
-		b.WriteString("\n")
-	} else {
-		var lines []string
-		lines = append(lines, popSectionStyle.Render(sectionHeader))
+		return sectionHeader + "\n\n" + popDimStyle.Render("  no results")
+	}
 
-		for idx, item := range m.drillFiltered {
-			num := fmt.Sprintf("[%d]", idx+1)
-			isCurrent := idx == m.drillCursor
+	var lines []string
+	lines = append(lines, sectionHeader)
+	lines = append(lines, "") // breathing space
 
-			var line strings.Builder
-			if isCurrent {
-				line.WriteString(popCursorStyle.Render("▸"))
-				line.WriteString(" ")
-				line.WriteString(popNumberStyle.Render(num))
-			} else {
-				line.WriteString("  ")
-				line.WriteString(popDimStyle.Render(num))
-			}
+	for idx, item := range m.drillFiltered {
+		num := fmt.Sprintf("[%d]", idx+1)
+		isCurrent := idx == m.drillCursor
+
+		var line strings.Builder
+		if isCurrent {
+			line.WriteString(popCursorStyle.Render("▸"))
+			line.WriteString(" ")
+			line.WriteString(popNumberStyle.Render(num))
+		} else {
 			line.WriteString("  ")
+			line.WriteString(popDimStyle.Render(num))
+		}
+		line.WriteString("  ")
 
-			titleStr := item.Title
-			if isCurrent {
-				titleStr = popTitleStyle.Render(item.Title)
-			}
-			line.WriteString(titleStr)
+		titleStr := item.Title
+		if isCurrent {
+			titleStr = popTitleStyle.Render(item.Title)
+		}
+		line.WriteString(titleStr)
 
-			paneInfo := fmt.Sprintf("%d %s", item.PaneCount, pluralPane(item.PaneCount))
-			line.WriteString("  ")
-			line.WriteString(popMetaStyle.Render(paneInfo))
+		paneInfo := fmt.Sprintf("%d %s", item.PaneCount, pluralPane(item.PaneCount))
+		line.WriteString("   ")
+		line.WriteString(popMetaStyle.Render(paneInfo))
 
-			if item.PaneSummary != "" {
-				line.WriteString("  ")
-				line.WriteString(popDimStyle.Render(item.PaneSummary))
-			}
-
-			lines = append(lines, line.String())
+		if item.PaneSummary != "" {
+			line.WriteString("   ")
+			line.WriteString(popDimStyle.Render(item.PaneSummary))
 		}
 
-		// Find cursor line in drill view (offset by 1 for section header).
-		cursorLine := m.drillCursor + 1 // +1 for section header line
+		lines = append(lines, line.String())
+	}
 
-		if cursorLine < m.drillOffset {
-			m.drillOffset = cursorLine
-		}
-		if cursorLine >= m.drillOffset+listHeight {
-			m.drillOffset = cursorLine - listHeight + 1
-		}
-		if m.drillOffset < 0 {
-			m.drillOffset = 0
-		}
+	// Scroll: cursor line = drillCursor + 2 (section header + blank)
+	cursorLine := m.drillCursor + 2
 
-		b.WriteString("\n")
-		end := m.drillOffset + listHeight
-		if end > len(lines) {
-			end = len(lines)
-		}
-		for i := m.drillOffset; i < end; i++ {
-			b.WriteString(lines[i])
+	if cursorLine < m.drillOffset {
+		m.drillOffset = cursorLine
+	}
+	if cursorLine >= m.drillOffset+listHeight {
+		m.drillOffset = cursorLine - listHeight + 1
+	}
+	if m.drillOffset < 0 {
+		m.drillOffset = 0
+	}
+
+	var b strings.Builder
+	end := m.drillOffset + listHeight
+	if end > len(lines) {
+		end = len(lines)
+	}
+	for i := m.drillOffset; i < end; i++ {
+		b.WriteString(lines[i])
+		if i < end-1 {
 			b.WriteString("\n")
 		}
 	}
-
-	b.WriteString("\n")
-	b.WriteString(footer)
 
 	return b.String()
 }

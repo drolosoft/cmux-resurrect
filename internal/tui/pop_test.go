@@ -247,8 +247,8 @@ func TestPop_ViewBreadcrumb(t *testing.T) {
 func TestPop_ViewHasBorder(t *testing.T) {
 	m := NewPopModel(testPopItems(), 80, 24, mockLoader)
 	view := m.View()
-	if !strings.Contains(view, "╭") || !strings.Contains(view, "╯") {
-		t.Error("View() should contain rounded border chars ╭ and ╯")
+	if !strings.Contains(view, "╔") || !strings.Contains(view, "╝") {
+		t.Error("View() should contain double border chars ╔ and ╝")
 	}
 }
 
