@@ -406,16 +406,21 @@ func (m *PopModel) viewList(innerWidth, listHeight int) string {
 			line.WriteString("  ")
 		}
 
-		// Name with optional match highlighting.
-		nameStr := item.Name
+		// Truncate name to prevent wrapping with wide emojis.
+		maxName := innerWidth - 40 - emojiSafetyMargin
+		if maxName < 12 {
+			maxName = 12
+		}
+		itemName := truncLine(item.Name, maxName)
+		nameStr := itemName
 		if m.matchPositions != nil && i < len(m.matchPositions) && len(m.matchPositions[i]) > 0 {
 			if isCurrent {
-				nameStr = highlightMatchesBold(item.Name, m.matchPositions[i])
+				nameStr = highlightMatchesBold(itemName, m.matchPositions[i])
 			} else {
-				nameStr = highlightMatches(item.Name, m.matchPositions[i])
+				nameStr = highlightMatches(itemName, m.matchPositions[i])
 			}
 		} else if isCurrent {
-			nameStr = popTitleStyle.Render(item.Name)
+			nameStr = popTitleStyle.Render(itemName)
 		}
 		line.WriteString(nameStr)
 
@@ -481,7 +486,12 @@ func truncLine(s string, maxLen int) string {
 	return "..."
 }
 
-// padLine pads a styled line to exactly width terminal cells with trailing spaces.
+// emojiSafetyMargin accounts for complex ZWJ emoji sequences where
+// lipgloss.Width() undercounts vs actual terminal rendering.
+const emojiSafetyMargin = 8
+
+// padLine pads a styled line to exactly width terminal cells with trailing spaces,
+// and also truncates if the line exceeds the safe width (emoji overcounting).
 // This ensures bubbletea redraws fully overwrite previous frame content.
 func padLine(s string, width int) string {
 	w := lipgloss.Width(s)
@@ -512,8 +522,8 @@ func (m *PopModel) viewDrill(innerWidth, listHeight int) string {
 		isCurrent := idx == m.drillCursor
 
 		// Truncate title to safe width BEFORE styling.
-		// Prefix ≈ 8 cells, suffix ≈ 30 cells max, so title gets the rest.
-		maxTitle := innerWidth - 40
+		// Prefix ≈ 8 cells, suffix ≈ 30 cells, emoji safety margin for ZWJ sequences.
+		maxTitle := innerWidth - 40 - emojiSafetyMargin
 		if maxTitle < 12 {
 			maxTitle = 12
 		}
