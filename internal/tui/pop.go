@@ -337,9 +337,9 @@ func (m *PopModel) renderTitle(width int) string {
 	var title string
 	switch {
 	case m.mode == modeDrill && m.filter != "":
-		title = popHeaderStyle.Render(m.drillLayout) + popDimStyle.Render("  ›  ") + popFilterStyle.Render("🔍 "+m.filter)
+		title = popHeaderStyle.Render("🐦‍🔥 crex") + popDimStyle.Render("  ›  ") + popHeaderStyle.Render(m.drillLayout) + popDimStyle.Render("  ›  ") + popFilterStyle.Render("🔍 "+m.filter)
 	case m.mode == modeDrill:
-		title = popHeaderStyle.Render(m.drillLayout) + popDimStyle.Render("  ›  workspaces")
+		title = popHeaderStyle.Render("🐦‍🔥 crex") + popDimStyle.Render("  ›  ") + popHeaderStyle.Render(m.drillLayout)
 	case m.filter != "":
 		title = popFilterStyle.Render("🔍 " + m.filter)
 	default:
@@ -464,16 +464,20 @@ func (m *PopModel) viewList(innerWidth, listHeight int) string {
 	return b.String()
 }
 
-// truncLine ensures a plain-text line (no ANSI) doesn't exceed maxLen runes.
+// truncLine ensures a string doesn't exceed maxLen terminal cells.
+// Uses lipgloss.Width for accurate emoji/CJK width measurement.
 func truncLine(s string, maxLen int) string {
-	runes := []rune(s)
-	if len(runes) <= maxLen {
+	if lipgloss.Width(s) <= maxLen {
 		return s
 	}
-	if maxLen <= 3 {
-		return string(runes[:maxLen])
+	runes := []rune(s)
+	for i := len(runes); i > 0; i-- {
+		candidate := string(runes[:i]) + "..."
+		if lipgloss.Width(candidate) <= maxLen {
+			return candidate
+		}
 	}
-	return string(runes[:maxLen-3]) + "..."
+	return "..."
 }
 
 // viewDrill renders the drill mode content (no header/footer — those are in View).
@@ -639,10 +643,16 @@ func (m *PopModel) enterDrill(layoutName string) {
 		}
 		summary := strings.Join(parts, " | ")
 
+		// Sanitize title: strip newlines, carriage returns, and trailing whitespace.
+		title := strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(ws.Title, "\n", ""), "\r", ""))
+		if title == "" {
+			title = "(untitled)"
+		}
+
 		m.drillItems = append(m.drillItems, DrillItem{
 			LayoutName:  layoutName,
 			Index:       ws.Index,
-			Title:       ws.Title,
+			Title:       title,
 			CWD:         ws.CWD,
 			PaneCount:   len(ws.Panes),
 			PaneSummary: summary,
