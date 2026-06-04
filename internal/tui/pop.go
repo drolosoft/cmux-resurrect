@@ -192,6 +192,7 @@ func (m *PopModel) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			item := m.filtered[m.cursor]
 			if item.Kind == "layout" {
 				m.enterDrill(item.Name)
+				return m, tea.ClearScreen
 			}
 		}
 		return m, nil
@@ -236,7 +237,7 @@ func (m *PopModel) updateDrill(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyEsc, tea.KeyTab, tea.KeyLeft:
 		m.exitDrill()
-		return m, nil
+		return m, tea.ClearScreen
 
 	case tea.KeyEnter:
 		if len(m.drillFiltered) > 0 {
@@ -325,8 +326,8 @@ func (m *PopModel) View() string {
 	// Assemble: title + blank + body + blank + footer
 	content := title + "\n\n" + body + "\n\n" + footer
 
-	// Let box shrink to fit content (no fixed Height), but enforce min width.
-	box := popBoxStyle.Width(boxWidth).Render(content)
+	// Fixed height prevents render artifacts when box resizes between modes.
+	box := popBoxStyle.Width(boxWidth).Height(boxHeight).Render(content)
 
 	return lipgloss.Place(w, h, lipgloss.Center, lipgloss.Center, box)
 }
@@ -342,7 +343,7 @@ func (m *PopModel) renderTitle(width int) string {
 	case m.filter != "":
 		title = popFilterStyle.Render("🔍 " + m.filter)
 	default:
-		title = popHeaderStyle.Render("🐦‍🔥 crex pop")
+		title = popHeaderStyle.Render("🐦‍🔥 crex")
 	}
 	// Center the title within the inner width.
 	return lipgloss.PlaceHorizontal(width, lipgloss.Center, title)
