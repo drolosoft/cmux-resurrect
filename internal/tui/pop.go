@@ -6,7 +6,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/drolosoft/cmux-resurrect/internal/model"
+	"github.com/rivo/uniseg"
 	"github.com/sahilm/fuzzy"
 )
 
@@ -407,7 +409,7 @@ func (m *PopModel) viewList(innerWidth, listHeight int) string {
 		}
 
 		// Truncate name to prevent wrapping with wide emojis.
-		maxName := innerWidth - 40 - emojiSafetyMargin
+		maxName := innerWidth - 40
 		if maxName < 12 {
 			maxName = 12
 		}
@@ -470,31 +472,34 @@ func (m *PopModel) viewList(innerWidth, listHeight int) string {
 	return b.String()
 }
 
+// termWidth returns the actual terminal cell width of a (possibly ANSI-styled) string.
+// It uses rivo/uniseg's grapheme-cluster-aware width, which correctly handles complex
+// ZWJ emoji sequences (e.g. 🕵🏼‍♀️) that charmbracelet/x/ansi.StringWidth undercounts.
+// ANSI escape codes are stripped before measurement.
+func termWidth(s string) int {
+	return uniseg.StringWidth(ansi.Strip(s))
+}
+
 // truncLine ensures a string doesn't exceed maxLen terminal cells.
-// Uses lipgloss.Width for accurate emoji/CJK width measurement.
+// Uses termWidth for accurate ZWJ emoji measurement.
 func truncLine(s string, maxLen int) string {
-	if lipgloss.Width(s) <= maxLen {
+	if termWidth(s) <= maxLen {
 		return s
 	}
 	runes := []rune(s)
 	for i := len(runes); i > 0; i-- {
 		candidate := string(runes[:i]) + "..."
-		if lipgloss.Width(candidate) <= maxLen {
+		if termWidth(candidate) <= maxLen {
 			return candidate
 		}
 	}
 	return "..."
 }
 
-// emojiSafetyMargin accounts for complex ZWJ emoji sequences where
-// lipgloss.Width() undercounts vs actual terminal rendering.
-const emojiSafetyMargin = 8
-
-// padLine pads a styled line to exactly width terminal cells with trailing spaces,
-// and also truncates if the line exceeds the safe width (emoji overcounting).
-// This ensures bubbletea redraws fully overwrite previous frame content.
+// padLine pads a styled line to exactly width terminal cells with trailing spaces.
+// Uses termWidth for accurate ZWJ emoji measurement to prevent line wrapping.
 func padLine(s string, width int) string {
-	w := lipgloss.Width(s)
+	w := termWidth(s)
 	if w >= width {
 		return s
 	}
@@ -523,7 +528,7 @@ func (m *PopModel) viewDrill(innerWidth, listHeight int) string {
 
 		// Truncate title to safe width BEFORE styling.
 		// Prefix ≈ 8 cells, suffix ≈ 30 cells, emoji safety margin for ZWJ sequences.
-		maxTitle := innerWidth - 40 - emojiSafetyMargin
+		maxTitle := innerWidth - 40
 		if maxTitle < 12 {
 			maxTitle = 12
 		}

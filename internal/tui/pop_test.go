@@ -270,3 +270,67 @@ func TestPop_ViewAllItems(t *testing.T) {
 		}
 	}
 }
+
+// --- termWidth accuracy tests (ZWJ emoji regression guard) ---
+
+func TestTermWidth_ZWJEmoji(t *testing.T) {
+	// ZWJ emoji sequences that lipgloss.Width miscounts.
+	// termWidth must return accurate terminal cell widths.
+	tests := []struct {
+		name  string
+		input string
+		want  int
+	}{
+		{"detective+skin+ZWJ+female", "🕵🏼\u200d♀️", 2},
+		{"bird+ZWJ+fire", "🐦\u200d🔥", 2},
+		{"genie+ZWJ+male", "🧞\u200d♂️", 2},
+		{"brain (simple)", "🧠", 2},
+		{"moai (simple)", "🗿", 2},
+		{"skull+VS16", "☠️", 2},
+		{"ASCII only", "hello", 5},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := termWidth(tt.input)
+			if got != tt.want {
+				t.Errorf("termWidth(%q) = %d, want %d", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDrill_ZWJTitleNoWrap(t *testing.T) {
+	// Workspace titles with complex ZWJ emojis must not exceed innerWidth
+	// after padLine. This test prevents regression of the "duplicate first item"
+	// and "phantom gap" rendering bugs caused by line wrapping.
+	loader := func(name string) (*model.Layout, error) {
+		if name == "zjw-test" {
+			return &model.Layout{
+				Name: "zjw-test",
+				Workspaces: []model.Workspace{
+					{Title: "0 🕵🏼\u200d♀️ Lazy Agent", Index: 0,
+						Panes: []model.Pane{{Type: "terminal"}}},
+					{Title: "3  🐦\u200d🔥crex", Index: 1,
+						Panes: []model.Pane{{Type: "terminal"}, {Type: "terminal"}}},
+					{Title: "5 🧞\u200d♂️ Prompto", Index: 2,
+						Panes: []model.Pane{{Type: "terminal"}}},
+				},
+			}, nil
+		}
+		return nil, nil
+	}
+
+	items := []PopItem{{Kind: "layout", Name: "zjw-test", Meta: "3 tabs"}}
+	m := NewPopModel(items, 80, 24, loader)
+	m.enterDrill("zjw-test")
+
+	innerWidth := 66 // (80-6=74, clamped to 74) - 8 = 66
+	view := m.viewDrill(innerWidth, 13)
+
+	for i, line := range strings.Split(view, "\n") {
+		w := termWidth(line)
+		if w > innerWidth {
+			t.Errorf("line %d exceeds innerWidth: termWidth=%d > %d\n  line: %q", i, w, innerWidth, line)
+		}
+	}
+}
