@@ -464,6 +464,18 @@ func (m *PopModel) viewList(innerWidth, listHeight int) string {
 	return b.String()
 }
 
+// truncLine ensures a plain-text line (no ANSI) doesn't exceed maxLen runes.
+func truncLine(s string, maxLen int) string {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
+		return s
+	}
+	if maxLen <= 3 {
+		return string(runes[:maxLen])
+	}
+	return string(runes[:maxLen-3]) + "..."
+}
+
 // viewDrill renders the drill mode content (no header/footer — those are in View).
 func (m *PopModel) viewDrill(innerWidth, listHeight int) string {
 	if listHeight < 1 {
@@ -495,29 +507,33 @@ func (m *PopModel) viewDrill(innerWidth, listHeight int) string {
 		}
 		line.WriteString("  ")
 
-		// Truncate title to prevent wrapping.
-		title := item.Title
-		if len(title) > 25 {
-			title = title[:22] + "..."
+		// Build the meta suffix first to know how much room the title gets.
+		paneInfo := fmt.Sprintf("%d %s", item.PaneCount, pluralPane(item.PaneCount))
+		suffix := "  " + paneInfo
+		if item.PaneSummary != "" {
+			suffix += "  " + item.PaneSummary
 		}
+
+		// Title gets whatever's left after prefix ([N] + spacing ≈ 8) and suffix.
+		prefixLen := len(num) + 4 // "▸ [N]  " or "  [N]  "
+		maxTitle := innerWidth - prefixLen - len(suffix) - 2
+		if maxTitle < 10 {
+			maxTitle = 10
+		}
+		title := truncLine(item.Title, maxTitle)
+
 		if isCurrent {
 			line.WriteString(popTitleStyle.Render(title))
 		} else {
 			line.WriteString(title)
 		}
 
-		paneInfo := fmt.Sprintf("%d %s", item.PaneCount, pluralPane(item.PaneCount))
 		line.WriteString("  ")
 		line.WriteString(popMetaStyle.Render(paneInfo))
 
-		// Truncate pane summary to fit.
 		if item.PaneSummary != "" {
-			summary := item.PaneSummary
-			if len(summary) > 20 {
-				summary = summary[:17] + "..."
-			}
 			line.WriteString("  ")
-			line.WriteString(popDimStyle.Render(summary))
+			line.WriteString(popDimStyle.Render(item.PaneSummary))
 		}
 
 		lines = append(lines, line.String())
