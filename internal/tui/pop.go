@@ -367,9 +367,6 @@ func (m *PopModel) viewList(innerWidth, listHeight int) string {
 		return popDimStyle.Render("  no results")
 	}
 
-	// Hard-clip style: ensures lines never exceed innerWidth cells.
-	clipStyle := lipgloss.NewStyle().MaxWidth(innerWidth)
-
 	// Build all visible lines first, then apply scroll.
 	var lines []string
 	idx := 0
@@ -378,14 +375,14 @@ func (m *PopModel) viewList(innerWidth, listHeight int) string {
 		// Section header when kind changes (with spacing).
 		if item.Kind != lastKind {
 			if lastKind != "" {
-				lines = append(lines, "") // breathing space between sections
+				lines = append(lines, strings.Repeat(" ", innerWidth))
 			}
 			section := "LAYOUTS"
 			if item.Kind == "template" {
 				section = "TEMPLATES"
 			}
-			lines = append(lines, popSectionStyle.Render(section))
-			lines = append(lines, "") // space after section header
+			lines = append(lines, padLine(popSectionStyle.Render(section), innerWidth))
+			lines = append(lines, strings.Repeat(" ", innerWidth))
 			lastKind = item.Kind
 		}
 
@@ -433,8 +430,8 @@ func (m *PopModel) viewList(innerWidth, listHeight int) string {
 			line.WriteString(popDimStyle.Render("→"))
 		}
 
-		// Hard-clip to prevent wrapping from wide emojis.
-		lines = append(lines, clipStyle.Render(line.String()))
+		// Pad to exact innerWidth to prevent bubbletea redraw artifacts.
+		lines = append(lines, padLine(line.String(), innerWidth))
 		idx++
 	}
 
@@ -484,6 +481,16 @@ func truncLine(s string, maxLen int) string {
 	return "..."
 }
 
+// padLine pads a styled line to exactly width terminal cells with trailing spaces.
+// This ensures bubbletea redraws fully overwrite previous frame content.
+func padLine(s string, width int) string {
+	w := lipgloss.Width(s)
+	if w >= width {
+		return s
+	}
+	return s + strings.Repeat(" ", width-w)
+}
+
 // viewDrill renders the drill mode content (no header/footer — those are in View).
 func (m *PopModel) viewDrill(innerWidth, listHeight int) string {
 	if listHeight < 1 {
@@ -496,16 +503,21 @@ func (m *PopModel) viewDrill(innerWidth, listHeight int) string {
 		return sectionHeader + "\n\n" + popDimStyle.Render("  no results")
 	}
 
-	// Hard-clip style: ensures lines never exceed innerWidth cells.
-	clipStyle := lipgloss.NewStyle().MaxWidth(innerWidth)
-
 	var lines []string
-	lines = append(lines, sectionHeader)
-	lines = append(lines, "") // breathing space
+	lines = append(lines, padLine(sectionHeader, innerWidth))
+	lines = append(lines, strings.Repeat(" ", innerWidth)) // breathing space
 
 	for idx, item := range m.drillFiltered {
 		num := fmt.Sprintf("[%d]", idx+1)
 		isCurrent := idx == m.drillCursor
+
+		// Truncate title to safe width BEFORE styling.
+		// Prefix ≈ 8 cells, suffix ≈ 30 cells max, so title gets the rest.
+		maxTitle := innerWidth - 40
+		if maxTitle < 12 {
+			maxTitle = 12
+		}
+		title := truncLine(item.Title, maxTitle)
 
 		var line strings.Builder
 		if isCurrent {
@@ -519,9 +531,9 @@ func (m *PopModel) viewDrill(innerWidth, listHeight int) string {
 		line.WriteString("  ")
 
 		if isCurrent {
-			line.WriteString(popTitleStyle.Render(item.Title))
+			line.WriteString(popTitleStyle.Render(title))
 		} else {
-			line.WriteString(item.Title)
+			line.WriteString(title)
 		}
 
 		paneInfo := fmt.Sprintf("%d %s", item.PaneCount, pluralPane(item.PaneCount))
@@ -529,12 +541,13 @@ func (m *PopModel) viewDrill(innerWidth, listHeight int) string {
 		line.WriteString(popMetaStyle.Render(paneInfo))
 
 		if item.PaneSummary != "" {
+			summary := truncLine(item.PaneSummary, 20)
 			line.WriteString("  ")
-			line.WriteString(popDimStyle.Render(item.PaneSummary))
+			line.WriteString(popDimStyle.Render(summary))
 		}
 
-		// Hard-clip to prevent wrapping from wide emojis.
-		lines = append(lines, clipStyle.Render(line.String()))
+		// Pad to exact innerWidth to prevent bubbletea redraw artifacts.
+		lines = append(lines, padLine(line.String(), innerWidth))
 	}
 
 	// Scroll: cursor line = drillCursor + 2 (section header + blank)
