@@ -304,7 +304,7 @@ func (m *PopModel) View() string {
 		h = 24
 	}
 
-	boxWidth := clampInt(w-4, 44, 64)
+	boxWidth := clampInt(w-6, 50, 80)
 	boxHeight := clampInt(h-4, 14, 26)
 	innerWidth := boxWidth - 8   // border(2) + padding(6)
 	innerHeight := boxHeight - 4 // border(2) + padding(2)
@@ -495,19 +495,29 @@ func (m *PopModel) viewDrill(innerWidth, listHeight int) string {
 		}
 		line.WriteString("  ")
 
-		titleStr := item.Title
-		if isCurrent {
-			titleStr = popTitleStyle.Render(item.Title)
+		// Truncate title to prevent wrapping.
+		title := item.Title
+		if len(title) > 25 {
+			title = title[:22] + "..."
 		}
-		line.WriteString(titleStr)
+		if isCurrent {
+			line.WriteString(popTitleStyle.Render(title))
+		} else {
+			line.WriteString(title)
+		}
 
 		paneInfo := fmt.Sprintf("%d %s", item.PaneCount, pluralPane(item.PaneCount))
-		line.WriteString("   ")
+		line.WriteString("  ")
 		line.WriteString(popMetaStyle.Render(paneInfo))
 
+		// Truncate pane summary to fit.
 		if item.PaneSummary != "" {
-			line.WriteString("   ")
-			line.WriteString(popDimStyle.Render(item.PaneSummary))
+			summary := item.PaneSummary
+			if len(summary) > 20 {
+				summary = summary[:17] + "..."
+			}
+			line.WriteString("  ")
+			line.WriteString(popDimStyle.Render(summary))
 		}
 
 		lines = append(lines, line.String())
