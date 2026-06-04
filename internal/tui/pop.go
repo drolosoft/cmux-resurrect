@@ -20,9 +20,14 @@ const (
 
 // popStyles holds the lipgloss styles used by PopModel.
 var (
+	popGold = lipgloss.Color("#FFD700")
+
 	popBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.DoubleBorder()).
-			BorderForeground(lipgloss.Color("#FFD700")).
+			BorderTopForeground(popGold).
+			BorderBottomForeground(popGold).
+			BorderLeftForeground(popGold).
+			BorderRightForeground(popGold).
 			Padding(1, 3)
 
 	popMatchStyle = lipgloss.NewStyle().
@@ -210,6 +215,10 @@ func (m *PopModel) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				}
 				return m, nil
 			}
+			// Skip "/" — it's a common search-mode trigger, not a filter char.
+			if r == '/' {
+				return m, nil
+			}
 			m.filter += string(r)
 			m.applyFilter()
 			return m, nil
@@ -268,6 +277,9 @@ func (m *PopModel) updateDrill(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				}
 				return m, nil
 			}
+			if r == '/' {
+				return m, nil
+			}
 			m.filter += string(r)
 			m.applyDrillFilter()
 			return m, nil
@@ -313,7 +325,8 @@ func (m *PopModel) View() string {
 	// Assemble: title + blank + body + blank + footer
 	content := title + "\n\n" + body + "\n\n" + footer
 
-	box := popBoxStyle.Width(boxWidth).Height(boxHeight).Render(content)
+	// Let box shrink to fit content (no fixed Height), but enforce min width.
+	box := popBoxStyle.Width(boxWidth).Render(content)
 
 	return lipgloss.Place(w, h, lipgloss.Center, lipgloss.Center, box)
 }
@@ -323,13 +336,13 @@ func (m *PopModel) renderTitle(width int) string {
 	var title string
 	switch {
 	case m.mode == modeDrill && m.filter != "":
-		title = popHeaderStyle.Render(m.drillLayout) + popDimStyle.Render(" > ") + popFilterStyle.Render("🔍 "+m.filter)
+		title = popHeaderStyle.Render(m.drillLayout) + popDimStyle.Render("  ›  ") + popFilterStyle.Render("🔍 "+m.filter)
 	case m.mode == modeDrill:
-		title = popHeaderStyle.Render(m.drillLayout) + popDimStyle.Render(" > workspaces")
+		title = popHeaderStyle.Render(m.drillLayout) + popDimStyle.Render("  ›  workspaces")
 	case m.filter != "":
 		title = popFilterStyle.Render("🔍 " + m.filter)
 	default:
-		title = popHeaderStyle.Render("crex pop")
+		title = popHeaderStyle.Render("🐦‍🔥 crex pop")
 	}
 	// Center the title within the inner width.
 	return lipgloss.PlaceHorizontal(width, lipgloss.Center, title)
