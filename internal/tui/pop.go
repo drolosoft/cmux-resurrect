@@ -367,6 +367,9 @@ func (m *PopModel) viewList(innerWidth, listHeight int) string {
 		return popDimStyle.Render("  no results")
 	}
 
+	// Hard-clip style: ensures lines never exceed innerWidth cells.
+	clipStyle := lipgloss.NewStyle().MaxWidth(innerWidth)
+
 	// Build all visible lines first, then apply scroll.
 	var lines []string
 	idx := 0
@@ -430,7 +433,8 @@ func (m *PopModel) viewList(innerWidth, listHeight int) string {
 			line.WriteString(popDimStyle.Render("→"))
 		}
 
-		lines = append(lines, line.String())
+		// Hard-clip to prevent wrapping from wide emojis.
+		lines = append(lines, clipStyle.Render(line.String()))
 		idx++
 	}
 
@@ -492,6 +496,9 @@ func (m *PopModel) viewDrill(innerWidth, listHeight int) string {
 		return sectionHeader + "\n\n" + popDimStyle.Render("  no results")
 	}
 
+	// Hard-clip style: ensures lines never exceed innerWidth cells.
+	clipStyle := lipgloss.NewStyle().MaxWidth(innerWidth)
+
 	var lines []string
 	lines = append(lines, sectionHeader)
 	lines = append(lines, "") // breathing space
@@ -511,27 +518,13 @@ func (m *PopModel) viewDrill(innerWidth, listHeight int) string {
 		}
 		line.WriteString("  ")
 
-		// Build the meta suffix first to know how much room the title gets.
-		paneInfo := fmt.Sprintf("%d %s", item.PaneCount, pluralPane(item.PaneCount))
-		suffix := "  " + paneInfo
-		if item.PaneSummary != "" {
-			suffix += "  " + item.PaneSummary
-		}
-
-		// Title gets whatever's left after prefix ([N] + spacing ≈ 8) and suffix.
-		prefixLen := len(num) + 4 // "▸ [N]  " or "  [N]  "
-		maxTitle := innerWidth - prefixLen - len(suffix) - 2
-		if maxTitle < 10 {
-			maxTitle = 10
-		}
-		title := truncLine(item.Title, maxTitle)
-
 		if isCurrent {
-			line.WriteString(popTitleStyle.Render(title))
+			line.WriteString(popTitleStyle.Render(item.Title))
 		} else {
-			line.WriteString(title)
+			line.WriteString(item.Title)
 		}
 
+		paneInfo := fmt.Sprintf("%d %s", item.PaneCount, pluralPane(item.PaneCount))
 		line.WriteString("  ")
 		line.WriteString(popMetaStyle.Render(paneInfo))
 
@@ -540,7 +533,8 @@ func (m *PopModel) viewDrill(innerWidth, listHeight int) string {
 			line.WriteString(popDimStyle.Render(item.PaneSummary))
 		}
 
-		lines = append(lines, line.String())
+		// Hard-clip to prevent wrapping from wide emojis.
+		lines = append(lines, clipStyle.Render(line.String()))
 	}
 
 	// Scroll: cursor line = drillCursor + 2 (section header + blank)
