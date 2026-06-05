@@ -298,18 +298,37 @@ func buildPopItems() ([]tui.PopItem, error) {
 	}
 	for _, m := range metas {
 		meta := fmt.Sprintf("%d %s  %s", m.WorkspaceCount, unitName(m.WorkspaceCount), formatAge(m.SavedAt))
-		// Include workspace titles in search so "drolosoft" finds a layout
-		// containing a workspace called "drolosoft brain".
-		searchText := strings.Join(m.WorkspaceTitles, " ")
 		items = append(items, tui.PopItem{
-			Kind:       "layout",
-			Name:       m.Name,
-			Meta:       meta,
-			SearchText: searchText,
+			Kind: "layout",
+			Name: m.Name,
+			Meta: meta,
 		})
+
+		// Add individual workspaces as searchable items.
+		// Typing "drolosoft brain" shows the workspace directly.
+		for i, wsTitle := range m.WorkspaceTitles {
+			panes := ""
+			if i < len(m.WorkspacePanes) {
+				panes = fmt.Sprintf("%d %s", m.WorkspacePanes[i], unitName(m.WorkspacePanes[i]))
+			}
+			summary := ""
+			if i < len(m.WorkspaceSummaries) {
+				summary = m.WorkspaceSummaries[i]
+			}
+			meta := panes
+			if summary != "" {
+				meta += "  " + summary
+			}
+			items = append(items, tui.PopItem{
+				Kind:       "workspace",
+				Name:       wsTitle,
+				Meta:       meta,
+				SearchText: m.Name, // layout name for context
+			})
+		}
 	}
 
-	// Templates second.
+	// Templates.
 	for _, tmpl := range gallery.List() {
 		meta := tmpl.Description
 		items = append(items, tui.PopItem{

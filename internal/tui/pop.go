@@ -139,6 +139,14 @@ func (m *PopModel) Result() *PopResult {
 		}
 	}
 	if m.chosen != nil {
+		if m.chosen.Kind == "workspace" {
+			// Workspace items carry the layout name in SearchText.
+			return &PopResult{
+				Kind:           "workspace",
+				Name:           m.chosen.SearchText, // layout name
+				WorkspaceTitle: m.chosen.Name,        // workspace title
+			}
+		}
 		return &PopResult{
 			Kind: m.chosen.Kind,
 			Name: m.chosen.Name,
@@ -388,8 +396,11 @@ func (m *PopModel) viewList(innerWidth, listHeight int) string {
 				lines = append(lines, strings.Repeat(" ", innerWidth))
 			}
 			section := "LAYOUTS"
-			if item.Kind == "template" {
+			switch item.Kind {
+			case "template":
 				section = "TEMPLATES"
+			case "workspace":
+				section = "WORKSPACES"
 			}
 			lines = append(lines, padLine(popSectionStyle.Render(section), innerWidth))
 			lines = append(lines, strings.Repeat(" ", innerWidth))
@@ -639,8 +650,13 @@ func (m *PopModel) viewDrill(innerWidth, listHeight int) string {
 // applyFilter rebuilds m.filtered using fuzzy matching on m.filter.
 func (m *PopModel) applyFilter() {
 	if m.filter == "" {
-		m.filtered = make([]PopItem, len(m.items))
-		copy(m.filtered, m.items)
+		// No filter: show layouts + templates only (hide individual workspaces).
+		m.filtered = nil
+		for _, item := range m.items {
+			if item.Kind != "workspace" {
+				m.filtered = append(m.filtered, item)
+			}
+		}
 		m.matchPositions = nil
 		m.cursor = 0
 		m.offset = 0
