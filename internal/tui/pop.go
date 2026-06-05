@@ -450,6 +450,12 @@ func (m *PopModel) viewList(innerWidth, listHeight int) string {
 			line.WriteString(popMetaStyle.Render(item.Meta))
 		}
 
+		// Show source layout for workspace items.
+		if item.Kind == "workspace" && item.SearchText != "" {
+			line.WriteString("  ")
+			line.WriteString(popDimStyle.Render("from " + item.SearchText))
+		}
+
 		// Drill indicator for layouts under cursor.
 		if isCurrent && item.Kind == "layout" {
 			line.WriteString("  ")
@@ -683,19 +689,21 @@ func (m *PopModel) applyFilter() {
 		}
 	}
 
-	// Deduplicate workspace results (same title from multiple layouts)
-	// and group by kind: layouts first, workspaces second, templates third.
-	seenWs := make(map[string]bool)
+	// Group by kind: layouts first, workspaces second, templates third.
+	// Workspaces with the same title in different layouts are shown separately
+	// (each displays its source layout name so the user can choose).
+	seenWs := make(map[string]bool) // "title|layout" → dedup within same layout
 	var layouts, workspaces, templates []PopItem
 	var layoutPos, workspacePos, templatePos [][]int
 
 	for _, match := range goodMatches {
 		item := m.items[match.Index]
 		if item.Kind == "workspace" {
-			if seenWs[item.Name] {
-				continue // skip duplicate workspace title
+			key := item.Name + "|" + item.SearchText // title + layout
+			if seenWs[key] {
+				continue
 			}
-			seenWs[item.Name] = true
+			seenWs[key] = true
 			workspaces = append(workspaces, item)
 			workspacePos = append(workspacePos, match.MatchedIndexes)
 		} else if item.Kind == "template" {
