@@ -664,12 +664,40 @@ func (m *PopModel) applyFilter() {
 	}
 
 	matches := fuzzy.FindFrom(m.filter, fuzzySource(m.items))
-	m.filtered = make([]PopItem, len(matches))
-	m.matchPositions = make([][]int, len(matches))
-	for i, match := range matches {
-		m.filtered[i] = m.items[match.Index]
-		m.matchPositions[i] = match.MatchedIndexes
+
+	// Deduplicate workspace results (same title from multiple layouts)
+	// and group by kind: layouts first, workspaces second, templates third.
+	seenWs := make(map[string]bool)
+	var layouts, workspaces, templates []PopItem
+	var layoutPos, workspacePos, templatePos [][]int
+
+	for _, match := range matches {
+		item := m.items[match.Index]
+		if item.Kind == "workspace" {
+			if seenWs[item.Name] {
+				continue // skip duplicate workspace title
+			}
+			seenWs[item.Name] = true
+			workspaces = append(workspaces, item)
+			workspacePos = append(workspacePos, match.MatchedIndexes)
+		} else if item.Kind == "template" {
+			templates = append(templates, item)
+			templatePos = append(templatePos, match.MatchedIndexes)
+		} else {
+			layouts = append(layouts, item)
+			layoutPos = append(layoutPos, match.MatchedIndexes)
+		}
 	}
+
+	m.filtered = nil
+	m.matchPositions = nil
+	m.filtered = append(m.filtered, layouts...)
+	m.matchPositions = append(m.matchPositions, layoutPos...)
+	m.filtered = append(m.filtered, workspaces...)
+	m.matchPositions = append(m.matchPositions, workspacePos...)
+	m.filtered = append(m.filtered, templates...)
+	m.matchPositions = append(m.matchPositions, templatePos...)
+
 	m.cursor = 0
 	m.offset = 0
 }
