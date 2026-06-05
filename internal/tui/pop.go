@@ -445,15 +445,15 @@ func (m *PopModel) viewList(innerWidth, listHeight int) string {
 		}
 		line.WriteString(nameStr)
 
+		// Show source layout right after name for workspace items.
+		if item.Kind == "workspace" && item.SearchText != "" {
+			line.WriteString("  ")
+			line.WriteString(popDimStyle.Render("‹" + item.SearchText + "›"))
+		}
+
 		if item.Meta != "" {
 			line.WriteString("   ")
 			line.WriteString(popMetaStyle.Render(item.Meta))
-		}
-
-		// Show source layout for workspace items.
-		if item.Kind == "workspace" && item.SearchText != "" {
-			line.WriteString("  ")
-			line.WriteString(popDimStyle.Render("from " + item.SearchText))
 		}
 
 		// Drill indicator for layouts under cursor.
