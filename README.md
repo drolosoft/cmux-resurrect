@@ -100,6 +100,21 @@ Creates a workspace with **nvim** (70% top, with neo-tree), **lazygit** (bottom-
 
 16 templates ship built-in — from simple splits to monitoring dashboards. See [`crex template list`](docs/templates.md).
 
+### Instant workspace switcher
+
+```sh
+crex pop
+```
+
+A centered floating picker with **fuzzy search**, **Tab to drill** into layout workspaces, and **number keys** for instant selection. Hit `Ctrl+G` from any shell to launch it (`crex setup` installs the hook).
+
+- Type to fuzzy-filter across layouts and templates
+- Tab/→ on a layout to see its workspaces, pick one to restore
+- `crex pop morning` — restore directly, no picker
+- `crex pop --last` — restore your most recent layout
+
+Works on both **cmux** and **Ghostty** — the shell hook is universal.
+
 ---
 
 ## 💾 Save & Restore

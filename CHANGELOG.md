@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.18.0] — 2026-06-05
+
+### Added
+- **`crex pop` — instant workspace switcher** — centered floating picker with fuzzy search (sahilm/fuzzy), two-level drill-in (Tab/→ into layout workspaces), number keys 1-9, and fzf-style match highlighting. Works on both cmux and Ghostty
+- **Shell hook for Ctrl+G** — `crex setup` offers to install a shell keybinding (zsh/bash/fish) that opens `crex pop` instantly from any terminal. Configurable key, idempotent install/uninstall
+- **Direct launch shortcuts** — `crex pop morning` (restore layout), `crex pop ide .` (apply template), `crex pop --last` (most recent layout)
+- **Fuzzy search dependency** — `github.com/sahilm/fuzzy` for fzf-style matching with scored results and match position highlighting
+
+### Fixed
+- **ZWJ emoji rendering** — complex emoji sequences (🕵🏼‍♀️, 🐦‍🔥, 🧞‍♂️) caused line wrapping due to lipgloss width miscounting. Added `sanitizeEmoji()` using grapheme cluster analysis (`rivo/uniseg`) to detect and replace problematic sequences
+- **Accurate terminal width** — `termWidth()` helper uses `uniseg.StringWidth(ansi.Strip(s))` for grapheme-cluster-aware width measurement, replacing lipgloss.Width() where accuracy matters
+
+---
+
 ## [v1.17.0] — 2026-05-28
 
 ### Added
@@ -411,3 +425,4 @@ Initial public release.
 [v1.15.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.15.0
 [v1.16.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.16.0
 [v1.17.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.17.0
+[v1.18.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.18.0
