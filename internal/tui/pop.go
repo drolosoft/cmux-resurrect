@@ -665,13 +665,31 @@ func (m *PopModel) applyFilter() {
 
 	matches := fuzzy.FindFrom(m.filter, fuzzySource(m.items))
 
+	// Filter out low-quality fuzzy matches — reject results where the
+	// matched characters are too scattered (e.g. "drolos" matching "porra"
+	// via scattered d-r-o-l-o-s). Require that the match covers at least
+	// half the filter length in a contiguous-ish span.
+	filterLen := len([]rune(m.filter))
+	var goodMatches []fuzzy.Match
+	for _, match := range matches {
+		if len(match.MatchedIndexes) == 0 {
+			continue
+		}
+		// Span = distance from first to last matched char.
+		span := match.MatchedIndexes[len(match.MatchedIndexes)-1] - match.MatchedIndexes[0] + 1
+		// Accept if the matched chars are clustered (span <= 2x filter length).
+		if span <= filterLen*2 {
+			goodMatches = append(goodMatches, match)
+		}
+	}
+
 	// Deduplicate workspace results (same title from multiple layouts)
 	// and group by kind: layouts first, workspaces second, templates third.
 	seenWs := make(map[string]bool)
 	var layouts, workspaces, templates []PopItem
 	var layoutPos, workspacePos, templatePos [][]int
 
-	for _, match := range matches {
+	for _, match := range goodMatches {
 		item := m.items[match.Index]
 		if item.Kind == "workspace" {
 			if seenWs[item.Name] {
