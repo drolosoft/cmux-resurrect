@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.19.0] — 2026-06-05
+
+### Added
+- **Workspace-level search in crex pop** — individual workspaces are now searchable. Typing "drolosoft brain" shows the actual workspace directly, with a WORKSPACES section in results. Selecting one restores that single workspace from its layout. Workspaces are hidden in the default view (no clutter) and appear only when search matches
+
+### Fixed
+- **ZWJ emoji sanitization** — `sanitizeEmoji()` replaces complex ZWJ sequences where lipgloss and uniseg disagree on width, preventing line overflow in the picker
+
+---
+
 ## [v1.18.0] — 2026-06-05
 
 ### Added
@@ -426,3 +436,4 @@ Initial public release.
 [v1.16.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.16.0
 [v1.17.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.17.0
 [v1.18.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.18.0
+[v1.19.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.19.0

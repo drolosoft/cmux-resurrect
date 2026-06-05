@@ -114,7 +114,11 @@ Tab into a layout to browse and restore individual workspaces:
 
 <p align="center"><img src="assets/crex-pop-workspaces.png" alt="crex pop drill into workspaces" width="800"></p>
 
-- Type to fuzzy-filter across layouts and templates
+Fuzzy search finds workspaces by name — type "drol" and your "drolosoft brain" workspace appears instantly:
+
+<p align="center"><img src="assets/crex-pop-search.png" alt="crex pop fuzzy workspace search" width="800"></p>
+
+- Type to fuzzy-filter across layouts, templates, and individual workspaces
 - Tab/→ on a layout to see its workspaces, pick one to restore
 - `crex pop morning` — restore directly, no picker
 - `crex pop --last` — restore your most recent layout
