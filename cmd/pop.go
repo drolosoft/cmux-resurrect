@@ -9,6 +9,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/drolosoft/cmux-resurrect/internal/client"
 	"github.com/drolosoft/cmux-resurrect/internal/config"
 	"github.com/drolosoft/cmux-resurrect/internal/gallery"
 	"github.com/drolosoft/cmux-resurrect/internal/orchestrate"
@@ -231,7 +232,24 @@ func doRestoreWorkspace(layoutName, workspaceTitle string) error {
 	fmt.Fprintf(os.Stderr, "  %s\n\n",
 		greenStyle.Render(fmt.Sprintf("✅ Restored %d/%d %s",
 			result.WorkspacesOK, result.WorkspacesTotal, unitName(result.WorkspacesTotal))))
+
+	// Focus the restored workspace so the user lands on it.
+	focusWorkspaceByTitle(cl, workspaceTitle)
 	return nil
+}
+
+// focusWorkspaceByTitle finds and selects a workspace by title.
+func focusWorkspaceByTitle(cl client.Backend, title string) {
+	ws, err := cl.ListWorkspaces()
+	if err != nil {
+		return
+	}
+	for _, w := range ws {
+		if strings.Contains(w.Title, title) || strings.Contains(title, w.Title) {
+			_ = cl.SelectWorkspace(w.Ref)
+			return
+		}
+	}
 }
 
 // doTemplateUse applies a gallery template to a directory.
@@ -280,6 +298,9 @@ func doTemplateUse(templateName, path string) error {
 		greenStyle.Render(padTitle(result.Title)),
 		dimStyle.Render("from "+tmpl.Name),
 		result.Panes)
+
+	// Focus the new workspace.
+	focusWorkspaceByTitle(cl, result.Title)
 	return nil
 }
 
