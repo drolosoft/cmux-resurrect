@@ -108,6 +108,12 @@ crex pop
 
 A centered floating picker with **fuzzy search**, **Tab to drill** into layout workspaces, and **number keys** for instant selection. Hit `Ctrl+G` from any shell to launch it (`crex setup` installs the hook).
 
+<p align="center"><img src="assets/crex-pop.png" alt="crex pop picker" width="800"></p>
+
+Tab into a layout to browse and restore individual workspaces:
+
+<p align="center"><img src="assets/crex-pop-workspaces.png" alt="crex pop drill into workspaces" width="800"></p>
+
 - Type to fuzzy-filter across layouts and templates
 - Tab/→ on a layout to see its workspaces, pick one to restore
 - `crex pop morning` — restore directly, no picker
