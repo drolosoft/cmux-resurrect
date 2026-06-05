@@ -298,10 +298,14 @@ func buildPopItems() ([]tui.PopItem, error) {
 	}
 	for _, m := range metas {
 		meta := fmt.Sprintf("%d %s  %s", m.WorkspaceCount, unitName(m.WorkspaceCount), formatAge(m.SavedAt))
+		// Include workspace titles in search so "drolosoft" finds a layout
+		// containing a workspace called "drolosoft brain".
+		searchText := strings.Join(m.WorkspaceTitles, " ")
 		items = append(items, tui.PopItem{
-			Kind: "layout",
-			Name: m.Name,
-			Meta: meta,
+			Kind:       "layout",
+			Name:       m.Name,
+			Meta:       meta,
+			SearchText: searchText,
 		})
 	}
 

@@ -49,10 +49,11 @@ var (
 
 // PopItem represents a single entry in the pop picker.
 type PopItem struct {
-	Kind string // "layout" or "template"
-	Name string
-	Icon string // template icon (e.g. "⧉"), empty for layouts
-	Meta string // "3 tabs  May 28" or "editor+git+term"
+	Kind       string // "layout" or "template"
+	Name       string
+	Icon       string // template icon (e.g. "⧉"), empty for layouts
+	Meta       string // "3 tabs  May 28" or "editor+git+term"
+	SearchText string // extra searchable text (workspace titles, etc.) — not displayed
 }
 
 // DrillItem represents a workspace within a drilled-in layout.
@@ -107,7 +108,13 @@ type PopModel struct {
 // fuzzySource adapts []PopItem for github.com/sahilm/fuzzy.
 type fuzzySource []PopItem
 
-func (s fuzzySource) String(i int) string { return s[i].Name + " " + s[i].Meta }
+func (s fuzzySource) String(i int) string {
+	text := s[i].Name + " " + s[i].Meta
+	if s[i].SearchText != "" {
+		text += " " + s[i].SearchText
+	}
+	return text
+}
 func (s fuzzySource) Len() int            { return len(s) }
 
 // NewPopModel creates a picker with the given items.
