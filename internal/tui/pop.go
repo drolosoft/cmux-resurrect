@@ -359,7 +359,7 @@ func (m *PopModel) renderTitle(width int) string {
 	case m.mode == modeDrill:
 		title = popHeaderStyle.Render("🐦‍🔥 crex") + popDimStyle.Render("  ›  ") + popHeaderStyle.Render(m.drillLayout)
 	case m.filter != "":
-		title = popFilterStyle.Render("🔍 " + m.filter)
+		title = popHeaderStyle.Render("🐦‍🔥 crex") + popDimStyle.Render("  ") + popFilterStyle.Render("🔍 " + m.filter)
 	default:
 		title = popHeaderStyle.Render("🐦‍🔥 crex")
 	}
