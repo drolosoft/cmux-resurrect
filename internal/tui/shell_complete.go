@@ -47,6 +47,7 @@ var level1Commands = []completionItem{
 	{"rename", "✏️", "Rename a saved layout"},
 	{"list", "📋", "List saved layouts"},
 	{"ls", "📋", "List saved layouts"},
+	{"pop", "🐦‍🔥", "Quick workspace launcher (Ctrl+G)"},
 	{"restore", "🔄", "Restore a saved layout"},
 	{"save", "💾", "Save current layout"},
 	{"show", "🔎", "Show layout details"},

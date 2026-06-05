@@ -732,6 +732,18 @@ func (m *ShellModel) dispatch(input string) (tea.Model, tea.Cmd) {
 	case "update":
 		m.execUpdate()
 
+	case "pop":
+		m.output.WriteString(shellDimStyle.Render("  pop is a standalone launcher — run it from your terminal:"))
+		m.output.WriteString("\n\n")
+		m.output.WriteString("  " + shellSuccessStyle.Render("crex pop") + shellDimStyle.Render("          # picker with fuzzy search"))
+		m.output.WriteString("\n")
+		m.output.WriteString("  " + shellSuccessStyle.Render("crex pop <name>") + shellDimStyle.Render("    # restore layout directly"))
+		m.output.WriteString("\n")
+		m.output.WriteString("  " + shellSuccessStyle.Render("crex pop --last") + shellDimStyle.Render("    # restore most recent"))
+		m.output.WriteString("\n\n")
+		m.output.WriteString(shellDimStyle.Render("  Tip: crex setup installs Ctrl+G for instant access."))
+		m.output.WriteString("\n\n")
+
 	default:
 		// Redirect old "banner" commands to "settings banner".
 		if cmd == "banner" || strings.HasPrefix(cmd, "banner ") {
