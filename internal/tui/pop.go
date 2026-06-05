@@ -681,9 +681,14 @@ func (m *PopModel) applyFilter() {
 		if len(match.MatchedIndexes) == 0 {
 			continue
 		}
-		// Span = distance from first to last matched char.
+		// Accept if filter is a contiguous substring (always relevant),
+		// OR if fuzzy-matched chars are clustered (span <= 2x filter length).
+		source := fuzzySource(m.items).String(match.Index)
+		if strings.Contains(strings.ToLower(source), strings.ToLower(m.filter)) {
+			goodMatches = append(goodMatches, match)
+			continue
+		}
 		span := match.MatchedIndexes[len(match.MatchedIndexes)-1] - match.MatchedIndexes[0] + 1
-		// Accept if the matched chars are clustered (span <= 2x filter length).
 		if span <= filterLen*2 {
 			goodMatches = append(goodMatches, match)
 		}
