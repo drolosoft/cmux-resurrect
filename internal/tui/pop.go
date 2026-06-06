@@ -115,7 +115,7 @@ func (s fuzzySource) String(i int) string {
 	}
 	return text
 }
-func (s fuzzySource) Len() int            { return len(s) }
+func (s fuzzySource) Len() int { return len(s) }
 
 // NewPopModel creates a picker with the given items.
 func NewPopModel(items []PopItem, width, height int, loadLayout func(string) (*model.Layout, error)) *PopModel {
@@ -144,7 +144,7 @@ func (m *PopModel) Result() *PopResult {
 			return &PopResult{
 				Kind:           "workspace",
 				Name:           m.chosen.SearchText, // layout name
-				WorkspaceTitle: m.chosen.Name,        // workspace title
+				WorkspaceTitle: m.chosen.Name,       // workspace title
 			}
 		}
 		return &PopResult{
@@ -359,7 +359,7 @@ func (m *PopModel) renderTitle(width int) string {
 	case m.mode == modeDrill:
 		title = popHeaderStyle.Render("🐦‍🔥 crex") + popDimStyle.Render("  ›  ") + popHeaderStyle.Render(m.drillLayout)
 	case m.filter != "":
-		title = popHeaderStyle.Render("🐦‍🔥 crex") + popDimStyle.Render("  ") + popFilterStyle.Render("🔍 " + m.filter)
+		title = popFilterStyle.Render("🔍 " + m.filter)
 	default:
 		title = popHeaderStyle.Render("🐦‍🔥 crex")
 	}
