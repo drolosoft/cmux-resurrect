@@ -377,6 +377,38 @@ func (g *GhosttyClient) ListWorkspaces() ([]WorkspaceInfo, error) {
 }
 
 func (g *GhosttyClient) NewWorkspace(opts NewWorkspaceOpts) (string, error) {
+	// Check if the app is running BEFORE talking to it via AppleScript.
+	// Using pgrep avoids auto-launching the app (which creates a default tab).
+	appRunning := exec.Command("pgrep", "-xi", g.appName()).Run() == nil
+
+	if !appRunning && opts.CWD != "" {
+		// No window — create one with the right CWD. Avoids the default empty tab.
+		g.runScriptLines(
+			g.tell(),
+			fmt.Sprintf(`  set cfg to new surface configuration from {initial working directory:"%s"}`, escapeAppleScript(opts.CWD)),
+			`  make new window with configuration cfg`,
+			`end tell`,
+		)
+		// Wait for the window + tab to appear.
+		var ref string
+		deadline := time.Now().Add(NewWorkspaceDeadline)
+		for time.Now().Before(deadline) {
+			out, err := g.runScript(fmt.Sprintf(`tell application "%s" to count of tabs of front window`, g.appName()))
+			if err == nil {
+				n, _ := strconv.Atoi(out)
+				if n >= 1 {
+					ref = fmt.Sprintf("tab:%d", n)
+					break
+				}
+			}
+			time.Sleep(PollInterval)
+		}
+		if ref == "" {
+			return "", fmt.Errorf("new window created but could not determine ref")
+		}
+		return ref, nil
+	}
+
 	beforeOut, err := g.runScript(fmt.Sprintf(`tell application "%s" to count of tabs of front window`, g.appName()))
 	if err != nil {
 		return "", fmt.Errorf("count tabs: %w", err)
