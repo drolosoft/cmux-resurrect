@@ -44,6 +44,7 @@ CLAUDE.md
 .claude/
 .superpowers/
 docs/superpowers/
+docs/multi-backend/
 outputs/
 
 # ClaudeMap artifacts
