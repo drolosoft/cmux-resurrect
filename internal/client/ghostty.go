@@ -383,20 +383,26 @@ func (g *GhosttyClient) NewWorkspace(opts NewWorkspaceOpts) (string, error) {
 
 	if !appRunning && opts.CWD != "" {
 		// App not running — create a new window with the right CWD directly.
-		// This avoids the default empty tab that appears with "new tab in front window".
 		g.runScriptLines(
 			g.tell(),
 			fmt.Sprintf(`  set cfg to new surface configuration from {initial working directory:"%s"}`, escapeAppleScript(opts.CWD)),
 			`  make new window with configuration cfg`,
 			`end tell`,
 		)
-		// Wait for the window to appear.
+		// Wait for our tab to appear (might be tab 2 if window-save-state restored a default).
 		deadline := time.Now().Add(NewWorkspaceDeadline)
 		for time.Now().Before(deadline) {
-			out, _ := g.runScript(fmt.Sprintf(`tell application "%s" to count of windows`, g.appName()))
+			out, _ := g.runScript(fmt.Sprintf(`tell application "%s" to count of tabs of front window`, g.appName()))
 			if n, _ := strconv.Atoi(out); n >= 1 {
 				break
 			}
+			time.Sleep(PollInterval)
+		}
+		// If window-save-state restored a default tab alongside ours, close it.
+		// Our tab (with the CWD) is the last tab; the restored default is tab 1.
+		out, _ := g.runScript(fmt.Sprintf(`tell application "%s" to count of tabs of front window`, g.appName()))
+		if n, _ := strconv.Atoi(out); n > 1 {
+			g.runScript(fmt.Sprintf(`tell application "%s" to close tab (a reference to tab 1 of front window)`, g.appName()))
 			time.Sleep(PollInterval)
 		}
 		return "tab:1", nil
