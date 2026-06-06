@@ -98,8 +98,9 @@ You can also configure this during `crex setup`.
 | `CREX_THEME` | Force dark or light palette | `dark`, `light` |
 | `CREX_BANNER` | Override banner style | `flame`, `classic`, `plain` |
 | `CREX_NO_WATCH` | Prevent daemon auto-start from shell hooks | `1` (any truthy value) |
+| `CREX_BACKEND` | Override backend detection | `ghostty`, `cmux`, `cmux-applescript` |
 
-Both are useful when auto-detection fails (e.g. terminal multiplexers blocking OSC 11 passthrough) or for scripting.
+Useful when auto-detection fails (e.g. terminal multiplexers blocking OSC 11 passthrough), for scripting, or for [Alfred integration](alfred.md) where the standard detection cannot reach the terminal backend.
 
 ## Override with Flags
 

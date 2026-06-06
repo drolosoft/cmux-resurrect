@@ -103,6 +103,8 @@ func newClient() client.Backend {
 			return client.NewGhosttyClientForApp("cmux")
 		case "cmux":
 			return client.NewCLIClient()
+		default:
+			fmt.Fprintf(os.Stderr, "warning: unknown CREX_BACKEND=%q, falling back to auto-detection\n", override)
 		}
 	}
 	detected := client.Detect()

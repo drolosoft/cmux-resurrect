@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"strings"
@@ -135,8 +136,9 @@ func runSetup(cmd *cobra.Command, args []string) error {
 			o.f("  Which agents? (comma-separated, or %s)\n", cyanStyle.Render("all"))
 			o.f("  Suggestions: %s\n", cyanStyle.Render("claude, codex, opencode"))
 			o.f("  > ")
-			var agents string
-			fmt.Scanln(&agents)
+			scanner := bufio.NewScanner(os.Stdin)
+			scanner.Scan()
+			agents := scanner.Text()
 			agentList := parseAgentList(agents)
 			if len(agentList) > 0 {
 				currentCfg, loadErr := config.Load(cfgPath)
