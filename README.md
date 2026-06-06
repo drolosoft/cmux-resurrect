@@ -13,80 +13,93 @@
 
 > **Design, manage, and automate terminal workspaces — for [cmux](https://github.com/manaflow-ai/cmux) and [Ghostty](https://ghostty.org/).**
 
-**crex** is a terminal workspace manager. Save layouts by name, restore them anytime, switch between them in seconds.  
-
-**16 built-in templates** for instant workspace setup. **Markdown Blueprints** you can version-control and share. **Auto-detection** of 15 AI coding tools and any foreground process. Works on both **cmux** and **Ghostty**.
-
-Named after the corncrake (*Crex crex*) — a phoenix of the grasslands that returns to the same ground, year after year. Your workspaces do too. 🐦‍🔥
+Save layouts by name. Restore them anytime. Switch between them in seconds. Resume AI coding sessions mid-conversation. Launch workspaces from Alfred. 🐦‍🔥
 
 <p align="center"><img src="assets/demo.gif" alt="crex demo" width="800"></p>
 
-### cmux now has built-in session restore — here's what crex adds
+---
 
-| | cmux native restore | crex |
-|---|---|---|
-| 🔄 | Restores last session on relaunch | **Named layout library** — `save my-day`, `save devops`, switch anytime |
-| 📦 | Single session (last state) | **Multiple saved layouts** with descriptions and timestamps |
-| 📐 | No templates | **16 built-in templates** — from simple splits to full IDE setups |
-| 📝 | JSON snapshots (internal) | **Markdown Blueprints** — Obsidian-compatible, version-controlled, shareable |
-| 🔍 | 15 registered AI tools via hooks | **Any foreground process** — npm, vim, htop, AI tools, all detected via `ps` |
-| 🖥️ | cmux only | **cmux + Ghostty** — same tool, any backend |
-| ⚡ | Automatic on relaunch | **On-demand** — restore specific layouts, filter by workspace, dry-run preview |
-| ⏱️ | Saves on quit | **Watch daemon** — background auto-save with revision tracking |
+### Features
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**💾 [Save & Restore](docs/commands.md)**<br>
+Every tab, pane, CWD, and command — captured and restored by name.
+
+**📦 [16 Templates](docs/templates.md)**<br>
+Instant workspace setup — splits, IDE layouts, AI pair-programming.
+
+**📝 [Markdown Blueprints](docs/blueprint.md)**<br>
+Obsidian-compatible, version-controlled, shareable workspace definitions.
+
+</td>
+<td width="50%" valign="top">
+
+**🤖 [AI Auto-Detection](docs/commands.md#ai-session-auto-detection)**<br>
+15 AI tools detected. Sessions resume mid-conversation automatically.
+
+**🔍 [Alfred Integration](docs/alfred.md)** <sup>NEW</sup><br>
+Search and launch any workspace from Alfred with one keystroke.
+
+**⚡ [Auto-Accept](docs/configuration.md#auto-accept-for-ai-agents)** <sup>NEW</sup><br>
+Skip permission prompts on restore for Claude, Codex, OpenCode, and 10 more.
+
+</td>
+</tr>
+</table>
 
 ---
 
-## 🚀 Quick Start
-
-### Install with Homebrew (recommended)
+### Quick Start
 
 ```sh
-brew install drolosoft/tap/crex            # preferred
-brew install drolosoft/tap/cmux-resurrect  # legacy alias — same formula
-```
-
-Both `crex` and `cmux-resurrect` commands are ready to use (`cmux-resurrect` is the legacy name), with shell completions installed automatically. No Go toolchain required. macOS only (both cmux and Ghostty's AppleScript API are macOS-native).
-
-### Install with `go install`
-
-```sh
-go install github.com/drolosoft/cmux-resurrect/cmd/crex@latest
-```
-
-> For building from source, see [docs/building.md](docs/building.md).
-
-### Enable Shell Completion
-
-Homebrew users get completions automatically. For manual installs, add one line to your shell config:
-
-```sh
-eval "$(crex completion zsh)"    # zsh — add to ~/.zshrc
-eval "$(crex completion bash)"   # bash — add to ~/.bashrc
-crex completion fish | source    # fish — run once
-```
-
-Now `crex <TAB>` shows all commands, `crex restore <TAB>` completes your saved layout names, and flags like `--mode` complete their values. See [docs/shell-completion.md](docs/shell-completion.md) for the full guide.
-
-### Update
-
-```sh
-crex update                               # self-update to the latest version
-```
-
-Detects your install method (Homebrew or `go install`) and runs the right upgrade command. Also available in the TUI as `update`.
-
-### Try it
-
-```sh
-crex setup                                # guided first-run configuration
-crex save my-day                          # snapshot your current layout
-crex save my-day -d "Friday deep work"    # with a description
-crex tui                                  # interactive shell
+brew install drolosoft/tap/crex       # install
+crex setup                            # first-run wizard
+crex save my-day                      # snapshot your layout
+crex restore my-day                   # bring it all back
+crex pop                              # instant workspace picker (Ctrl+G)
 ```
 
 <p align="center"><img src="assets/quickstart.gif" alt="crex quick start" width="800"></p>
 
-### One command, full IDE
+> Also available via `go install github.com/drolosoft/cmux-resurrect/cmd/crex@latest`. See [Building](docs/building.md).
+
+---
+
+### Instant Workspace Picker
+
+Type `crex pop` or hit **Ctrl+G** — a floating picker with fuzzy search across all layouts, templates, and individual workspaces.
+
+<p align="center"><img src="assets/crex-pop.png" alt="crex pop picker" width="800"></p>
+
+Tab into any layout to browse its workspaces:
+
+<p align="center"><img src="assets/crex-pop-workspaces.png" alt="crex pop drill into workspaces" width="800"></p>
+
+---
+
+### Alfred Integration
+
+Search and restore workspaces directly from Alfred. Type `crex` + your query — every saved workspace is searchable by name.
+
+<p align="center"><img src="assets/alfred-search.png" alt="crex Alfred integration" width="600"></p>
+
+| Key | Action |
+|-----|--------|
+| Enter | Restore workspace |
+| Cmd+Enter | Restore full layout |
+| Alt+Enter | Show layout details |
+| Ctrl+Enter | Open TOML file |
+
+Works with Ghostty. See [Alfred setup guide](docs/alfred.md) for installation.
+
+> **cmux limitation:** cmux restricts socket access to child processes — Alfred cannot control cmux directly. The Alfred integration uses the Ghostty AppleScript backend. See [docs/alfred.md](docs/alfred.md) for details.
+
+---
+
+### One Command, Full IDE
 
 ```sh
 crex template use ide
@@ -94,64 +107,13 @@ crex template use ide
 
 <p align="center"><img src="assets/demo-ide.gif" alt="crex template use ide" width="800"></p>
 
-Creates a workspace with **nvim** (70% top, with neo-tree), **lazygit** (bottom-left), and a **terminal** (bottom-right) — ready to code in seconds:
-
-<p align="center"><img src="assets/template-ide.png" alt="crex IDE template" width="800"></p>
-
-16 templates ship built-in — from simple splits to monitoring dashboards. See [`crex template list`](docs/templates.md).
-
-### Instant workspace switcher
-
-```sh
-crex pop
-```
-
-A centered floating picker with **fuzzy search**, **Tab to drill** into layout workspaces, and **number keys** for instant selection. Hit `Ctrl+G` from any shell to launch it (`crex setup` installs the hook).
-
-<p align="center"><img src="assets/crex-pop.png" alt="crex pop picker" width="800"></p>
-
-Tab into a layout to browse and restore individual workspaces:
-
-<p align="center"><img src="assets/crex-pop-workspaces.png" alt="crex pop drill into workspaces" width="800"></p>
-
-Fuzzy search finds workspaces by name — type "drol" and your "drolosoft brain" workspace appears instantly:
-
-<p align="center"><img src="assets/crex-pop-search.png" alt="crex pop fuzzy workspace search" width="800"></p>
-
-- Type to fuzzy-filter across layouts, templates, and individual workspaces
-- Tab/→ on a layout to see its workspaces, pick one to restore
-- `crex pop morning` — restore directly, no picker
-- `crex pop --last` — restore your most recent layout
-
-Works on both **cmux** and **Ghostty** — the shell hook is universal.
+16 built-in templates — from simple splits to monitoring dashboards. See the [Template Gallery](docs/templates.md).
 
 ---
 
-## 💾 Save & Restore
+### AI Session Resume
 
-```sh
-crex save my-day                          # snapshot your layout
-crex save my-day -d "Friday deep work"    # add a description (preserved across re-saves)
-crex restore my-day                       # bring it all back
-```
-
-Every tab, pane arrangement, CWD, pinned state, and startup command — captured and restored. Layouts are saved to `~/.config/crex/layouts/`.
-
-### Browser Panes
-
-cmux browser panes are fully supported — URLs are captured on save and restored as native browser panes:
-
-```sh
-crex save my-day          # browser panes captured with URLs
-crex show my-day          # shows 🌐 https://localhost:3000
-crex restore my-day       # browser panes restored natively
-```
-
-Ghostty fallback: since Ghostty has no browser pane concept, crex opens the URL in your default system browser via `open`.
-
-### Foreground Command Detection
-
-`crex save` detects the foreground process running in each terminal pane — not just AI sessions, but any interactive command:
+`crex save` detects running AI sessions and captures their session IDs. On restore, each resumes exactly where you left off.
 
 ```
 crex❯ save my-day
@@ -167,236 +129,70 @@ crex❯ save my-day
    └── →right 🌐 http://localhost:3000/
 ```
 
-Detected commands are restored automatically. AI tools (Claude, OpenCode, Codex, Amp, Gemini, Copilot, Grok, and others) get upgraded with session IDs; everything else (`npm run dev`, `nvim`, `htop`, `make watch`, etc.) is saved and re-executed as-is. Restored commands are prefixed with a space so they don't pollute your shell history.
+15 tools supported: Claude Code, OpenCode, Codex, Amp, Gemini CLI, Copilot, Grok, Cursor, Aider, and more. Any foreground process (npm, nvim, htop) is also detected and restored.
 
-<p align="center"><img src="assets/save-my-day.png" alt="crex save my-day" width="700"></p>
+Configure [auto-accept](docs/configuration.md#auto-accept-for-ai-agents) to skip permission prompts on restore — agents start in autonomous mode automatically.
 
-## 🧙 Setup Wizard
+---
 
-First time? `crex setup` walks you through everything:
+### Interactive Shell
 
-```sh
-crex setup              # interactive guided configuration
-crex setup --defaults   # accept all defaults (CI/scripting)
-```
-
-The wizard auto-detects your terminal backend (cmux or Ghostty), creates a default `config.toml` if missing, and sets up the layouts directory. One command and you're ready to go.
-
-## 🖥️ Interactive Shell
-
-Run `crex tui` — or just `crex` when config exists — to drop into the interactive shell. A `crex❯` prompt gives you full access to all commands without leaving your terminal.
-
-```
-crex❯ ls                     list saved layouts
-crex❯ restore 2              restore by number
-crex❯ now                    show live terminal state
-crex❯ templates              browse the gallery
-crex❯ use claude             create workspace from template
-crex❯ bp list                list Blueprint entries
-crex❯ help                   show all commands
-```
-
-Listings show numbered items — use the number in any follow-up command. Arrow keys browse listings inline. The shell adapts to your terminal's dark or light theme automatically.
+`crex tui` — a REPL with browse mode, numbered items, history, and tab completion.
 
 <p align="center"><img src="assets/demo-tui.gif" alt="crex interactive shell" width="800"></p>
 
-## 📥 Blueprints
+---
 
-Define your terminal layout in Obsidian-compatible Markdown. Import creates only what's missing — it's idempotent.
+### Supported Backends
 
-**Resume AI coding sessions across restarts** — Claude Code, OpenCode, Codex, Amp, Gemini CLI, Copilot, Grok, and more all persist conversations locally. crex restores the terminals and tells each tool to continue where you left off:
+| Backend | Status | Detection |
+|---------|--------|-----------|
+| [cmux](https://github.com/manaflow-ai/cmux) | Full support | Auto-detected via `CMUX_SOCKET_PATH` |
+| [Ghostty](https://ghostty.org/) | Full support | Auto-detected when running |
 
-```markdown
-## Projects
-**Icon | Name | Template | Pin | Path**
-
-- [x] | 🤖 | Claude Code | claude-resume | yes | ~/projects/myapp
-- [x] | 🟢 | OpenCode    | opencode-resume | yes | ~/projects/api
-- [x] | 🔵 | Codex       | codex-resume | yes | ~/projects/frontend
-
-## Templates
-
-### claude-resume
-- [x] main terminal: `claude --continue --dangerously-skip-permissions` (focused)
-
-### opencode-resume
-- [x] main terminal: `opencode --continue` (focused)
-
-### codex-resume
-- [x] main terminal: `codex resume --last` (focused)
-```
-
-Works with any command — dev servers, test watchers, git UIs, browser panels, or AI pair-programming sessions:
-
-```markdown
-## Projects
-**Icon | Name | Template | Pin | Path**
-
-- [x] | 🚀 | Homepage | fullstack | yes | ~/projects/webapp |
-
-## Templates
-
-### fullstack
-- [x] main terminal: `npm run dev` (focused)
-- [x] split right browser: `http://localhost:3000`
-- [x] split down: `nvim CLAUDE.md`
-```
-
-Browser panes use `split <direction> browser:` syntax — the URL goes in backticks. On cmux, this creates a native browser panel; on Ghostty, it opens the URL in the system browser.
-
-```sh
-crex import-from-md           # create tabs/workspaces from Blueprint
-crex export-to-md             # capture live state to Blueprint
-```
-
-<p align="center"><img src="assets/import-success.png" alt="crex import-from-md in action" width="800"></p>
-
-> For the full Blueprint format and CLI management (`bp add`, `bp list`, `bp toggle`), see [docs/blueprint.md](docs/blueprint.md).
-
-## 🤖 AI Session Auto-Detection
-
-`crex save` automatically detects running AI coding sessions and captures their session IDs. On restore, each session resumes exactly where you left off — no manual configuration needed.
-
-**Supported tools:**
-
-| Tool | Detection | Resume command |
-|------|-----------|----------------|
-| Claude Code | Full resume | `claude --resume <session-id>` |
-| OpenCode | Full resume | `opencode --session <session-id>` |
-| Codex | Full resume | `codex resume <session-id>` |
-| Amp | Full resume | `amp threads continue <thread-id>` |
-| Gemini CLI | Full resume | `gemini --resume <session-id>` |
-| Copilot | Full resume | `copilot --continue` |
-| Grok Build | Full resume | `grok --continue` |
-| Cursor | Process-aware | Captured as running command |
-| Aider | Process-aware | Captured as running command |
-| + 6 more | Process-aware | Pi, Rovo Dev, Hermes, CodeBuddy, Factory, Qoder |
-
-**How it works:**
-
-1. `crex save my-layout` — detects AI processes, matches them to panes by CWD and terminal title, writes the exact session ID into the layout. CWD-matched sessions get priority, preventing misassignment across workspaces.
-2. `crex restore my-layout` — each pane resumes its specific session, not just "the last one". Commands are sent with a leading space to keep your shell history clean.
-
-```sh
-crex save my-day          # AI sessions captured automatically
-crex restore my-day       # AI sessions resume mid-conversation (15 tools supported)
-```
-
-**Limitations:**
-- In multi-pane (split) workspaces, AI sessions are detected when the pane shares the workspace's working directory. If a split pane has `cd`'d to a different project, detection cannot match it. For reliable detection, use one project directory per workspace.
-- **Ghostty:** Multi-pane detection relies on CWD matching only. Ghostty's AppleScript API does not expose terminal titles (set by ANSI escape codes), so title-confirmed matching is unavailable. Single-pane workspaces are unaffected. This will improve when Ghostty exposes terminal titles in a future API update.
-
-## 📦 Template Gallery
-
-crex ships with 16 ready-to-use templates for common developer workflows.
-
-| | Layout Templates | | Workflow Templates |
-|---|---|---|---|
-| ▥ | `cols` — side-by-side | 🤖 | `claude` — Claude Code pair-programming |
-| ▤ | `rows` — stacked | 💻 | `code` — general coding |
-| ◧ | `sidebar` — main + side | 🔭 | `explore` — navigate codebase |
-| ⊤ | `shelf` — big top, 2 bottom | 📊 | `system` — monitor health |
-| ⊢ | `aside` — big left, 2 right | 📜 | `logs` — tail streams |
-| Ⅲ | `triple` — three columns | 🌐 | `network` — debug connectivity |
-| ⊠ | `quad` — 2×2 grid | 📟 | `single` — minimal terminal |
-| ◱ | `dashboard` — top + 3 bottom | | |
-| ⧉ | `ide` — full IDE layout | | |
-
-```sh
-crex template list                    # browse all templates
-crex template show claude             # preview with ASCII diagram
-crex template claude ~/project        # create workspace instantly (shortcut)
-crex template customize claude        # fork to your Blueprint
-```
-
-<p align="center"><img src="assets/template-list.png" alt="crex template list showing 16 templates grouped by Layouts and Workflows" width="700"></p>
-
-> Templates are starting points. Run `crex template customize <name>` to fork any template and make it yours.
-
-See [docs/templates.md](docs/templates.md) for the full gallery with diagrams.
-
-## Supported Backends
-
-| Backend | Status | Platform | Tested versions | Detection |
-|---------|--------|----------|-----------------|-----------|
-| [cmux](https://github.com/manaflow-ai/cmux) | Full support (original backend) | macOS | 0.62.1, 0.63.2 | Auto-detected via `CMUX_SOCKET_PATH` |
-| [Ghostty](https://ghostty.org/) | Full support (AppleScript API) | macOS | 1.3 | Auto-detected when Ghostty is running |
-
-> **Ghostty split sizing.** Ghostty's AppleScript API does not support programmatic split resizing — all splits are equal (50/50). Templates with `split_ratio` (e.g., the IDE template's 70/30 split) will use equal splits on Ghostty. The layout structure is correct; only proportions differ.
-
-> **macOS only.** Both backends rely on macOS-native APIs (cmux is a macOS terminal multiplexer; the Ghostty backend uses AppleScript). Linux support will follow once Ghostty ships a cross-platform scripting API ([ghostty-org/ghostty#2353](https://github.com/ghostty-org/ghostty/discussions/2353)).
-
-crex auto-detects your terminal backend — no flags needed. Just run your commands and crex figures out the rest:
-
-```sh
-crex save my-day        # works in cmux or Ghostty
-crex restore my-day     # recreates layout in whichever backend you're in
-crex template use dev   # same templates, any backend
-```
-
-All features — save, restore, import, export, templates, Blueprints — work identically across backends. The template gallery is 100% backend-agnostic.
-
-**Adaptive Themes** — crex auto-detects your terminal's dark/light background and adjusts banner colors. Three styles available: `flame` (gradient, default), `classic` (solid green), `plain` (gray). Set `banner_style` in `config.toml` or use `CREX_BANNER`; override detection with `CREX_THEME=dark|light`. See [Configuration](docs/configuration.md).
+macOS only. Both backends auto-detected — same commands, same templates, same Blueprints.
 
 ---
 
-## ✨ Why crex?
+### vs cmux native restore
 
-[tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect) proved that session persistence is essential for any serious terminal multiplexer workflow. Every multiplexer eventually gets one — crex started as that tool for cmux, and now brings the same power to Ghostty.
-
-| | tmux-resurrect | crex |
-|:---:|---|---|
-| 🖥️ | CLI commands only | **Interactive shell** — `crex❯` REPL with browse mode, number refs, history |
-| 📝 | Plugin configuration | **Blueprints** — Markdown files, Obsidian-compatible |
-| 🧩 | Manual pane recreation | **16 built-in templates** + custom Blueprints |
-| 🌐 | Terminal panes only | **Browser panes** — save and restore browser panels with URLs |
-| 🔍 | No process detection | **Foreground detection** — auto-captures running commands (npm, nvim, htop, etc.) |
-| 🤖 | No AI support | **AI session resume** — 15 tools detected, 7 with full session resume |
-| 📥 | One-way restore | **Bidirectional** — import from and export to Markdown |
-| 👁️ | Execute immediately | **Dry-run mode** — preview every command first |
-| ⏱️ | Manual saves | **Watch daemon** — background auto-save, deduped, shell hooks, zero-maintenance |
-| 📋 | Edit config files | **CLI blueprint management** — `add`, `remove`, `toggle` from terminal |
-| 🔤 | Basic tab completion | **Dynamic completions** — layout names, blueprint names, flag values (bash/zsh/fish) |
+| | cmux native | crex |
+|---|---|---|
+| 🔄 | Restores last session on relaunch | **Named layout library** — switch between saved layouts |
+| 📐 | No templates | **16 built-in templates** |
+| 📝 | JSON snapshots | **Markdown Blueprints** — Obsidian-compatible |
+| 🔍 | AI tools via hooks | **Any foreground process** — npm, vim, htop, all detected |
+| ⚡ | Automatic on relaunch | **On-demand** — filter, dry-run, restore specific workspaces |
+| ⏱️ | Saves on quit | **Watch daemon** — background auto-save |
 
 ---
 
-## 📚 Documentation
+### Documentation
 
-| Doc | Description |
-|-----|-------------|
-| [Commands](docs/commands.md) | Full command reference, flags, and recipes |
-| [Blueprints](docs/blueprint.md) | Blueprint format, templates, CLI management |
-| [Workflows](docs/workflows.md) | Save/Restore vs Import, dry-run, side-by-side comparison |
-| [Configuration](docs/configuration.md) | config.toml reference and defaults |
-| [Auto-Save & Daemon](docs/auto-save.md) | launchd, daemon mode, shell hooks |
-| [Template Gallery](docs/templates.md) | Built-in templates, ASCII previews, customization |
-| [Template Authoring](docs/template-authoring.md) | Create and contribute custom templates |
-| [Shell Completion](docs/shell-completion.md) | Setup, troubleshooting, what gets completed |
-| [Building from Source](docs/building.md) | Makefile targets, cross-compilation, platform support |
-| [Architecture](ARCHITECTURE.md) | Internal design for contributors |
-
----
-
-## 🌟 Contributing
-
-Contributions are welcome — bug fixes, new templates, feature ideas. Open an issue or submit a PR.
-
-If crex saves your sessions, consider giving it a ⭐ on GitHub — it helps others discover the project.
+| | |
+|---|---|
+| [Commands](docs/commands.md) | Full command reference |
+| [Templates](docs/templates.md) | 16 built-in templates with diagrams |
+| [Blueprints](docs/blueprint.md) | Markdown workspace definitions |
+| [Alfred](docs/alfred.md) | Alfred workflow setup |
+| [Configuration](docs/configuration.md) | config.toml, auto-accept, env vars |
+| [Auto-Save](docs/auto-save.md) | Daemon, shell hooks, launchd |
+| [Shell Completion](docs/shell-completion.md) | bash, zsh, fish setup |
+| [Workflows](docs/workflows.md) | Save/Restore vs Import comparison |
+| [Building](docs/building.md) | Build from source |
 
 ---
 
-## ☕ Support
+### Contributing
 
-If crex saved you time or made your workflow easier, consider buying me a coffee — it keeps the next one coming!
+Contributions welcome — bug fixes, templates, feature ideas. Open an issue or PR.
+
+If crex saves your sessions, a ⭐ helps others discover it.
+
+### Support
 
 <p align="center"><a href="https://buymeacoffee.com/juan.andres.morenorub.io"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="50"></a></p>
 
 ---
 
-## 📜 License
-
-**MIT License** — free to use, modify, and distribute.
-
-Born from a real need: a crashed cmux session took an hour of carefully arranged workspaces with it. `crex` now protects your workspaces across both cmux and Ghostty — so that never happens again.
-
-**Forged by [Drolosoft](https://drolosoft.com)** · *Tools we wish existed*
+**MIT License** · **Forged by [Drolosoft](https://drolosoft.com)** · *Tools we wish existed*
