@@ -381,7 +381,16 @@ func (g *GhosttyClient) NewWorkspace(opts NewWorkspaceOpts) (string, error) {
 	// Using pgrep avoids auto-launching the app (which creates a default tab).
 	appRunning := exec.Command("pgrep", "-xi", g.appName()).Run() == nil
 
-	if !appRunning && opts.CWD != "" {
+	// Also check if a window exists (app may be running with no windows).
+	hasWindow := appRunning
+	if appRunning {
+		_, err := g.runScript(fmt.Sprintf(`tell application "%s" to count of tabs of front window`, g.appName()))
+		if err != nil {
+			hasWindow = false
+		}
+	}
+
+	if !hasWindow && opts.CWD != "" {
 		// App not running — create a new window with the right CWD directly.
 		g.runScriptLines(
 			g.tell(),
