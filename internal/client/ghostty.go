@@ -384,8 +384,10 @@ func (g *GhosttyClient) NewWorkspace(opts NewWorkspaceOpts) (string, error) {
 	// Also check if a window exists (app may be running with no windows).
 	hasWindow := appRunning
 	if appRunning {
-		_, err := g.runScript(fmt.Sprintf(`tell application "%s" to count of tabs of front window`, g.appName()))
+		out, err := g.runScript(fmt.Sprintf(`tell application "%s" to count of tabs of front window`, g.appName()))
 		if err != nil {
+			hasWindow = false
+		} else if n, _ := strconv.Atoi(out); n == 0 {
 			hasWindow = false
 		}
 	}
