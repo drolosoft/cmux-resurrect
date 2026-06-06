@@ -25,7 +25,19 @@ const (
 type Restorer struct {
 	Client     client.Backend
 	Store      persist.Store
+	AutoAccept []string // tool names or ["all"] for auto-accept injection
+	SkipPing   bool     // skip backend ping check (for external apps like Alfred)
 	OnProgress func(title string, panes int, err error) // called after each workspace
+}
+
+// applyAutoAccept injects the auto-accept flag into a command if configured.
+func (r *Restorer) applyAutoAccept(command string) string {
+	cmd, tool := InjectAutoAccept(command, r.AutoAccept)
+	if tool != "" && r.OnProgress != nil {
+		flag := autoAcceptCache[tool]
+		r.OnProgress(fmt.Sprintf("⚡ auto-accept: %s %s", tool, flag), 0, nil)
+	}
+	return cmd
 }
 
 // RestoreResult reports what happened during restore.
@@ -85,7 +97,7 @@ func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode, workspace
 		}
 	}
 
-	if !dryRun {
+	if !dryRun && !r.SkipPing {
 		if err := r.Client.Ping(); err != nil {
 			return nil, fmt.Errorf("backend not reachable: %w", err)
 		}
@@ -218,7 +230,7 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 			} else if pane.Command != "" {
 				if err := waitForShellReady(r.Client, ref, ""); err != nil {
 					result.Errors = append(result.Errors, fmt.Sprintf("  pane %d shell not ready: %v", i, err))
-				} else if err := r.Client.Send(ref, "", noHistoryCmd(pane.Command)); err != nil {
+				} else if err := r.Client.Send(ref, "", noHistoryCmd(r.applyAutoAccept(pane.Command))); err != nil {
 					result.Errors = append(result.Errors, fmt.Sprintf("  pane %d send command: %v", i, err))
 				}
 			}
@@ -287,7 +299,7 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 				// Wait for the shell in the new pane to become interactive before sending.
 				if err := waitForShellReady(r.Client, ref, surfaceRef); err != nil {
 					result.Errors = append(result.Errors, fmt.Sprintf("  pane %d shell not ready: %v", i, err))
-				} else if err := r.Client.Send(ref, surfaceRef, noHistoryCmd(pane.Command)); err != nil {
+				} else if err := r.Client.Send(ref, surfaceRef, noHistoryCmd(r.applyAutoAccept(pane.Command))); err != nil {
 					result.Errors = append(result.Errors, fmt.Sprintf("  pane %d send command: %v", i, err))
 				}
 			}
@@ -427,7 +439,7 @@ func (r *Restorer) dryRunWorkspace(ws model.Workspace, result *RestoreResult) (s
 			if pane.Type == "browser" && pane.URL != "" {
 				result.Commands = append(result.Commands, f.FmtSend(ref, fmt.Sprintf("open %q", pane.URL)))
 			} else if pane.Command != "" {
-				result.Commands = append(result.Commands, f.FmtSend(ref, pane.Command))
+				result.Commands = append(result.Commands, f.FmtSend(ref, r.applyAutoAccept(pane.Command)))
 			}
 			continue
 		}
@@ -444,7 +456,7 @@ func (r *Restorer) dryRunWorkspace(ws model.Workspace, result *RestoreResult) (s
 		} else {
 			result.Commands = append(result.Commands, f.FmtNewSplit(direction, ref))
 			if pane.Command != "" {
-				result.Commands = append(result.Commands, f.FmtSend(ref, pane.Command))
+				result.Commands = append(result.Commands, f.FmtSend(ref, r.applyAutoAccept(pane.Command)))
 			}
 		}
 	}

@@ -56,6 +56,41 @@ Or override with the `CREX_BANNER` environment variable (takes precedence over t
 CREX_BANNER=classic crex
 ```
 
+## Auto-Accept for AI Agents
+
+When restoring workspaces, crex can inject "skip permissions" flags into AI agent resume commands so they start in autonomous mode automatically.
+
+```toml
+# Enable for specific agents:
+auto_accept = ["claude", "codex", "opencode"]
+
+# Enable for all supported agents:
+auto_accept = ["all"]
+```
+
+**Supported agents and their flags:**
+
+| Agent | Flag injected |
+|-------|--------------|
+| claude | `--dangerously-skip-permissions` |
+| opencode | `--yolo` |
+| codex | `--full-auto` |
+| amp | `--dangerously-allow-all` |
+| gemini | `--sandbox` |
+| copilot | `--allow-all` |
+| grok | `--always-approve` |
+| aider | `--yes` |
+| pi | `--approve` |
+| codebuddy | `--dangerously-skip-permissions` |
+| factory | `--skip-permissions-unsafe` |
+| qoder | `--permission-mode auto` |
+| hermes | `--yolo` |
+
+You can also configure this during `crex setup`.
+
+> **Warning:** This is dangerous. Agents will execute file changes, shell commands,
+> and other actions without asking for permission.
+
 ## Environment Variables
 
 | Variable | Purpose | Values |

@@ -45,7 +45,21 @@ type ImportResult struct {
 // Importer creates cmux workspaces from a parsed Workspace Blueprint.
 type Importer struct {
 	Client     client.Backend
+	AutoAccept []string // tool names or ["all"] for auto-accept injection
 	OnProgress func(event ImportEvent) // called per workspace and per warning
+}
+
+// applyAutoAccept injects the auto-accept flag into a command if configured.
+func (im *Importer) applyAutoAccept(command string) string {
+	cmd, tool := InjectAutoAccept(command, im.AutoAccept)
+	if tool != "" && im.OnProgress != nil {
+		flag := autoAcceptCache[tool]
+		im.OnProgress(ImportEvent{
+			Status: ImportWarn,
+			Warn:   fmt.Sprintf("⚡ auto-accept: %s %s", tool, flag),
+		})
+	}
+	return cmd
 }
 
 // ImportFromMD resolves templates and creates workspaces that don't already
@@ -136,7 +150,7 @@ func (im *Importer) ImportFromMD(wf *model.WorkspaceFile, dryRun bool) (*ImportR
 					}
 				} else if pane.Command != "" {
 					if err := waitForShellReady(im.Client, ref, ""); err == nil {
-						_ = im.Client.Send(ref, "", noHistoryCmd(pane.Command))
+						_ = im.Client.Send(ref, "", noHistoryCmd(im.applyAutoAccept(pane.Command)))
 					}
 				}
 				continue
@@ -188,7 +202,7 @@ func (im *Importer) ImportFromMD(wf *model.WorkspaceFile, dryRun bool) (*ImportR
 				}
 				if pane.Command != "" {
 					if err := waitForShellReady(im.Client, ref, surfaceRef); err == nil {
-						_ = im.Client.Send(ref, surfaceRef, noHistoryCmd(pane.Command))
+						_ = im.Client.Send(ref, surfaceRef, noHistoryCmd(im.applyAutoAccept(pane.Command)))
 					}
 				} else {
 					time.Sleep(DelayAfterSplit)

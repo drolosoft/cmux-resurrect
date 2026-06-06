@@ -34,7 +34,7 @@ func runSetup(cmd *cobra.Command, args []string) error {
 	o.ln()
 
 	// Step 1: Backend Detection
-	o.ln(cyanStyle.Render("Step 1/5") + dimStyle.Render(" — Backend Detection"))
+	o.ln(cyanStyle.Render("Step 1/6") + dimStyle.Render(" — Backend Detection"))
 	detected := client.Detect()
 	desc := setup.DescribeBackend(detected)
 	if detected != client.BackendUnknown {
@@ -45,7 +45,7 @@ func runSetup(cmd *cobra.Command, args []string) error {
 	o.ln()
 
 	// Step 2: Configuration
-	o.ln(cyanStyle.Render("Step 2/5") + dimStyle.Render(" — Configuration"))
+	o.ln(cyanStyle.Render("Step 2/6") + dimStyle.Render(" — Configuration"))
 	cfgPath := config.DefaultConfigPath()
 	created, err := setup.WriteConfigIfNotExists(cfgPath, "5m", 10)
 	if err != nil {
@@ -59,7 +59,7 @@ func runSetup(cmd *cobra.Command, args []string) error {
 	o.ln()
 
 	// Step 3: Layouts Directory
-	o.ln(cyanStyle.Render("Step 3/5") + dimStyle.Render(" — Layouts Directory"))
+	o.ln(cyanStyle.Render("Step 3/6") + dimStyle.Render(" — Layouts Directory"))
 	layoutsDir := config.DefaultLayoutsDir()
 	if err := os.MkdirAll(layoutsDir, 0o755); err != nil {
 		return fmt.Errorf("create layouts dir: %w", err)
@@ -68,7 +68,7 @@ func runSetup(cmd *cobra.Command, args []string) error {
 	o.ln()
 
 	// Step 4: First Save
-	o.ln(cyanStyle.Render("Step 4/5") + dimStyle.Render(" — First Save"))
+	o.ln(cyanStyle.Render("Step 4/6") + dimStyle.Render(" — First Save"))
 	switch {
 	case detected != client.BackendUnknown && setupDefaults:
 		if err := doFirstSave(o, detected); err != nil {
@@ -84,7 +84,7 @@ func runSetup(cmd *cobra.Command, args []string) error {
 	o.ln()
 
 	// Step 5: Quick Launch Hook
-	o.ln(cyanStyle.Render("Step 5/5") + dimStyle.Render(" — Quick Launch (Ctrl+G)"))
+	o.ln(cyanStyle.Render("Step 5/6") + dimStyle.Render(" — Quick Launch (Ctrl+G)"))
 	shell, rcFile, key := setup.OfferPopHook()
 	if rcFile != "" && key != "" {
 		if setupDefaults {
@@ -117,6 +117,49 @@ func runSetup(cmd *cobra.Command, args []string) error {
 	}
 	o.ln()
 
+	// Step 6: Auto-Accept for AI Agents
+	o.ln(cyanStyle.Render("Step 6/6") + dimStyle.Render(" — Auto-Accept for AI Agents"))
+	if setupDefaults {
+		o.f("  %s  Auto-accept disabled (safe default)\n", dimStyle.Render("·"))
+	} else {
+		o.ln(dimStyle.Render("  When restoring workspaces, crex can skip permission prompts for"))
+		o.ln(dimStyle.Render("  AI coding agents (Claude Code, Codex, OpenCode, etc)."))
+		o.ln()
+		o.f("  %s  This is dangerous — agents will execute without asking.\n", yellowStyle.Render("⚠"))
+		o.ln()
+		o.f("  Enable auto-accept? %s ", dimStyle.Render("[y/N]"))
+		var answer string
+		fmt.Scanln(&answer)
+		if strings.ToLower(strings.TrimSpace(answer)) == "y" {
+			o.ln()
+			o.f("  Which agents? (comma-separated, or %s)\n", cyanStyle.Render("all"))
+			o.f("  Suggestions: %s\n", cyanStyle.Render("claude, codex, opencode"))
+			o.f("  > ")
+			var agents string
+			fmt.Scanln(&agents)
+			agentList := parseAgentList(agents)
+			if len(agentList) > 0 {
+				currentCfg, loadErr := config.Load(cfgPath)
+				if loadErr != nil {
+					currentCfg = config.DefaultConfig()
+				}
+				currentCfg.AutoAccept = agentList
+				if saveErr := config.Save(cfgPath, currentCfg); saveErr != nil {
+					o.f("  %s  Failed to save: %v\n", yellowStyle.Render("!"), saveErr)
+				} else {
+					o.f("  %s  Auto-accept enabled for: %s\n",
+						greenStyle.Render("✓"),
+						cyanStyle.Render(strings.Join(agentList, ", ")))
+				}
+			} else {
+				o.f("  %s  No agents specified — auto-accept disabled\n", dimStyle.Render("·"))
+			}
+		} else {
+			o.f("  %s  Auto-accept disabled\n", dimStyle.Render("·"))
+		}
+	}
+	o.ln()
+
 	// Summary
 	o.ln(headingStyle.Render("Setup complete!"))
 	o.ln()
@@ -131,6 +174,20 @@ func runSetup(cmd *cobra.Command, args []string) error {
 	o.ln()
 
 	return nil
+}
+
+// parseAgentList splits a comma/space-separated string into trimmed, non-empty agent names.
+func parseAgentList(input string) []string {
+	input = strings.ReplaceAll(input, ",", " ")
+	parts := strings.Fields(input)
+	var result []string
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			result = append(result, p)
+		}
+	}
+	return result
 }
 
 func doFirstSave(o wf, detected client.DetectedBackend) error {

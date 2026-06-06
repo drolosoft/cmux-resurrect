@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -64,6 +65,40 @@ func TestLayoutRoundTrip(t *testing.T) {
 	}
 	if decoded.Workspaces[0].Panes[1].Command != "go test ./..." {
 		t.Errorf("Command = %q", decoded.Workspaces[0].Panes[1].Command)
+	}
+}
+
+func TestLayoutMeta_JSONTags(t *testing.T) {
+	meta := LayoutMeta{
+		Name:               "dev",
+		Description:        "My setup",
+		SavedAt:            time.Date(2026, 6, 2, 14, 30, 0, 0, time.UTC),
+		WorkspaceCount:     2,
+		WorkspaceTitles:    []string{"0 dev", "1 docs"},
+		WorkspacePanes:     []int{2, 1},
+		WorkspaceSummaries: []string{"claude · shell", "shell"},
+		FilePath:           "/tmp/layouts/dev.toml",
+	}
+
+	data, err := json.Marshal(meta)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	s := string(data)
+
+	for _, want := range []string{
+		`"name":"dev"`,
+		`"description":"My setup"`,
+		`"saved_at":"2026-06-02T14:30:00Z"`,
+		`"workspace_count":2`,
+		`"workspace_titles":["0 dev","1 docs"]`,
+		`"workspace_panes":[2,1]`,
+		`"workspace_summaries":["claude · shell","shell"]`,
+		`"file_path":"/tmp/layouts/dev.toml"`,
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("JSON missing %s\ngot: %s", want, s)
+		}
 	}
 }
 

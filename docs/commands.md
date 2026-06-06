@@ -9,7 +9,7 @@
 | `crex setup` | | 🧙 First-run wizard — detect backend, create config |
 | `crex save [name]` | | 💾 Capture current layout to TOML |
 | `crex restore [name]` | | 🔄 Recreate tabs, pane arrangements, and commands |
-| `crex list` | `ls` | 📋 List saved layouts with tab count |
+| `crex list` | `ls` | 📋 List saved layouts (`--json`, `--alfred`) |
 | `crex show <name>` | | 🔍 Display layout details (`--raw` for TOML) |
 | `crex edit <name>` | | ✏️ Open layout in `$EDITOR` |
 | `crex delete <name>` | `rm` | 🗑️ Delete a saved layout |

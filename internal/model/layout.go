@@ -38,12 +38,12 @@ type Pane struct {
 
 // LayoutMeta holds summary info about a saved layout (for list command).
 type LayoutMeta struct {
-	Name               string
-	Description        string
-	SavedAt            time.Time
-	WorkspaceCount     int
-	WorkspaceTitles    []string
-	WorkspacePanes     []int
-	WorkspaceSummaries []string // per-workspace pane summary (e.g. "claude | 🌐 localhost:3000")
-	FilePath           string
+	Name               string    `json:"name"`
+	Description        string    `json:"description"`
+	SavedAt            time.Time `json:"saved_at"`
+	WorkspaceCount     int       `json:"workspace_count"`
+	WorkspaceTitles    []string  `json:"workspace_titles"`
+	WorkspacePanes     []int     `json:"workspace_panes"`
+	WorkspaceSummaries []string  `json:"workspace_summaries"`
+	FilePath           string    `json:"file_path"`
 }

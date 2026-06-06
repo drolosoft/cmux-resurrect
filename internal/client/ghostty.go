@@ -20,13 +20,37 @@ import (
 //   - macOS only until Ghostty ships D-Bus support on Linux
 type GhosttyClient struct {
 	Timeout time.Duration
+	AppName string // macOS application name for AppleScript (default: "Ghostty")
 }
 
 // NewGhosttyClient creates a GhosttyClient with sensible defaults.
 func NewGhosttyClient() *GhosttyClient {
 	return &GhosttyClient{
 		Timeout: 10 * time.Second,
+		AppName: "Ghostty",
 	}
+}
+
+// NewGhosttyClientForApp creates a GhosttyClient targeting a specific app name.
+// Used for cmux which speaks the same AppleScript protocol as Ghostty.
+func NewGhosttyClientForApp(appName string) *GhosttyClient {
+	return &GhosttyClient{
+		Timeout: 10 * time.Second,
+		AppName: appName,
+	}
+}
+
+// appName returns the target app name for AppleScript, defaulting to "Ghostty".
+func (g *GhosttyClient) appName() string {
+	if g.AppName != "" {
+		return g.AppName
+	}
+	return "Ghostty"
+}
+
+// tell returns the AppleScript fragment: tell application "AppName"
+func (g *GhosttyClient) tell() string {
+	return fmt.Sprintf(`tell application "%s"`, g.appName())
 }
 
 // runScript executes a single-line AppleScript via osascript.
@@ -58,7 +82,7 @@ func (g *GhosttyClient) runScriptLines(lines ...string) (string, error) {
 }
 
 func (g *GhosttyClient) Ping() error {
-	out, err := g.runScript(`tell application "System Events" to (name of processes) contains "Ghostty"`)
+	out, err := g.runScript(fmt.Sprintf(`tell application "System Events" to (name of processes) contains "%s"`, g.appName()))
 	if err != nil {
 		return fmt.Errorf("ghostty ping: %w", err)
 	}
@@ -118,7 +142,7 @@ func escapeAppleScript(s string) string {
 
 func (g *GhosttyClient) Tree() (*TreeResponse, error) {
 	out, err := g.runScriptLines(
-		`tell application "Ghostty"`,
+		g.tell(),
 		`  set output to ""`,
 		`  set winCount to count of windows`,
 		`  repeat with w from 1 to winCount`,
@@ -270,7 +294,7 @@ func (g *GhosttyClient) SidebarState(workspaceRef string) (*SidebarState, error)
 	}
 
 	cwd, err := g.runScriptLines(
-		`tell application "Ghostty"`,
+		g.tell(),
 		fmt.Sprintf(`  set focTerm to focused terminal of tab %d of front window`, tabIdx),
 		`  return working directory of focTerm`,
 		`end tell`,
@@ -318,7 +342,7 @@ func (g *GhosttyClient) gitDirty(cwd string) bool {
 
 func (g *GhosttyClient) ListWorkspaces() ([]WorkspaceInfo, error) {
 	out, err := g.runScriptLines(
-		`tell application "Ghostty"`,
+		g.tell(),
 		`  set tabCount to count of tabs of front window`,
 		`  set output to ""`,
 		`  repeat with t from 1 to tabCount`,
@@ -353,21 +377,23 @@ func (g *GhosttyClient) ListWorkspaces() ([]WorkspaceInfo, error) {
 }
 
 func (g *GhosttyClient) NewWorkspace(opts NewWorkspaceOpts) (string, error) {
-	beforeOut, err := g.runScript(`tell application "Ghostty" to count of tabs of front window`)
+	beforeOut, err := g.runScript(fmt.Sprintf(`tell application "%s" to count of tabs of front window`, g.appName()))
 	if err != nil {
 		return "", fmt.Errorf("count tabs: %w", err)
 	}
 	beforeCount, _ := strconv.Atoi(beforeOut)
 
-	if opts.CWD != "" {
+	if opts.CWD != "" && g.appName() == "Ghostty" {
+		// Ghostty supports surface configuration for setting initial CWD.
 		_, err = g.runScriptLines(
-			`tell application "Ghostty"`,
+			g.tell(),
 			fmt.Sprintf(`  set cfg to new surface configuration from {initial working directory:"%s"}`, escapeAppleScript(opts.CWD)),
 			`  new tab in front window with configuration cfg`,
 			`end tell`,
 		)
 	} else {
-		_, err = g.runScript(`tell application "Ghostty" to new tab in front window`)
+		// cmux and fallback: create plain tab, cd to CWD after shell is ready.
+		_, err = g.runScript(fmt.Sprintf(`tell application "%s" to new tab in front window`, g.appName()))
 	}
 	if err != nil {
 		return "", fmt.Errorf("new tab: %w", err)
@@ -376,7 +402,7 @@ func (g *GhosttyClient) NewWorkspace(opts NewWorkspaceOpts) (string, error) {
 	var ref string
 	deadline := time.Now().Add(NewWorkspaceDeadline)
 	for time.Now().Before(deadline) {
-		afterOut, err := g.runScript(`tell application "Ghostty" to count of tabs of front window`)
+		afterOut, err := g.runScript(fmt.Sprintf(`tell application "%s" to count of tabs of front window`, g.appName()))
 		if err != nil {
 			time.Sleep(PollInterval)
 			continue
@@ -390,6 +416,13 @@ func (g *GhosttyClient) NewWorkspace(opts NewWorkspaceOpts) (string, error) {
 	}
 	if ref == "" {
 		return "", fmt.Errorf("new tab created but could not determine ref")
+	}
+
+	// For non-Ghostty apps (cmux), cd to CWD since surface configuration isn't supported.
+	if opts.CWD != "" && g.appName() != "Ghostty" {
+		g.waitForShellReady(ref)
+		_ = g.Send(ref, "", fmt.Sprintf(" cd %q", opts.CWD)+"\\n")
+		time.Sleep(PollInterval)
 	}
 
 	if opts.Command != "" {
@@ -408,7 +441,7 @@ func (g *GhosttyClient) waitForShellReady(workspaceRef string) {
 	deadline := time.Now().Add(NewWorkspaceDeadline)
 	for time.Now().Before(deadline) {
 		cwd, err := g.runScript(fmt.Sprintf(
-			`tell application "Ghostty" to working directory of terminal 1 of tab %d of front window`,
+			`tell application "%s" to working directory of terminal 1 of tab %d of front window`, g.appName(),
 			tabIdx,
 		))
 		if err == nil && cwd != "" {
@@ -424,7 +457,7 @@ func (g *GhosttyClient) RenameWorkspace(ref, title string) error {
 		return err
 	}
 	_, err = g.runScript(fmt.Sprintf(
-		`tell application "Ghostty" to perform action "set_tab_title:%s" on terminal 1 of tab %d of front window`,
+		`tell application "%s" to perform action "set_tab_title:%s" on terminal 1 of tab %d of front window`, g.appName(),
 		escapeAppleScript(title), tabIdx,
 	))
 	return err
@@ -436,7 +469,7 @@ func (g *GhosttyClient) SelectWorkspace(ref string) error {
 		return err
 	}
 	_, err = g.runScript(fmt.Sprintf(
-		`tell application "Ghostty" to select tab (a reference to tab %d of front window)`,
+		`tell application "%s" to select tab (a reference to tab %d of front window)`, g.appName(),
 		tabIdx,
 	))
 	return err
@@ -453,7 +486,7 @@ func (g *GhosttyClient) NewSplit(direction, workspaceRef string) (string, error)
 	}
 
 	beforeOut, err := g.runScript(fmt.Sprintf(
-		`tell application "Ghostty" to count of terminals of tab %d of front window`,
+		`tell application "%s" to count of terminals of tab %d of front window`, g.appName(),
 		tabIdx,
 	))
 	if err != nil {
@@ -462,7 +495,7 @@ func (g *GhosttyClient) NewSplit(direction, workspaceRef string) (string, error)
 	beforeCount, _ := strconv.Atoi(beforeOut)
 
 	_, err = g.runScriptLines(
-		`tell application "Ghostty"`,
+		g.tell(),
 		fmt.Sprintf(`  set focTerm to focused terminal of tab %d of front window`, tabIdx),
 		fmt.Sprintf(`  split focTerm direction %s`, direction),
 		`end tell`,
@@ -475,7 +508,7 @@ func (g *GhosttyClient) NewSplit(direction, workspaceRef string) (string, error)
 	for time.Now().Before(deadline) {
 		time.Sleep(PollInterval)
 		afterOut, err := g.runScript(fmt.Sprintf(
-			`tell application "Ghostty" to count of terminals of tab %d of front window`,
+			`tell application "%s" to count of terminals of tab %d of front window`, g.appName(),
 			tabIdx,
 		))
 		if err != nil {
@@ -523,7 +556,7 @@ func (g *GhosttyClient) waitForTerminalReady(workspaceRef, terminalRef string) {
 	deadline := time.Now().Add(NewWorkspaceDeadline)
 	for time.Now().Before(deadline) {
 		cwd, err := g.runScript(fmt.Sprintf(
-			`tell application "Ghostty" to working directory of terminal %d of tab %d of front window`,
+			`tell application "%s" to working directory of terminal %d of tab %d of front window`, g.appName(),
 			termIdx, tabIdx,
 		))
 		if err == nil && cwd != "" {
@@ -543,7 +576,7 @@ func (g *GhosttyClient) FocusPane(paneRef, workspaceRef string) error {
 		return err
 	}
 	_, err = g.runScript(fmt.Sprintf(
-		`tell application "Ghostty" to focus terminal %d of tab %d of front window`,
+		`tell application "%s" to focus terminal %d of tab %d of front window`, g.appName(),
 		termIdx, tabIdx,
 	))
 	return err
@@ -575,7 +608,7 @@ func (g *GhosttyClient) Send(workspaceRef, surfaceRef, text string) error {
 	// Two separate calls leave a gap where Ghostty can shift focus
 	// or process events, causing the enter key to be lost or misrouted.
 	var lines []string
-	lines = append(lines, `tell application "Ghostty"`)
+	lines = append(lines, g.tell())
 	lines = append(lines, fmt.Sprintf(`  set t to %s`, target))
 	if text != "" {
 		lines = append(lines, fmt.Sprintf(`  input text "%s" to t`, escapeAppleScript(text)))
@@ -601,7 +634,7 @@ func (g *GhosttyClient) CloseWorkspace(ref string) error {
 		return err
 	}
 	_, err = g.runScript(fmt.Sprintf(
-		`tell application "Ghostty" to close tab (a reference to tab %d of front window)`,
+		`tell application "%s" to close tab (a reference to tab %d of front window)`, g.appName(),
 		tabIdx,
 	))
 	return err

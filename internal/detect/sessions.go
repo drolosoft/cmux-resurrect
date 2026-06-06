@@ -32,10 +32,11 @@ type Session struct {
 // The Detect function receives both the working directory and the PID of
 // the running process; tools that don't need the PID may ignore it.
 type detector struct {
-	Name          string   // tool name (used as Session.Tool)
-	ProcessName   string   // binary name as shown by ps (e.g. "claude")
-	TitlePatterns []string // substrings in terminal title confirming the tool
-	Detect        func(cwd, pid string) *Session
+	Name           string   // tool name (used as Session.Tool)
+	ProcessName    string   // binary name as shown by ps (e.g. "claude")
+	TitlePatterns  []string // substrings in terminal title confirming the tool
+	AutoAcceptFlag string   // CLI flag to skip permission prompts (empty if none)
+	Detect         func(cwd, pid string) *Session
 }
 
 // registry holds all known AI tool detectors. To add a new tool,
@@ -47,54 +48,61 @@ var registry = []detector{
 		// Claude Code sets various titles depending on the active screen:
 		// "✳ Claude Code", "⠂ Claude Code", "✳ Available Commands", etc.
 		// The ✳/⠂/⠐ prefixes are Claude-specific status indicators.
-		TitlePatterns: []string{"Claude Code", "claude", "✳ ", "⠂ ", "⠐ "},
-		Detect:        detectClaude,
+		TitlePatterns:  []string{"Claude Code", "claude", "✳ ", "⠂ ", "⠐ "},
+		AutoAcceptFlag: "--dangerously-skip-permissions",
+		Detect:         detectClaude,
 	},
 	{
-		Name:          "opencode",
-		ProcessName:   "opencode",
-		TitlePatterns: []string{"OpenCode", "opencode", "OC |"},
-		Detect:        detectOpenCode,
+		Name:           "opencode",
+		ProcessName:    "opencode",
+		TitlePatterns:  []string{"OpenCode", "opencode", "OC |"},
+		AutoAcceptFlag: "--yolo",
+		Detect:         detectOpenCode,
 	},
 	{
-		Name:          "codex",
-		ProcessName:   "codex",
-		TitlePatterns: []string{"Codex", "codex"},
-		Detect:        detectCodex,
+		Name:           "codex",
+		ProcessName:    "codex",
+		TitlePatterns:  []string{"Codex", "codex"},
+		AutoAcceptFlag: "--full-auto",
+		Detect:         detectCodex,
 	},
 	{
-		Name:          "amp",
-		ProcessName:   "amp",
-		TitlePatterns: []string{"Amp", "amp"},
-		Detect:        detectAmp,
+		Name:           "amp",
+		ProcessName:    "amp",
+		TitlePatterns:  []string{"Amp", "amp"},
+		AutoAcceptFlag: "--dangerously-allow-all",
+		Detect:         detectAmp,
 	},
 	{
-		Name:          "gemini",
-		ProcessName:   "gemini",
-		TitlePatterns: []string{"◇ ", "✦ ", "✋ ", "Gemini", "gemini"},
-		Detect:        detectGemini,
+		Name:           "gemini",
+		ProcessName:    "gemini",
+		TitlePatterns:  []string{"◇ ", "✦ ", "✋ ", "Gemini", "gemini"},
+		AutoAcceptFlag: "--sandbox",
+		Detect:         detectGemini,
 	},
 	{
-		Name:          "copilot",
-		ProcessName:   "copilot",
-		TitlePatterns: []string{"Copilot", "copilot"},
-		Detect:        detectCopilot,
+		Name:           "copilot",
+		ProcessName:    "copilot",
+		TitlePatterns:  []string{"Copilot", "copilot"},
+		AutoAcceptFlag: "--allow-all",
+		Detect:         detectCopilot,
 	},
 	{
-		Name:          "grok",
-		ProcessName:   "grok",
-		TitlePatterns: []string{"Grok", "grok"},
-		Detect:        detectGrok,
+		Name:           "grok",
+		ProcessName:    "grok",
+		TitlePatterns:  []string{"Grok", "grok"},
+		AutoAcceptFlag: "--always-approve",
+		Detect:         detectGrok,
 	},
 	// Tier 2: Process-aware detectors — recognized but no session file parsing.
-	{Name: "cursor", ProcessName: "cursor-agent", TitlePatterns: []string{"Cursor", "cursor"}, Detect: detectProcessAware("cursor")},
-	{Name: "aider", ProcessName: "aider", TitlePatterns: []string{"Aider", "aider"}, Detect: detectProcessAware("aider")},
-	{Name: "pi", ProcessName: "pi", TitlePatterns: []string{"Pi"}, Detect: detectProcessAware("pi")},
-	{Name: "rovo", ProcessName: "rovo", TitlePatterns: []string{"Rovo", "rovo"}, Detect: detectProcessAware("rovo")},
-	{Name: "hermes", ProcessName: "hermes", TitlePatterns: []string{"Hermes", "hermes"}, Detect: detectProcessAware("hermes")},
-	{Name: "codebuddy", ProcessName: "codebuddy-cli", TitlePatterns: []string{"CodeBuddy", "codebuddy"}, Detect: detectProcessAware("codebuddy")},
-	{Name: "factory", ProcessName: "factory-droid", TitlePatterns: []string{"Factory", "factory"}, Detect: detectProcessAware("factory")},
-	{Name: "qoder", ProcessName: "qodercli", TitlePatterns: []string{"Qoder", "qoder"}, Detect: detectProcessAware("qoder")},
+	{Name: "cursor", ProcessName: "cursor-agent", TitlePatterns: []string{"Cursor", "cursor"}, AutoAcceptFlag: "", Detect: detectProcessAware("cursor")},
+	{Name: "aider", ProcessName: "aider", TitlePatterns: []string{"Aider", "aider"}, AutoAcceptFlag: "--yes", Detect: detectProcessAware("aider")},
+	{Name: "pi", ProcessName: "pi", TitlePatterns: []string{"Pi"}, AutoAcceptFlag: "--approve", Detect: detectProcessAware("pi")},
+	{Name: "rovo", ProcessName: "rovo", TitlePatterns: []string{"Rovo", "rovo"}, AutoAcceptFlag: "", Detect: detectProcessAware("rovo")},
+	{Name: "hermes", ProcessName: "hermes", TitlePatterns: []string{"Hermes", "hermes"}, AutoAcceptFlag: "--yolo", Detect: detectProcessAware("hermes")},
+	{Name: "codebuddy", ProcessName: "codebuddy-cli", TitlePatterns: []string{"CodeBuddy", "codebuddy"}, AutoAcceptFlag: "--dangerously-skip-permissions", Detect: detectProcessAware("codebuddy")},
+	{Name: "factory", ProcessName: "factory-droid", TitlePatterns: []string{"Factory", "factory"}, AutoAcceptFlag: "--skip-permissions-unsafe", Detect: detectProcessAware("factory")},
+	{Name: "qoder", ProcessName: "qodercli", TitlePatterns: []string{"Qoder", "qoder"}, AutoAcceptFlag: "--permission-mode auto", Detect: detectProcessAware("qoder")},
 }
 
 // ProcessNames returns the set of binary names for all registered AI tools.
@@ -114,6 +122,18 @@ func TitlePatterns() map[string][]string {
 	result := make(map[string][]string, len(registry))
 	for _, d := range registry {
 		result[d.Name] = d.TitlePatterns
+	}
+	return result
+}
+
+// AutoAcceptFlags returns a map of tool name → auto-accept CLI flag
+// for all registered tools that have one. Tools without a flag are omitted.
+func AutoAcceptFlags() map[string]string {
+	result := make(map[string]string)
+	for _, d := range registry {
+		if d.AutoAcceptFlag != "" {
+			result[d.Name] = d.AutoAcceptFlag
+		}
 	}
 	return result
 }

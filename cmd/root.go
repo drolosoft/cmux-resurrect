@@ -93,6 +93,18 @@ func initConfig() {
 }
 
 func newClient() client.Backend {
+	// CREX_BACKEND overrides auto-detection (needed for Alfred/external apps
+	// where cmux socket is restricted and osascript detection may fail).
+	if override := os.Getenv("CREX_BACKEND"); override != "" {
+		switch override {
+		case "ghostty":
+			return client.NewGhosttyClient()
+		case "cmux-applescript":
+			return client.NewGhosttyClientForApp("cmux")
+		case "cmux":
+			return client.NewCLIClient()
+		}
+	}
 	detected := client.Detect()
 	switch detected {
 	case client.BackendGhostty:

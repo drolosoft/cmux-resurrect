@@ -110,6 +110,74 @@ func TestDefaultConfig_RestoreMode(t *testing.T) {
 	}
 }
 
+func TestLoad_AutoAccept_List(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	content := `auto_accept = ["claude", "codex"]`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if len(cfg.AutoAccept) != 2 {
+		t.Fatalf("AutoAccept len = %d, want 2", len(cfg.AutoAccept))
+	}
+	if cfg.AutoAccept[0] != "claude" || cfg.AutoAccept[1] != "codex" {
+		t.Errorf("AutoAccept = %v, want [claude codex]", cfg.AutoAccept)
+	}
+}
+
+func TestLoad_AutoAccept_All(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	content := `auto_accept = ["all"]`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if len(cfg.AutoAccept) != 1 || cfg.AutoAccept[0] != "all" {
+		t.Errorf("AutoAccept = %v, want [all]", cfg.AutoAccept)
+	}
+}
+
+func TestLoad_AutoAccept_Absent(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	content := `watch_interval = "5m"`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if len(cfg.AutoAccept) != 0 {
+		t.Errorf("AutoAccept = %v, want empty", cfg.AutoAccept)
+	}
+}
+
+func TestSave_AutoAccept_RoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	original := DefaultConfig()
+	original.AutoAccept = []string{"claude", "amp"}
+	if err := Save(path, original); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	loaded, err := Load(path)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if len(loaded.AutoAccept) != 2 || loaded.AutoAccept[0] != "claude" || loaded.AutoAccept[1] != "amp" {
+		t.Errorf("round-trip AutoAccept = %v, want [claude amp]", loaded.AutoAccept)
+	}
+}
+
 func TestLoad_WithWorkspaceFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.toml")

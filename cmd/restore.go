@@ -108,8 +108,10 @@ func runRestore(cmd *cobra.Command, args []string) error {
 	}
 
 	restorer := &orchestrate.Restorer{
-		Client: cl,
-		Store:  store,
+		Client:     cl,
+		Store:      store,
+		AutoAccept: cfg.AutoAccept,
+		SkipPing:   os.Getenv("CREX_BACKEND") != "",
 		OnProgress: func(title string, panes int, err error) {
 			t := padTitle(title)
 			if err != nil {

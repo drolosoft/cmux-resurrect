@@ -19,6 +19,7 @@ type Config struct {
 	RestoreMode       string        `toml:"restore_mode"`  // "ask" (default when empty), "replace", "add"
 	StableDuration    time.Duration `toml:"-"`
 	StableDurationStr string        `toml:"stable_duration"`
+	AutoAccept        []string      `toml:"auto_accept"`
 }
 
 // DefaultConfig returns the default configuration.

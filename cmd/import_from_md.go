@@ -51,7 +51,8 @@ func runImportFromMD(cmd *cobra.Command, args []string) error {
 	fmt.Fprintln(os.Stderr)
 
 	importer := &orchestrate.Importer{
-		Client: cl,
+		Client:     cl,
+		AutoAccept: cfg.AutoAccept,
 		OnProgress: func(event orchestrate.ImportEvent) {
 			switch event.Status {
 			case orchestrate.ImportCreated:

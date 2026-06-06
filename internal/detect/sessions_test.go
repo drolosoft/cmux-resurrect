@@ -411,6 +411,55 @@ func TestDetectGrok_NoDB(t *testing.T) {
 	}
 }
 
+func TestAutoAcceptFlags(t *testing.T) {
+	flags := AutoAcceptFlags()
+
+	tier1 := map[string]string{
+		"claude":   "--dangerously-skip-permissions",
+		"opencode": "--yolo",
+		"codex":    "--full-auto",
+		"amp":      "--dangerously-allow-all",
+		"gemini":   "--sandbox",
+		"copilot":  "--allow-all",
+		"grok":     "--always-approve",
+	}
+	for tool, want := range tier1 {
+		got, ok := flags[tool]
+		if !ok {
+			t.Errorf("AutoAcceptFlags missing tool %q", tool)
+			continue
+		}
+		if got != want {
+			t.Errorf("AutoAcceptFlags[%q] = %q, want %q", tool, got, want)
+		}
+	}
+
+	tier2 := map[string]string{
+		"aider":     "--yes",
+		"pi":        "--approve",
+		"hermes":    "--yolo",
+		"codebuddy": "--dangerously-skip-permissions",
+		"factory":   "--skip-permissions-unsafe",
+		"qoder":     "--permission-mode auto",
+	}
+	for tool, want := range tier2 {
+		got, ok := flags[tool]
+		if !ok {
+			t.Errorf("AutoAcceptFlags missing tool %q", tool)
+			continue
+		}
+		if got != want {
+			t.Errorf("AutoAcceptFlags[%q] = %q, want %q", tool, got, want)
+		}
+	}
+
+	for _, noFlag := range []string{"cursor", "rovo"} {
+		if flag, ok := flags[noFlag]; ok {
+			t.Errorf("AutoAcceptFlags[%q] = %q, should not be present", noFlag, flag)
+		}
+	}
+}
+
 func TestThreadIDFromLogPath(t *testing.T) {
 	cases := []struct {
 		input, want string
