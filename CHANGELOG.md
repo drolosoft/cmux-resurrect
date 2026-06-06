@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.19.2] — 2026-06-06
+
+### Added
+- **`pop` in TUI shell** — typing `pop` inside `crex tui` shows usage guidance with examples
+- **Workspace focus after pop** — selecting a workspace or template via `crex pop` now focuses the restored workspace automatically
+
+### Fixed
+- **Substring search** — "ola" now correctly finds "somosunaola" (exact substring matches always accepted alongside fuzzy)
+- **Scattered match rejection** — fuzzy search rejects false positives where matched characters are too spread out
+- **Search title cleanup** — shows only `🔍 filter` during search, `🐦‍🔥 crex` when idle (no clutter)
+- **Workspace source tags** — `‹layout›` shown right after workspace name so source is always visible
+
+---
+
 ## [v1.19.0] — 2026-06-05
 
 ### Added
@@ -437,3 +451,4 @@ Initial public release.
 [v1.17.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.17.0
 [v1.18.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.18.0
 [v1.19.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.19.0
+[v1.19.2]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.19.2
