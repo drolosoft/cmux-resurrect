@@ -136,16 +136,32 @@ func (s *Saver) buildWorkspace(tw client.TreeWorkspace) (*model.Workspace, error
 
 		// Use surface info for type, URL, and foreground command.
 		if len(tp.Surfaces) > 0 {
+			// Surface 0 → flat Pane fields (backward-compatible).
 			surf := tp.Surfaces[0]
 			pane.Type = surf.Type
 			if surf.URL != nil {
 				pane.URL = *surf.URL
 			}
-			// Detect the foreground command running in this terminal pane.
 			if surf.Type == "terminal" && surf.TTY != "" {
 				if cmd := detect.ForegroundCommand(surf.TTY); cmd != "" {
 					pane.Command = cmd
 				}
+			}
+
+			// Surfaces 1..N → Pane.Surfaces (extra tabs in this pane).
+			for _, extra := range tp.Surfaces[1:] {
+				s := model.Surface{
+					Type: extra.Type,
+				}
+				if extra.URL != nil {
+					s.URL = *extra.URL
+				}
+				if extra.Type == "terminal" && extra.TTY != "" {
+					if cmd := detect.ForegroundCommand(extra.TTY); cmd != "" {
+						s.Command = cmd
+					}
+				}
+				pane.Surfaces = append(pane.Surfaces, s)
 			}
 		}
 

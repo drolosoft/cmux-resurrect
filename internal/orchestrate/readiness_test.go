@@ -42,6 +42,9 @@ func (m *readinessMockClient) RenameWorkspace(ref, title string) error         {
 func (m *readinessMockClient) SelectWorkspace(ref string) error                { return nil }
 func (m *readinessMockClient) NewSplit(dir, ref string) (string, error)        { return "", nil }
 func (m *readinessMockClient) NewPane(opts client.NewPaneOpts) (string, error) { return "", nil }
+func (m *readinessMockClient) NewSurface(paneRef, workspaceRef string) (string, error) {
+	return "surface:mock", nil
+}
 func (m *readinessMockClient) FocusPane(pane, ws string) error                 { return nil }
 func (m *readinessMockClient) Send(ws, surf, text string) error                { return nil }
 func (m *readinessMockClient) PinWorkspace(ref string) error                   { return nil }

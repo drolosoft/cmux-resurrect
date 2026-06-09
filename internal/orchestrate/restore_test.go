@@ -519,6 +519,9 @@ func (m *syncMockClient) NewSplit(dir, ref string) (string, error) { return "sur
 func (m *syncMockClient) NewPane(opts client.NewPaneOpts) (string, error) {
 	return "surface:new", nil
 }
+func (m *syncMockClient) NewSurface(paneRef, workspaceRef string) (string, error) {
+	return "surface:mock", nil
+}
 func (m *syncMockClient) FocusPane(pane, ws string) error  { return nil }
 func (m *syncMockClient) Send(ws, surf, text string) error { return nil }
 func (m *syncMockClient) PinWorkspace(ref string) error    { return nil }

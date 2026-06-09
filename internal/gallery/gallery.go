@@ -97,6 +97,16 @@ func BuildPanes(tmpl *model.Template) []model.Pane {
 		if !tp.Enabled {
 			continue
 		}
+
+		if tp.IsTab && len(panes) > 0 {
+			// Attach as extra surface to the most recent pane.
+			panes[len(panes)-1].Surfaces = append(panes[len(panes)-1].Surfaces, model.Surface{
+				Type:    tp.Type,
+				Command: tp.Command,
+			})
+			continue
+		}
+
 		pane := model.Pane{
 			Type:        tp.Type,
 			Command:     tp.Command,
@@ -125,6 +135,16 @@ func buildPanesFromTemplate(tmpl *model.Template) []model.Pane {
 		if !tp.Enabled {
 			continue
 		}
+
+		if tp.IsTab && len(panes) > 0 {
+			// Attach as extra surface to the most recent pane.
+			panes[len(panes)-1].Surfaces = append(panes[len(panes)-1].Surfaces, model.Surface{
+				Type:    tp.Type,
+				Command: tp.Command,
+			})
+			continue
+		}
+
 		pane := model.Pane{
 			Type:        tp.Type,
 			Command:     tp.Command,

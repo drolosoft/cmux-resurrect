@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/drolosoft/cmux-resurrect/internal/model"
 )
 
 const testMD = `## Projects
@@ -224,5 +226,47 @@ func TestParse_NonexistentFile(t *testing.T) {
 	_, err := Parse("/tmp/does-not-exist-cmx.md")
 	if err == nil {
 		t.Error("expected error for missing file")
+	}
+}
+
+func TestParseTemplatePaneLine_Tab(t *testing.T) {
+	lines := []string{
+		"- [x] main terminal: `plan` (focused)",
+		"- [x] tab 2: `feature`",
+		"- [x] split right: `diff`",
+		"- [x] tab 2: `yazi`",
+	}
+
+	var pans []model.TemplatePan
+	for _, line := range lines {
+		tp, ok := parseTemplatePaneLine(line)
+		if ok {
+			pans = append(pans, tp)
+		}
+	}
+
+	if len(pans) != 4 {
+		t.Fatalf("got %d pans, want 4", len(pans))
+	}
+	if !pans[0].IsMain {
+		t.Errorf("pans[0].IsMain = false, want true")
+	}
+	if pans[0].Command != "plan" {
+		t.Errorf("pans[0].Command = %q, want plan", pans[0].Command)
+	}
+	if !pans[1].IsTab {
+		t.Errorf("pans[1].IsTab = false, want true")
+	}
+	if pans[1].Command != "feature" {
+		t.Errorf("pans[1].Command = %q, want feature", pans[1].Command)
+	}
+	if pans[2].Split != "right" {
+		t.Errorf("pans[2].Split = %q, want right", pans[2].Split)
+	}
+	if !pans[3].IsTab {
+		t.Errorf("pans[3].IsTab = false, want true")
+	}
+	if pans[3].Command != "yazi" {
+		t.Errorf("pans[3].Command = %q, want yazi", pans[3].Command)
 	}
 }

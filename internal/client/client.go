@@ -33,6 +33,10 @@ type Backend interface {
 	// Returns the new surface ref.
 	NewPane(opts NewPaneOpts) (string, error)
 
+	// NewSurface creates an additional surface (tab) in an existing pane.
+	// Returns the new surface ref. cmux-only; Ghostty returns ErrNotSupported.
+	NewSurface(paneRef, workspaceRef string) (string, error)
+
 	// FocusPane focuses a specific pane in a workspace.
 	FocusPane(paneRef, workspaceRef string) error
 

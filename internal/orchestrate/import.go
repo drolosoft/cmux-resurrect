@@ -62,6 +62,77 @@ func (im *Importer) applyAutoAccept(command string) string {
 	return cmd
 }
 
+// paneRefForSurface finds the pane ref that contains a given surface ref.
+func paneRefForSurface(cl client.Backend, surfaceRef, workspaceRef string) string {
+	tree, err := cl.Tree()
+	if err != nil {
+		return ""
+	}
+	for _, w := range tree.Windows {
+		for _, ws := range w.Workspaces {
+			if ws.Ref != workspaceRef {
+				continue
+			}
+			for _, p := range ws.Panes {
+				for _, s := range p.Surfaces {
+					if s.Ref == surfaceRef {
+						return p.Ref
+					}
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// firstPaneRef returns the ref of the first pane in a workspace.
+func firstPaneRef(cl client.Backend, workspaceRef string) string {
+	tree, err := cl.Tree()
+	if err != nil {
+		return ""
+	}
+	for _, w := range tree.Windows {
+		for _, ws := range w.Workspaces {
+			if ws.Ref != workspaceRef {
+				continue
+			}
+			for _, p := range ws.Panes {
+				if p.Index == 0 {
+					return p.Ref
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// importSurfaces creates additional surfaces in a pane during import.
+func (im *Importer) importSurfaces(pane model.Pane, paneRef, workspaceRef, title string) {
+	for j, surf := range pane.Surfaces {
+		surfRef, err := im.Client.NewSurface(paneRef, workspaceRef)
+		if err != nil {
+			if err == client.ErrNotSupported {
+				im.emit(ImportEvent{
+					Status: ImportWarn,
+					Warn:   "pane tabs not supported on this backend",
+				})
+				return
+			}
+			im.emit(ImportEvent{
+				Status: ImportWarn,
+				Title:  title,
+				Warn:   fmt.Sprintf("%s pane surface %d: %v", title, j+1, err),
+			})
+			continue
+		}
+		if surf.Command != "" {
+			if err := waitForShellReady(im.Client, workspaceRef, surfRef); err == nil {
+				_ = im.Client.Send(workspaceRef, surfRef, noHistoryCmd(im.applyAutoAccept(surf.Command)))
+			}
+		}
+	}
+}
+
 // ImportFromMD resolves templates and creates workspaces that don't already
 // exist in cmux. When dryRun is true, no client calls are made; the OnProgress
 // callback is invoked with ImportCreated for each enabled project so the
@@ -141,7 +212,9 @@ func (im *Importer) ImportFromMD(wf *model.WorkspaceFile, dryRun bool) (*ImportR
 		}
 		time.Sleep(DelayAfterSelect)
 
-		// 3. Create splits and send commands.
+		// 3. Create splits and send commands (first pass: splits only).
+		// Track surface refs per pane for the second pass (extra surfaces).
+		paneSurfaceRefs := make(map[int]string) // pane index → surface ref
 		for j, pane := range panes {
 			if j == 0 {
 				if pane.Type == "browser" && pane.Command != "" {
@@ -200,6 +273,7 @@ func (im *Importer) ImportFromMD(wf *model.WorkspaceFile, dryRun bool) (*ImportR
 					})
 					continue
 				}
+				paneSurfaceRefs[j] = surfaceRef
 				if pane.Command != "" {
 					if err := waitForShellReady(im.Client, ref, surfaceRef); err == nil {
 						_ = im.Client.Send(ref, surfaceRef, noHistoryCmd(im.applyAutoAccept(pane.Command)))
@@ -207,6 +281,24 @@ func (im *Importer) ImportFromMD(wf *model.WorkspaceFile, dryRun bool) (*ImportR
 				} else {
 					time.Sleep(DelayAfterSplit)
 				}
+			}
+		}
+
+		// 3b. Second pass: add extra surfaces (tabs) to panes.
+		// Done after all splits to avoid focus interference.
+		for j, pane := range panes {
+			if len(pane.Surfaces) == 0 {
+				continue
+			}
+			var paneRef string
+			if j == 0 {
+				// First pane: find via tree (pane:0 index isn't reliable)
+				paneRef = firstPaneRef(im.Client, ref)
+			} else if surfRef, ok := paneSurfaceRefs[j]; ok {
+				paneRef = paneRefForSurface(im.Client, surfRef, ref)
+			}
+			if paneRef != "" {
+				im.importSurfaces(pane, paneRef, ref, title)
 			}
 		}
 

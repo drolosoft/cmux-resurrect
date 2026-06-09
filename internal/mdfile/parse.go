@@ -191,6 +191,9 @@ func parseTemplatePaneLine(line string) (model.TemplatePan, bool) {
 		if len(parts) >= 3 {
 			tp.Type = strings.TrimSuffix(parts[2], ":")
 		}
+	case strings.HasPrefix(rest, "tab "):
+		tp.IsTab = true
+		tp.Type = "terminal"
 	default:
 		tp.Type = "terminal"
 	}

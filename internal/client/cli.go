@@ -262,6 +262,63 @@ func (c *CLIClient) NewPane(opts NewPaneOpts) (string, error) {
 	return "", fmt.Errorf("new pane created but could not determine new surface ref")
 }
 
+func (c *CLIClient) NewSurface(paneRef, workspaceRef string) (string, error) {
+	// Snapshot surface refs before creation so we can detect the new one.
+	before := make(map[string]bool)
+	if workspaceRef != "" {
+		if tree, err := c.Tree(); err == nil {
+			for _, w := range tree.Windows {
+				for _, ws := range w.Workspaces {
+					if ws.Ref != workspaceRef {
+						continue
+					}
+					for _, p := range ws.Panes {
+						for _, s := range p.Surfaces {
+							before[s.Ref] = true
+						}
+					}
+				}
+			}
+		}
+	}
+
+	args := []string{"new-surface", "--pane", paneRef}
+	if workspaceRef != "" {
+		args = append(args, "--workspace", workspaceRef)
+	}
+	if _, err := c.run(args...); err != nil {
+		return "", err
+	}
+
+	// Find the new surface by diffing against the snapshot.
+	if workspaceRef != "" {
+		deadline := time.Now().Add(NewSplitDeadline)
+		for time.Now().Before(deadline) {
+			time.Sleep(PollInterval)
+			tree, err := c.Tree()
+			if err != nil {
+				continue
+			}
+			for _, w := range tree.Windows {
+				for _, ws := range w.Workspaces {
+					if ws.Ref != workspaceRef {
+						continue
+					}
+					for _, p := range ws.Panes {
+						for _, s := range p.Surfaces {
+							if !before[s.Ref] {
+								return s.Ref, nil
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return "", fmt.Errorf("new-surface created but could not determine ref")
+}
+
 func (c *CLIClient) FocusPane(paneRef, workspaceRef string) error {
 	args := []string{"focus-pane", "--pane", paneRef}
 	if workspaceRef != "" {

@@ -102,6 +102,82 @@ func TestLayoutMeta_JSONTags(t *testing.T) {
 	}
 }
 
+func TestPaneSurfaces_TOMLRoundTrip(t *testing.T) {
+	layout := Layout{
+		Name:    "multi-surface",
+		Version: 1,
+		SavedAt: time.Date(2026, 6, 9, 12, 0, 0, 0, time.UTC),
+		Workspaces: []Workspace{
+			{
+				Title: "dev",
+				CWD:   "/tmp",
+				Panes: []Pane{
+					{
+						Type:    "terminal",
+						Command: "plan",
+						Focus:   true,
+						Surfaces: []Surface{
+							{Command: "feature"},
+							{Type: "browser", URL: "http://localhost:3000"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	data, err := toml.Marshal(layout)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var decoded Layout
+	if err := toml.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	pane := decoded.Workspaces[0].Panes[0]
+	if pane.Command != "plan" {
+		t.Errorf("Command = %q, want plan", pane.Command)
+	}
+	if len(pane.Surfaces) != 2 {
+		t.Fatalf("Surfaces = %d, want 2", len(pane.Surfaces))
+	}
+	if pane.Surfaces[0].Command != "feature" {
+		t.Errorf("Surfaces[0].Command = %q, want feature", pane.Surfaces[0].Command)
+	}
+	if pane.Surfaces[1].URL != "http://localhost:3000" {
+		t.Errorf("Surfaces[1].URL = %q", pane.Surfaces[1].URL)
+	}
+}
+
+func TestPaneSurfaces_BackwardCompat(t *testing.T) {
+	raw := `
+name = 'old-layout'
+version = 1
+saved_at = 2026-06-09T12:00:00Z
+
+[[workspace]]
+title = 'dev'
+cwd = '/tmp'
+
+[[workspace.pane]]
+type = 'terminal'
+command = 'vim'
+`
+	var layout Layout
+	if err := toml.Unmarshal([]byte(raw), &layout); err != nil {
+		t.Fatalf("unmarshal old layout: %v", err)
+	}
+	pane := layout.Workspaces[0].Panes[0]
+	if pane.Command != "vim" {
+		t.Errorf("Command = %q, want vim", pane.Command)
+	}
+	if len(pane.Surfaces) != 0 {
+		t.Errorf("Surfaces = %d, want 0 (backward compat)", len(pane.Surfaces))
+	}
+}
+
 func TestLayoutTOMLFormat(t *testing.T) {
 	layout := Layout{
 		Name:    "minimal",

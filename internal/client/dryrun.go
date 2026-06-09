@@ -13,6 +13,7 @@ type DryRunFormatter interface {
 	FmtPinWorkspace(ref string) string
 	FmtUnpinWorkspace(ref string) string
 	FmtNewPane(paneType, direction, ref, url string) string
+	FmtNewSurface(paneRef, workspaceRef string) string
 }
 
 // CmuxDryRun formats dry-run commands as cmux CLI commands.
@@ -49,6 +50,9 @@ func (CmuxDryRun) FmtNewPane(paneType, direction, ref, url string) string {
 	}
 	return cmd
 }
+func (CmuxDryRun) FmtNewSurface(paneRef, workspaceRef string) string {
+	return fmt.Sprintf("cmux new-surface --pane %s --workspace %s", paneRef, workspaceRef)
+}
 
 // GhosttyDryRun formats dry-run commands as Ghostty AppleScript snippets.
 type GhosttyDryRun struct{}
@@ -82,4 +86,7 @@ func (GhosttyDryRun) FmtNewPane(paneType, direction, ref, url string) string {
 		return fmt.Sprintf("osascript: split %s in %s + open %q in system browser", direction, ref, url)
 	}
 	return fmt.Sprintf("osascript: split %s in %s", direction, ref)
+}
+func (GhosttyDryRun) FmtNewSurface(paneRef, workspaceRef string) string {
+	return fmt.Sprintf("osascript: new surface in %s (not supported)", paneRef)
 }

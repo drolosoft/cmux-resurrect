@@ -30,6 +30,30 @@ type Restorer struct {
 	OnProgress func(title string, panes int, err error) // called after each workspace
 }
 
+// restoreSurfaces creates additional surfaces (tabs) in a pane and sends their commands.
+func (r *Restorer) restoreSurfaces(pane model.Pane, paneRef, workspaceRef string, result *RestoreResult, paneIdx int) {
+	for j, surf := range pane.Surfaces {
+		surfRef, err := r.Client.NewSurface(paneRef, workspaceRef)
+		if err != nil {
+			if err == client.ErrNotSupported {
+				if r.OnProgress != nil {
+					r.OnProgress("⚠ pane tabs not supported on this backend", 0, nil)
+				}
+				return // skip all extra surfaces on unsupported backends
+			}
+			result.Errors = append(result.Errors, fmt.Sprintf("  pane %d surface %d: new-surface: %v", paneIdx, j+1, err))
+			continue
+		}
+		if surf.Command != "" {
+			if err := waitForShellReady(r.Client, workspaceRef, surfRef); err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("  pane %d surface %d: shell not ready: %v", paneIdx, j+1, err))
+			} else if err := r.Client.Send(workspaceRef, surfRef, noHistoryCmd(r.applyAutoAccept(surf.Command))); err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("  pane %d surface %d: send command: %v", paneIdx, j+1, err))
+			}
+		}
+	}
+}
+
 // applyAutoAccept injects the auto-accept flag into a command if configured.
 func (r *Restorer) applyAutoAccept(command string) string {
 	cmd, tool := InjectAutoAccept(command, r.AutoAccept)
@@ -234,6 +258,10 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 					result.Errors = append(result.Errors, fmt.Sprintf("  pane %d send command: %v", i, err))
 				}
 			}
+			// Create extra surfaces (tabs) in this pane.
+			if len(pane.Surfaces) > 0 {
+				r.restoreSurfaces(pane, "pane:0", ref, result, 0)
+			}
 			// If more panes follow, let the command settle before creating splits.
 			if i < lastPane {
 				time.Sleep(DelayAfterSplit)
@@ -301,6 +329,13 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 					result.Errors = append(result.Errors, fmt.Sprintf("  pane %d shell not ready: %v", i, err))
 				} else if err := r.Client.Send(ref, surfaceRef, noHistoryCmd(r.applyAutoAccept(pane.Command))); err != nil {
 					result.Errors = append(result.Errors, fmt.Sprintf("  pane %d send command: %v", i, err))
+				}
+			}
+			// Create extra surfaces (tabs) in this pane.
+			if len(pane.Surfaces) > 0 {
+				paneRef := paneRefForSurface(r.Client, surfaceRef, ref)
+				if paneRef != "" {
+					r.restoreSurfaces(pane, paneRef, ref, result, i)
 				}
 			}
 		}
@@ -441,6 +476,12 @@ func (r *Restorer) dryRunWorkspace(ws model.Workspace, result *RestoreResult) (s
 			} else if pane.Command != "" {
 				result.Commands = append(result.Commands, f.FmtSend(ref, r.applyAutoAccept(pane.Command)))
 			}
+			for _, surf := range pane.Surfaces {
+				result.Commands = append(result.Commands, f.FmtNewSurface(fmt.Sprintf("pane:%d", i), ref))
+				if surf.Command != "" {
+					result.Commands = append(result.Commands, f.FmtSend(ref, r.applyAutoAccept(surf.Command)))
+				}
+			}
 			continue
 		}
 		if pane.FocusTarget >= 0 {
@@ -457,6 +498,12 @@ func (r *Restorer) dryRunWorkspace(ws model.Workspace, result *RestoreResult) (s
 			result.Commands = append(result.Commands, f.FmtNewSplit(direction, ref))
 			if pane.Command != "" {
 				result.Commands = append(result.Commands, f.FmtSend(ref, r.applyAutoAccept(pane.Command)))
+			}
+			for _, surf := range pane.Surfaces {
+				result.Commands = append(result.Commands, f.FmtNewSurface(fmt.Sprintf("pane:%d", i), ref))
+				if surf.Command != "" {
+					result.Commands = append(result.Commands, f.FmtSend(ref, r.applyAutoAccept(surf.Command)))
+				}
 			}
 		}
 	}

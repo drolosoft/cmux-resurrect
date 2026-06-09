@@ -33,7 +33,18 @@ type Pane struct {
 	URL         string  `toml:"url,omitempty"`
 	Index       int     `toml:"index,omitempty"`
 	FocusTarget int     `toml:"focus_target,omitempty"`
-	SplitRatio  float64 `toml:"split_ratio,omitempty"`
+	SplitRatio  float64   `toml:"split_ratio,omitempty"`
+	Surfaces    []Surface `toml:"surface,omitempty"`
+}
+
+// Surface represents an additional tab within a pane (surfaces 2..N).
+// The first surface's data lives in the parent Pane's flat fields.
+type Surface struct {
+	Type    string `toml:"type,omitempty"`
+	Command string `toml:"command,omitempty"`
+	CWD     string `toml:"cwd,omitempty"`
+	URL     string `toml:"url,omitempty"`
+	Focus   bool   `toml:"focus,omitempty"`
 }
 
 // LayoutMeta holds summary info about a saved layout (for list command).

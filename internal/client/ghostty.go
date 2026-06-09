@@ -668,6 +668,10 @@ func (g *GhosttyClient) Send(workspaceRef, surfaceRef, text string) error {
 	return nil
 }
 
+func (g *GhosttyClient) NewSurface(paneRef, workspaceRef string) (string, error) {
+	return "", ErrNotSupported
+}
+
 func (g *GhosttyClient) DryRunFormatter() DryRunFormatter { return GhosttyDryRun{} }
 
 func (g *GhosttyClient) CloseWorkspace(ref string) error {
