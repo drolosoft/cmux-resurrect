@@ -12,7 +12,11 @@ cmux requires one setting change to allow Alfred to communicate with it.
 
 ### 1. Enable Automation Mode
 
-Open cmux **Settings > Automation > Socket Control Mode** and set it to **"Automation"**.
+Open cmux **Settings > Automation > Socket Control Mode** and set it to **"Automation mode"**.
+
+<p align="center"><img src="../assets/cmux-automation-settings.png" alt="cmux Settings > Automation > Socket Control Mode" width="700"></p>
+
+<p align="center"><img src="../assets/cmux-automation-dropdown.png" alt="Socket Control Mode dropdown" width="250"></p>
 
 Alternatively, add this to `~/.config/cmux/cmux.json`:
 
