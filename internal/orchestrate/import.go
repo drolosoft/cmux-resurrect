@@ -215,6 +215,7 @@ func (im *Importer) ImportFromMD(wf *model.WorkspaceFile, dryRun bool) (*ImportR
 		// 3. Create splits and send commands (first pass: splits only).
 		// Track surface refs per pane for the second pass (extra surfaces).
 		paneSurfaceRefs := make(map[int]string) // pane index → surface ref
+		lastSurfaceRef := ""                    // track last-created surface for split targeting
 		for j, pane := range panes {
 			if j == 0 {
 				if pane.Type == "browser" && pane.Command != "" {
@@ -263,7 +264,7 @@ func (im *Importer) ImportFromMD(wf *model.WorkspaceFile, dryRun bool) (*ImportR
 					})
 				}
 			} else {
-				surfaceRef, err := im.Client.NewSplit(split, ref)
+				surfaceRef, err := im.Client.NewSplit(split, ref, lastSurfaceRef)
 				if err != nil {
 					im.emit(ImportEvent{
 						Status: ImportWarn,
@@ -274,6 +275,7 @@ func (im *Importer) ImportFromMD(wf *model.WorkspaceFile, dryRun bool) (*ImportR
 					continue
 				}
 				paneSurfaceRefs[j] = surfaceRef
+					lastSurfaceRef = surfaceRef
 				if pane.Command != "" {
 					if err := waitForShellReady(im.Client, ref, surfaceRef); err == nil {
 						_ = im.Client.Send(ref, surfaceRef, noHistoryCmd(im.applyAutoAccept(pane.Command)))

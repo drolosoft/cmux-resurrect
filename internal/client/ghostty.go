@@ -517,7 +517,7 @@ func (g *GhosttyClient) SelectWorkspace(ref string) error {
 	return err
 }
 
-func (g *GhosttyClient) NewSplit(direction, workspaceRef string) (string, error) {
+func (g *GhosttyClient) NewSplit(direction, workspaceRef, surfaceRef string) (string, error) {
 	tabIdx, err := parseTabIndex(workspaceRef)
 	if err != nil {
 		return "", fmt.Errorf("parse workspace ref: %w", err)
@@ -571,7 +571,7 @@ func (g *GhosttyClient) NewPane(opts NewPaneOpts) (string, error) {
 	if direction == "" {
 		direction = "right"
 	}
-	ref, err := g.NewSplit(direction, opts.WorkspaceRef)
+	ref, err := g.NewSplit(direction, opts.WorkspaceRef, "")
 	if err != nil {
 		return "", err
 	}

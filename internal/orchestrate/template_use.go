@@ -185,7 +185,7 @@ func (tu *TemplateUser) execute(panes []model.Pane, opts TemplateUseOpts, title 
 			}
 		} else {
 			var err error
-			surfaceRef, err = tu.Client.NewSplit(direction, ref)
+			surfaceRef, err = tu.Client.NewSplit(direction, ref, "")
 			if err != nil {
 				tu.progress(fmt.Sprintf("pane %d split: %v", i, err))
 				continue

@@ -312,7 +312,7 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 			}
 			// Browser panes don't have a shell — skip command sending.
 		} else {
-			surfaceRef, err := r.Client.NewSplit(direction, ref)
+			surfaceRef, err := r.Client.NewSplit(direction, ref, "")
 			if err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("  pane %d split: %v", i, err))
 				continue

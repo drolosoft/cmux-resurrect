@@ -515,7 +515,7 @@ func (m *syncMockClient) NewWorkspace(opts client.NewWorkspaceOpts) (string, err
 
 func (m *syncMockClient) RenameWorkspace(ref, title string) error  { return nil }
 func (m *syncMockClient) SelectWorkspace(ref string) error         { return nil }
-func (m *syncMockClient) NewSplit(dir, ref string) (string, error) { return "surface:mock", nil }
+func (m *syncMockClient) NewSplit(dir, ref, surfRef string) (string, error) { return "surface:mock", nil }
 func (m *syncMockClient) NewPane(opts client.NewPaneOpts) (string, error) {
 	return "surface:new", nil
 }

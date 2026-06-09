@@ -27,7 +27,9 @@ type Backend interface {
 	SelectWorkspace(ref string) error
 
 	// NewSplit creates a new split pane in a workspace, returning the new surface ref.
-	NewSplit(direction, workspaceRef string) (string, error)
+	// If surfaceRef is non-empty, the split targets that specific surface instead of
+	// the currently focused one.
+	NewSplit(direction, workspaceRef, surfaceRef string) (string, error)
 
 	// NewPane creates a new pane in a workspace, supporting type (terminal/browser) and URL.
 	// Returns the new surface ref.
