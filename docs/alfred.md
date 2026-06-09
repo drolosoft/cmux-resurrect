@@ -4,19 +4,36 @@
 
 Search and restore workspaces directly from Alfred. Supports both full layout restore and individual workspace restore.
 
-## Requirements
+Works natively with both **cmux** and **Ghostty**.
 
-- **Ghostty** as your terminal (Alfred integration uses the Ghostty AppleScript backend)
-- **cmux limitation:** cmux restricts socket access to child processes. Alfred cannot control cmux directly. If you use cmux, workspaces will open in Ghostty instead.
+## cmux Setup
 
-## Setup
+cmux requires one setting change to allow Alfred to communicate with it.
 
-### 1. Create a new Alfred Workflow
+### 1. Enable Automation Mode
+
+Open cmux **Settings > Automation > Socket Control Mode** and set it to **"Automation"**.
+
+Alternatively, add this to `~/.config/cmux/cmux.json`:
+
+```json
+{
+  "automation": {
+    "socketControlMode": "automation"
+  }
+}
+```
+
+Then reload: `cmux reload-config` (or restart cmux).
+
+> **Why is this needed?** By default, cmux only accepts commands from processes running inside its terminals (`cmuxOnly` mode). Alfred runs outside cmux, so it needs `automation` mode to connect via the socket. This is safe — it only allows connections from your user account.
+
+### 2. Create the Alfred Workflow
 
 Open Alfred Preferences > Workflows > click **+** > **Blank Workflow**.
 Name it "crex" and give it a description.
 
-### 2. Add a Script Filter
+### 3. Add a Script Filter
 
 - Right-click the canvas > **Inputs** > **Script Filter**
 - **Keyword:** `crex`
@@ -29,11 +46,52 @@ Name it "crex" and give it a description.
 
 Adjust the path if crex is installed elsewhere (`which crex`).
 
-### 3. Add a Run Script action
+### 4. Add a Run Script action
 
 - Right-click the canvas > **Actions** > **Run Script**
 - **Language:** `/bin/bash`
 - **Script:**
+
+```bash
+export PATH="/opt/homebrew/bin:/Applications/Apps/utils/terminal/cmux.app/Contents/Resources/bin:$PATH"
+
+# Auto-discover cmux socket
+for sock in "$HOME/.local/state/cmux/cmux.sock" \
+            "$HOME/Library/Application Support/cmux/cmux-501.sock" \
+            "$HOME/Library/Application Support/cmux/cmux.sock"; do
+  if [ -S "$sock" ]; then
+    export CMUX_SOCKET_PATH="$sock"
+    break
+  fi
+done
+
+action="${1%%:*}"
+rest="${1#*:}"
+case "$action" in
+  restore) crex restore "$rest" --mode add ;;
+  show)    crex show "$rest" ;;
+  delete)  crex delete "$rest" ;;
+  open)    open "${HOME}/.config/crex/layouts/${rest}.toml" ;;
+  workspace)
+    layout="${rest%%:*}"
+    ws="${rest#*:}"
+    crex restore "$layout" "$ws" --mode add ;;
+esac
+
+osascript -e "tell application \"cmux\" to activate" 2>/dev/null
+```
+
+### 5. Connect them
+
+Drag a line from the Script Filter to the Run Script.
+
+### 6. Add the icon (optional)
+
+Drop the crex icon (`icon.png`) into the workflow directory.
+
+## Ghostty Setup
+
+Ghostty works without any configuration changes. Use `CREX_BACKEND=ghostty` in the Run Script:
 
 ```bash
 export PATH="/opt/homebrew/bin:$PATH"
@@ -52,20 +110,11 @@ case "$action" in
     crex restore "$layout" "$ws" --mode add ;;
 esac
 
-# Focus the last tab and bring Ghostty to front
 osascript -e "tell application \"Ghostty\"" -e "activate" \
   -e "set lastTab to count of tabs of front window" \
   -e "select tab (a reference to tab lastTab of front window)" \
   -e "end tell" 2>/dev/null
 ```
-
-### 4. Connect them
-
-Drag a line from the Script Filter to the Run Script.
-
-### 5. Add the icon (optional)
-
-Drop the crex icon (`icon.png`) into the workflow directory.
 
 ## Usage
 
@@ -81,19 +130,14 @@ Alfred shows two types of items:
 | Alt+Enter | Delete layout | Show layout details |
 | Ctrl+Enter | Open TOML file | Open TOML file |
 
-Type any workspace name (e.g. `crex soundinbox`) to search across all layouts.
+Type any workspace name (e.g. `crex soundinbox`) to search across all saved layouts.
 
 ## Environment Variables
-
-The Run Script uses `CREX_BACKEND=ghostty` to force the Ghostty AppleScript backend. This is required because Alfred runs outside the terminal — the standard cmux CLI backend cannot connect from Alfred's process.
 
 | Variable | Purpose | Values |
 |----------|---------|--------|
 | `CREX_BACKEND` | Override backend detection | `ghostty`, `cmux`, `cmux-applescript` |
-
-- `ghostty` — Ghostty AppleScript backend (recommended for Alfred)
-- `cmux` — cmux CLI backend (socket, requires being inside cmux)
-- `cmux-applescript` — cmux via Ghostty's AppleScript protocol (experimental)
+| `CMUX_SOCKET_PATH` | Path to cmux socket | Auto-discovered if not set |
 
 ## JSON Output
 
@@ -102,8 +146,6 @@ For scripting or integration with other tools:
 ```bash
 crex list --json
 ```
-
-Outputs a JSON array of layout metadata:
 
 ```json
 [
@@ -119,3 +161,15 @@ Outputs a JSON array of layout metadata:
   }
 ]
 ```
+
+## Troubleshooting
+
+**"Broken pipe" or "Connection refused"**
+- cmux socket control mode is not set to "Automation". See [cmux Setup](#cmux-setup).
+- cmux socket path changed after restart. The auto-discover script handles this, but if you hardcoded the path, check `cat ~/.local/state/cmux/last-socket-path` or `cat ~/Library/Application\ Support/cmux/last-socket-path`.
+
+**Alfred shows file results instead of workspaces**
+- The Script Filter can't find `crex`. Check the path: `which crex`.
+
+**Workspace opens but isn't focused**
+- The `osascript activate` at the end of the Run Script brings cmux/Ghostty to the front. If it's missing, add it.

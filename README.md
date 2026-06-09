@@ -93,9 +93,7 @@ Search and restore workspaces directly from Alfred. Type `crex` + your query —
 | Alt+Enter | Show layout details |
 | Ctrl+Enter | Open TOML file |
 
-Works with Ghostty. See [Alfred setup guide](docs/alfred.md) for installation.
-
-> **cmux limitation:** cmux restricts socket access to child processes — Alfred cannot control cmux directly. The Alfred integration uses the Ghostty AppleScript backend. See [docs/alfred.md](docs/alfred.md) for details.
+Works with both **cmux** and **Ghostty**. See [Alfred setup guide](docs/alfred.md) for installation.
 
 ---
 
