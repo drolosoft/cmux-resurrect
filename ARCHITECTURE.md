@@ -48,7 +48,7 @@ read TOML → parse model.Layout
     → for each workspace (ordered by index):
       1. Backend.NewWorkspace(cwd)
       2. Backend.RenameWorkspace(ref, title)
-      3. for each pane[i>0]: Backend.NewSplit(direction, ref)
+      3. for each pane[i>0]: Backend.NewSplit(direction, workspaceRef, surfaceRef)
       4. for each pane with command: Backend.Send(ref, "command\n")
       5. Backend.FocusPane(if pane.focus=true)
     → Backend.SelectWorkspace (restore active tab)
@@ -135,15 +135,28 @@ type Backend interface {
     NewWorkspace(opts NewWorkspaceOpts) (string, error)
     RenameWorkspace(ref, title string) error
     SelectWorkspace(ref string) error
-    NewSplit(direction, workspaceRef string) (string, error)  // returns new surface ref
+    NewSplit(direction, workspaceRef, surfaceRef string) (string, error) // new surface ref; surfaceRef targets a specific surface
+    NewPane(opts NewPaneOpts) (string, error)                            // terminal/browser pane, supports URL
+    NewSurface(paneRef, workspaceRef string) (string, error)             // extra tab in a pane; cmux-only (Ghostty: ErrNotSupported)
     FocusPane(paneRef, workspaceRef string) error
     Send(workspaceRef, surfaceRef, text string) error
-    CloseWorkspace(ref string) error
     PinWorkspace(ref string) error
+    UnpinWorkspace(ref string) error
+    CloseWorkspace(ref string) error
+    DryRunFormatter() DryRunFormatter
+}
+
+// Optional capabilities — detected via type assertion; backends that don't
+// implement them fall back to default behavior (equal splits, no resize).
+type PaneGeometryProvider interface {
+    PaneList(workspaceRef string) (*PaneListResponse, error) // infer split direction/ratio on save
+}
+type PaneResizer interface {
+    ResizePane(opts ResizePaneOpts) error                    // apply saved split ratios on restore
 }
 ```
 
-Implementations: `CLIClient` (cmux via exec) and `GhosttyClient` (Ghostty via AppleScript). New backends can be added without touching business logic.
+Implementations: `CLIClient` (cmux via exec) and `GhosttyClient` (Ghostty via AppleScript; also drives cmux-applescript). New backends can be added without touching business logic — implement the core interface and opt into the optional capabilities as needed.
 
 ## Ref Detection Strategy
 
