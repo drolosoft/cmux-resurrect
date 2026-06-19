@@ -60,7 +60,7 @@ func WriteConfigIfNotExists(path, watchInterval string, maxAutosaves int) (bool,
 	}
 
 	content := GenerateDefaultConfig(watchInterval, maxAutosaves)
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		return false, fmt.Errorf("write config: %w", err)
 	}
 	return true, nil

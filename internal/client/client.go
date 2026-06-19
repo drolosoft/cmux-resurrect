@@ -61,6 +61,23 @@ type Backend interface {
 // ErrNotSupported is returned by backends that don't support an optional operation.
 var ErrNotSupported = fmt.Errorf("operation not supported by this backend")
 
+// validateSplitDirection enforces a strict allowlist on split directions before
+// they reach a shell/AppleScript boundary. An empty direction defaults to "right".
+// This prevents injection via attacker-controlled `split` values in saved layouts
+// (the Ghostty backend interpolates the direction directly into an AppleScript
+// statement). Returns the normalized direction or an error for anything else.
+func validateSplitDirection(direction string) (string, error) {
+	if direction == "" {
+		return "right", nil
+	}
+	switch direction {
+	case "right", "left", "up", "down":
+		return direction, nil
+	default:
+		return "", fmt.Errorf("invalid split direction %q (allowed: right, left, up, down)", direction)
+	}
+}
+
 // PaneGeometryProvider is optionally implemented by backends that expose
 // pane pixel geometry. Used during save to infer split directions and ratios.
 // Backends that don't support this are detected via type assertion; save

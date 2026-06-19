@@ -71,7 +71,7 @@ func Save(path string, cfg *Config) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o644)
+	return os.WriteFile(path, data, 0o600)
 }
 
 // Load reads config from a TOML file, falling back to defaults.

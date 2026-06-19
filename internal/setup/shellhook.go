@@ -75,9 +75,11 @@ func InstallHookToFile(path, shell, key string) error {
 	if err != nil {
 		return fmt.Errorf("open %s: %w", path, err)
 	}
-	defer f.Close()
-	_, err = fmt.Fprintf(f, "\n%s\n", line)
-	return err
+	if _, err = fmt.Fprintf(f, "\n%s\n", line); err != nil {
+		_ = f.Close()
+		return err
+	}
+	return f.Close()
 }
 
 // UninstallHookFromFile removes the hook line from an rc file.

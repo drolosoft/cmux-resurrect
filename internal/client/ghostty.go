@@ -394,7 +394,7 @@ func (g *GhosttyClient) NewWorkspace(opts NewWorkspaceOpts) (string, error) {
 
 	if !hasWindow && opts.CWD != "" {
 		// App not running — create a new window with the right CWD directly.
-		g.runScriptLines(
+		_, _ = g.runScriptLines(
 			g.tell(),
 			fmt.Sprintf(`  set cfg to new surface configuration from {initial working directory:"%s"}`, escapeAppleScript(opts.CWD)),
 			`  make new window with configuration cfg`,
@@ -413,7 +413,7 @@ func (g *GhosttyClient) NewWorkspace(opts NewWorkspaceOpts) (string, error) {
 		// Our tab (with the CWD) is the last tab; the restored default is tab 1.
 		out, _ := g.runScript(fmt.Sprintf(`tell application "%s" to count of tabs of front window`, g.appName()))
 		if n, _ := strconv.Atoi(out); n > 1 {
-			g.runScript(fmt.Sprintf(`tell application "%s" to close tab (a reference to tab 1 of front window)`, g.appName()))
+			_, _ = g.runScript(fmt.Sprintf(`tell application "%s" to close tab (a reference to tab 1 of front window)`, g.appName()))
 			time.Sleep(PollInterval)
 		}
 		return "tab:1", nil
@@ -523,8 +523,9 @@ func (g *GhosttyClient) NewSplit(direction, workspaceRef, surfaceRef string) (st
 		return "", fmt.Errorf("parse workspace ref: %w", err)
 	}
 
-	if direction == "" {
-		direction = "right"
+	direction, err = validateSplitDirection(direction)
+	if err != nil {
+		return "", err
 	}
 
 	beforeOut, err := g.runScript(fmt.Sprintf(

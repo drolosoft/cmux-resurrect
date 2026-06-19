@@ -25,8 +25,8 @@ const (
 type Restorer struct {
 	Client     client.Backend
 	Store      persist.Store
-	AutoAccept []string // tool names or ["all"] for auto-accept injection
-	SkipPing   bool     // skip backend ping check (for external apps like Alfred)
+	AutoAccept []string                                 // tool names or ["all"] for auto-accept injection
+	SkipPing   bool                                     // skip backend ping check (for external apps like Alfred)
 	OnProgress func(title string, panes int, err error) // called after each workspace
 }
 

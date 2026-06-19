@@ -34,3 +34,32 @@ func Detect() DetectedBackend {
 	}
 	return BackendUnknown
 }
+
+// NewForOverride returns the Backend selected by an explicit override string
+// (e.g. the CREX_BACKEND env var). Recognized values: "ghostty", "cmux",
+// "cmux-applescript". For any unrecognized value it returns (nil, false) so the
+// caller can warn and fall back to auto-detection. This is the single source of
+// truth for override→backend mapping, shared by every command.
+func NewForOverride(override string) (Backend, bool) {
+	switch override {
+	case "ghostty":
+		return NewGhosttyClient(), true
+	case "cmux-applescript":
+		return NewGhosttyClientForApp("cmux"), true
+	case "cmux":
+		return NewCLIClient(), true
+	default:
+		return nil, false
+	}
+}
+
+// NewForDetected returns the Backend for an auto-detected backend. It is the
+// single source of truth for detected→backend mapping, shared by every command.
+func NewForDetected(detected DetectedBackend) Backend {
+	switch detected {
+	case BackendGhostty:
+		return NewGhosttyClient()
+	default:
+		return NewCLIClient()
+	}
+}

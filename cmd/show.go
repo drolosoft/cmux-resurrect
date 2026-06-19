@@ -29,12 +29,14 @@ func runShow(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	o := newWF(cmd.OutOrStdout())
+
 	if showRaw {
 		data, err := os.ReadFile(store.Path(name))
 		if err != nil {
 			return fmt.Errorf("layout %q not found", name)
 		}
-		fmt.Print(string(data))
+		o.f("%s", string(data))
 		return nil
 	}
 
@@ -44,13 +46,13 @@ func runShow(cmd *cobra.Command, args []string) error {
 	}
 
 	// Header
-	fmt.Fprintf(os.Stderr, "\n%s\n", headingStyle.Render("📦 "+layout.Name))
+	o.f("\n%s\n", headingStyle.Render("📦 "+layout.Name))
 	if layout.Description != "" {
-		fmt.Fprintf(os.Stderr, "   %s\n", dimStyle.Render(layout.Description))
+		o.f("   %s\n", dimStyle.Render(layout.Description))
 	}
 	saved := layout.SavedAt.Local().Format("Jan 02, 2006 15:04")
-	fmt.Fprintf(os.Stderr, "   %s\n", dimStyle.Render(fmt.Sprintf("Saved %s · %d %s", saved, len(layout.Workspaces), unitName(len(layout.Workspaces)))))
-	fmt.Fprintln(os.Stderr)
+	o.f("   %s\n", dimStyle.Render(fmt.Sprintf("Saved %s · %d %s", saved, len(layout.Workspaces), unitName(len(layout.Workspaces)))))
+	o.ln()
 
 	for _, ws := range layout.Workspaces {
 		// Workspace title with badges
@@ -62,13 +64,13 @@ func runShow(cmd *cobra.Command, args []string) error {
 		if ws.Active {
 			badges += " " + yellowStyle.Render("◀ active")
 		}
-		fmt.Fprintf(os.Stderr, "   %s%s\n", title, badges)
+		o.f("   %s%s\n", title, badges)
 		if ws.Description != "" {
-			fmt.Fprintf(os.Stderr, "   %s\n", dimStyle.Render(ws.Description))
+			o.f("   %s\n", dimStyle.Render(ws.Description))
 		}
 
 		// CWD
-		fmt.Fprintf(os.Stderr, "   %s\n", dimStyle.Render("cwd "+ws.CWD))
+		o.f("   %s\n", dimStyle.Render("cwd "+ws.CWD))
 
 		// Panes as a tree
 		for i, p := range ws.Panes {
@@ -107,9 +109,9 @@ func runShow(cmd *cobra.Command, args []string) error {
 				desc += " " + yellowStyle.Render("★")
 			}
 
-			fmt.Fprintf(os.Stderr, "   %s %s\n", prefix, desc)
+			o.f("   %s %s\n", prefix, desc)
 		}
-		fmt.Fprintln(os.Stderr)
+		o.ln()
 	}
 
 	return nil

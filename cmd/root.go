@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/term"
 	"github.com/drolosoft/cmux-resurrect/internal/client"
 	"github.com/drolosoft/cmux-resurrect/internal/config"
 	"github.com/drolosoft/cmux-resurrect/internal/persist"
+	"github.com/muesli/termenv"
 	"github.com/spf13/cobra"
 )
 
@@ -36,7 +39,18 @@ var rootCmd = &cobra.Command{
 }
 
 func Execute() error {
+	configureColorOutput()
 	return rootCmd.Execute()
+}
+
+// configureColorOutput disables ANSI styling when output is not an interactive
+// terminal (e.g. piped or redirected) or when NO_COLOR is set, so that
+// `crex list | grep` and `crex show x > file` produce clean, escape-free text.
+// Honors the NO_COLOR convention (https://no-color.org).
+func configureColorOutput() {
+	if os.Getenv("NO_COLOR") != "" || !term.IsTerminal(os.Stdout.Fd()) {
+		lipgloss.SetColorProfile(termenv.Ascii)
+	}
 }
 
 func init() {
@@ -93,27 +107,30 @@ func initConfig() {
 }
 
 func newClient() client.Backend {
-	// CREX_BACKEND overrides auto-detection (needed for Alfred/external apps
-	// where cmux socket is restricted and osascript detection may fail).
+	// Auto-detection runs a (potentially slow) osascript probe, so only reach
+	// for it when CREX_BACKEND isn't already forcing a choice.
+	return clientFor(nil)
+}
+
+// clientFor resolves the backend, honoring CREX_BACKEND first and only falling
+// back to detection when no valid override is set. detect is the detection
+// function to use; pass nil to use client.Detect (callers that already know the
+// detected backend, like setup, pass a closure returning it to avoid re-probing).
+//
+// This is the single client-selection entry point for every command: CREX_BACKEND
+// is parsed once here (needed for Alfred/external apps where the cmux socket is
+// restricted and osascript detection may fail).
+func clientFor(detect func() client.DetectedBackend) client.Backend {
 	if override := os.Getenv("CREX_BACKEND"); override != "" {
-		switch override {
-		case "ghostty":
-			return client.NewGhosttyClient()
-		case "cmux-applescript":
-			return client.NewGhosttyClientForApp("cmux")
-		case "cmux":
-			return client.NewCLIClient()
-		default:
-			fmt.Fprintf(os.Stderr, "warning: unknown CREX_BACKEND=%q, falling back to auto-detection\n", override)
+		if cl, ok := client.NewForOverride(override); ok {
+			return cl
 		}
+		fmt.Fprintf(os.Stderr, "warning: unknown CREX_BACKEND=%q, falling back to auto-detection\n", override)
 	}
-	detected := client.Detect()
-	switch detected {
-	case client.BackendGhostty:
-		return client.NewGhosttyClient()
-	default:
-		return client.NewCLIClient()
+	if detect == nil {
+		detect = client.Detect
 	}
+	return client.NewForDetected(detect())
 }
 
 func newStore() (persist.Store, error) {

@@ -99,7 +99,7 @@ func runSetup(cmd *cobra.Command, args []string) error {
 			o.f("  This adds one line to %s\n\n", dimStyle.Render(rcFile))
 			o.f("  %s ", dimStyle.Render("[y/N]"))
 			var answer string
-			fmt.Scanln(&answer)
+			_, _ = fmt.Scanln(&answer)
 			if strings.ToLower(strings.TrimSpace(answer)) == "y" {
 				if err := setup.InstallHookToFile(rcFile, shell, key); err != nil {
 					o.f("  %s  %v\n", yellowStyle.Render("!"), err)
@@ -130,7 +130,7 @@ func runSetup(cmd *cobra.Command, args []string) error {
 		o.ln()
 		o.f("  Enable auto-accept? %s ", dimStyle.Render("[y/N]"))
 		var answer string
-		fmt.Scanln(&answer)
+		_, _ = fmt.Scanln(&answer)
 		if strings.ToLower(strings.TrimSpace(answer)) == "y" {
 			o.ln()
 			o.f("  Which agents? (comma-separated, or %s)\n", cyanStyle.Render("all"))
@@ -193,13 +193,9 @@ func parseAgentList(input string) []string {
 }
 
 func doFirstSave(o wf, detected client.DetectedBackend) error {
-	var cl client.Backend
-	switch detected {
-	case client.BackendGhostty:
-		cl = client.NewGhosttyClient()
-	default:
-		cl = client.NewCLIClient()
-	}
+	// Honor CREX_BACKEND (consistent with every other command) while reusing the
+	// backend already detected by the wizard, so we don't re-run the osascript probe.
+	cl := clientFor(func() client.DetectedBackend { return detected })
 	store, err := newStore()
 	if err != nil {
 		return err

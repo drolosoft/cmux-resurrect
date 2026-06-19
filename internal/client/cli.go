@@ -140,6 +140,11 @@ func (c *CLIClient) CloseWorkspace(ref string) error {
 }
 
 func (c *CLIClient) NewSplit(direction, workspaceRef, surfaceRef string) (string, error) {
+	direction, err := validateSplitDirection(direction)
+	if err != nil {
+		return "", err
+	}
+
 	// Snapshot surface refs before split so we can detect the new one.
 	before := make(map[string]bool)
 	if workspaceRef != "" {

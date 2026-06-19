@@ -572,7 +572,7 @@ func (m *PopModel) viewDrill(innerWidth, listHeight int) string {
 		listHeight = 1
 	}
 
-	sectionHeader := popSectionStyle.Render(fmt.Sprintf("WORKSPACES"))
+	sectionHeader := popSectionStyle.Render("WORKSPACES")
 
 	if len(m.drillFiltered) == 0 {
 		return sectionHeader + "\n\n" + popDimStyle.Render("  no results")

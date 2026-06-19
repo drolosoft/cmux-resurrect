@@ -45,7 +45,7 @@ type ImportResult struct {
 // Importer creates cmux workspaces from a parsed Workspace Blueprint.
 type Importer struct {
 	Client     client.Backend
-	AutoAccept []string // tool names or ["all"] for auto-accept injection
+	AutoAccept []string                // tool names or ["all"] for auto-accept injection
 	OnProgress func(event ImportEvent) // called per workspace and per warning
 }
 
@@ -275,7 +275,7 @@ func (im *Importer) ImportFromMD(wf *model.WorkspaceFile, dryRun bool) (*ImportR
 					continue
 				}
 				paneSurfaceRefs[j] = surfaceRef
-					lastSurfaceRef = surfaceRef
+				lastSurfaceRef = surfaceRef
 				if pane.Command != "" {
 					if err := waitForShellReady(im.Client, ref, surfaceRef); err == nil {
 						_ = im.Client.Send(ref, surfaceRef, noHistoryCmd(im.applyAutoAccept(pane.Command)))

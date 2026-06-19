@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/drolosoft/cmux-resurrect/internal/model"
@@ -50,7 +49,7 @@ func runList(cmd *cobra.Command, args []string) error {
 	if listAlfred {
 		return renderListAlfred(w, metas)
 	}
-	return renderListStyled(metas)
+	return renderListStyled(w, metas)
 }
 
 func renderListJSON(w io.Writer, metas []model.LayoutMeta) error {
@@ -152,23 +151,24 @@ func alfredLayoutSubtitle(m model.LayoutMeta) string {
 	if m.Description != "" {
 		parts = append(parts, m.Description)
 	}
-	for _, t := range m.WorkspaceTitles {
-		parts = append(parts, t)
-	}
+	parts = append(parts, m.WorkspaceTitles...)
 	parts = append(parts, m.SavedAt.Local().Format("Jan 02 15:04"))
 	return strings.Join(parts, " · ")
 }
 
 // -- Styled terminal output ---------------------------------------------------
 
-func renderListStyled(metas []model.LayoutMeta) error {
+// renderListStyled writes the human-readable layout list to w (stdout) so the
+// output is pipeable/redirectable like any other data command.
+func renderListStyled(w io.Writer, metas []model.LayoutMeta) error {
+	o := newWF(w)
 	if len(metas) == 0 {
-		fmt.Println(dimStyle.Render("  No saved layouts. Use 'crex save <name>' to create one."))
+		o.ln(dimStyle.Render("  No saved layouts. Use 'crex save <name>' to create one."))
 		return nil
 	}
 
-	fmt.Fprintln(os.Stderr, headingStyle.Render("💾 Saved Layouts"))
-	fmt.Fprintln(os.Stderr)
+	o.ln(headingStyle.Render("💾 Saved Layouts"))
+	o.ln()
 
 	for _, m := range metas {
 		name := greenStyle.Render(fmt.Sprintf("%-16s", m.Name))
@@ -185,11 +185,11 @@ func renderListStyled(metas []model.LayoutMeta) error {
 			parts = append(parts, desc)
 		}
 
-		fmt.Fprintf(os.Stderr, "  %s %s\n", name, strings.Join(parts, dimStyle.Render(" · ")))
+		o.f("  %s %s\n", name, strings.Join(parts, dimStyle.Render(" · ")))
 	}
 
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, dimStyle.Render(fmt.Sprintf("  %d layout(s)", len(metas))))
-	fmt.Fprintln(os.Stderr)
+	o.ln()
+	o.ln(dimStyle.Render(fmt.Sprintf("  %d layout(s)", len(metas))))
+	o.ln()
 	return nil
 }
