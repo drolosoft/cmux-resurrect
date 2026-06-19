@@ -102,6 +102,7 @@ func TestDetectClaude_NoProjectDir(t *testing.T) {
 
 func TestDetectClaude_EmptyProjectDir(t *testing.T) {
 	dir := t.TempDir()
+	t.Setenv("HOME", t.TempDir())
 	home := os.Getenv("HOME")
 	// Claude uses HOME-relative paths; this test won't match unless
 	// we create the exact expected path. Test the "no jsonl files" case
@@ -109,9 +110,8 @@ func TestDetectClaude_EmptyProjectDir(t *testing.T) {
 	projectPath := strings.ReplaceAll(dir, "/", "-")
 	projectDir := filepath.Join(home, ".claude", "projects", projectPath)
 	if err := os.MkdirAll(projectDir, 0o755); err != nil {
-		t.Skip("cannot create test dir in ~/.claude/projects")
+		t.Fatal(err)
 	}
-	defer os.RemoveAll(projectDir)
 
 	s := detectClaude(dir, "")
 	if s != nil {
@@ -121,13 +121,13 @@ func TestDetectClaude_EmptyProjectDir(t *testing.T) {
 
 func TestDetectClaude_WithSession(t *testing.T) {
 	dir := t.TempDir()
+	t.Setenv("HOME", t.TempDir())
 	home := os.Getenv("HOME")
 	projectPath := strings.ReplaceAll(dir, "/", "-")
 	projectDir := filepath.Join(home, ".claude", "projects", projectPath)
 	if err := os.MkdirAll(projectDir, 0o755); err != nil {
-		t.Skip("cannot create test dir")
+		t.Fatal(err)
 	}
-	defer os.RemoveAll(projectDir)
 
 	// Create a fake session file (must be >= 500 bytes to pass the size filter).
 	sessionID := "abc123-def456-789"
@@ -154,21 +154,25 @@ func TestDetectClaude_WithSession(t *testing.T) {
 
 func TestDetectClaude_PicksMostRecent(t *testing.T) {
 	dir := t.TempDir()
+	t.Setenv("HOME", t.TempDir())
 	home := os.Getenv("HOME")
 	projectPath := strings.ReplaceAll(dir, "/", "-")
 	projectDir := filepath.Join(home, ".claude", "projects", projectPath)
 	if err := os.MkdirAll(projectDir, 0o755); err != nil {
-		t.Skip("cannot create test dir")
+		t.Fatal(err)
 	}
-	defer os.RemoveAll(projectDir)
 
 	// Create two session files with different timestamps (>= 500 bytes each).
 	pad := make([]byte, 600)
 	old := filepath.Join(projectDir, "old-session.jsonl")
-	os.WriteFile(old, pad, 0o644)
+	if err := os.WriteFile(old, pad, 0o644); err != nil {
+		t.Fatal(err)
+	}
 	time.Sleep(10 * time.Millisecond)
 	recent := filepath.Join(projectDir, "recent-session.jsonl")
-	os.WriteFile(recent, pad, 0o644)
+	if err := os.WriteFile(recent, pad, 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	s := detectClaude(dir, "")
 	if s == nil {
@@ -181,17 +185,19 @@ func TestDetectClaude_PicksMostRecent(t *testing.T) {
 
 func TestDetectClaude_InvalidSessionID(t *testing.T) {
 	dir := t.TempDir()
+	t.Setenv("HOME", t.TempDir())
 	home := os.Getenv("HOME")
 	projectPath := strings.ReplaceAll(dir, "/", "-")
 	projectDir := filepath.Join(home, ".claude", "projects", projectPath)
 	if err := os.MkdirAll(projectDir, 0o755); err != nil {
-		t.Skip("cannot create test dir")
+		t.Fatal(err)
 	}
-	defer os.RemoveAll(projectDir)
 
 	// Session ID with shell metacharacters.
 	bad := filepath.Join(projectDir, "foo;rm -rf.jsonl")
-	os.WriteFile(bad, []byte("bad"), 0o644)
+	if err := os.WriteFile(bad, []byte("bad"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	s := detectClaude(dir, "")
 	if s != nil {
@@ -208,7 +214,9 @@ func TestReadCodexJSONLMeta(t *testing.T) {
 		"payload": map[string]string{"id": "abc-123", "cwd": "/Users/test/project"},
 	}
 	data, _ := json.Marshal(meta)
-	os.WriteFile(path, data, 0o644)
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	id, cwd := readCodexJSONLMeta(path)
 	if id != "abc-123" {
@@ -228,7 +236,9 @@ func TestReadCodexJSONLMeta_WrongType(t *testing.T) {
 		"payload": map[string]string{"id": "abc"},
 	}
 	data, _ := json.Marshal(meta)
-	os.WriteFile(path, data, 0o644)
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	id, _ := readCodexJSONLMeta(path)
 	if id != "" {
@@ -239,7 +249,9 @@ func TestReadCodexJSONLMeta_WrongType(t *testing.T) {
 func TestReadCodexJSONLMeta_EmptyFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "empty.jsonl")
-	os.WriteFile(path, []byte(""), 0o644)
+	if err := os.WriteFile(path, []byte(""), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	id, _ := readCodexJSONLMeta(path)
 	if id != "" {
@@ -250,7 +262,9 @@ func TestReadCodexJSONLMeta_EmptyFile(t *testing.T) {
 func TestReadCodexJSONLMeta_InvalidJSON(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "bad.jsonl")
-	os.WriteFile(path, []byte("not json"), 0o644)
+	if err := os.WriteFile(path, []byte("not json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	id, _ := readCodexJSONLMeta(path)
 	if id != "" {
@@ -330,14 +344,14 @@ func TestDetectGemini_NoSessionDir(t *testing.T) {
 
 func TestDetectGemini_WithSession(t *testing.T) {
 	dir := t.TempDir()
+	t.Setenv("HOME", t.TempDir())
 	home := os.Getenv("HOME")
 
 	hash := geminiProjectHash(dir)
 	chatsDir := filepath.Join(home, ".gemini", "tmp", hash, "chats")
 	if err := os.MkdirAll(chatsDir, 0o755); err != nil {
-		t.Skip("cannot create test dir in ~/.gemini")
+		t.Fatal(err)
 	}
-	defer os.RemoveAll(filepath.Join(home, ".gemini", "tmp", hash))
 
 	sessionFile := filepath.Join(chatsDir, "session-2026-05-27T14-30-abc12345.json")
 	if err := os.WriteFile(sessionFile, []byte(`{"id":"abc12345"}`), 0o644); err != nil {
@@ -378,14 +392,14 @@ func TestDetectCopilot_NoSessionDir(t *testing.T) {
 
 func TestDetectCopilot_WithSession(t *testing.T) {
 	dir := t.TempDir()
+	t.Setenv("HOME", t.TempDir())
 	home := os.Getenv("HOME")
 
 	sessionID := "c52c23e5-5cbe-4786-b046-528839201e7a"
 	sessionDir := filepath.Join(home, ".copilot", "session-state", sessionID)
 	if err := os.MkdirAll(sessionDir, 0o755); err != nil {
-		t.Skip("cannot create test dir in ~/.copilot")
+		t.Fatal(err)
 	}
-	defer os.RemoveAll(filepath.Join(home, ".copilot", "session-state", sessionID))
 
 	yaml := "cwd: " + dir + "\nname: test-session\n"
 	if err := os.WriteFile(filepath.Join(sessionDir, "workspace.yaml"), []byte(yaml), 0o644); err != nil {
