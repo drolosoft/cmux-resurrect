@@ -158,3 +158,45 @@ func TestForegroundCommand_EmptyTTY(t *testing.T) {
 		t.Errorf("ForegroundCommand(\"\") = %q, want \"\"", got)
 	}
 }
+
+func TestForegroundLeaderPID(t *testing.T) {
+	tests := []struct {
+		name  string
+		psOut string
+		want  string
+	}{
+		{
+			name: "running command under shell → command pid",
+			psOut: `  PID  PPID STAT ARGS
+ 8875   823 Ss   /usr/bin/login
+ 8876  8875 Ss   -/bin/zsh
+ 9001  8876 S+   node /Users/x/.nvm/bin/claude --resume abc`,
+			want: "9001",
+		},
+		{
+			name: "plain shell prompt → shell pid",
+			psOut: `  PID  PPID STAT ARGS
+ 8875   823 Ss   /usr/bin/login
+ 8876  8875 S+   -/bin/zsh`,
+			want: "8876",
+		},
+		{
+			name:  "no processes",
+			psOut: `  PID  PPID STAT ARGS`,
+			want:  "",
+		},
+		{
+			name: "login only (no shell)",
+			psOut: `  PID  PPID STAT ARGS
+ 8875   823 Ss   /usr/bin/login`,
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := foregroundLeaderPID(tt.psOut); got != tt.want {
+				t.Fatalf("foregroundLeaderPID() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

@@ -40,6 +40,79 @@ func ForegroundCommand(tty string) string {
 	return parseForegroundCommand(string(out))
 }
 
+// ForegroundCWD returns the working directory of the foreground process on the
+// given tty — the running command if any, otherwise the pane's shell. Used to
+// capture a per-pane CWD so restore can recreate each pane in its own directory
+// instead of collapsing them all to the workspace path (GitHub #8). Best-effort:
+// returns "" on any error.
+func ForegroundCWD(tty string) string {
+	if tty == "" {
+		return ""
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "ps", "-t", tty, "-o", "pid,ppid,stat,args").Output()
+	if err != nil {
+		return ""
+	}
+	pid := foregroundLeaderPID(string(out))
+	if pid == "" {
+		return ""
+	}
+	return batchCWDs([]struct{ pid, tool string }{{pid, ""}})[pid]
+}
+
+// foregroundLeaderPID returns the pid whose CWD best represents the pane: the
+// command running under the shell if there is one, otherwise the pane's
+// foreground shell. "" if nothing suitable is found.
+func foregroundLeaderPID(psOut string) string {
+	type proc struct {
+		pid, ppid string
+		isShell   bool
+	}
+	var fg []proc
+	shellPIDs := make(map[string]bool)
+
+	for _, line := range strings.Split(psOut, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 4 {
+			continue
+		}
+		pid, ppid, stat := fields[0], fields[1], fields[2]
+		args := strings.Join(fields[3:], " ")
+		if pid == "PID" || strings.Contains(args, "/usr/bin/login") {
+			continue
+		}
+		isShell := knownShells[extractBinName(args)]
+		if isShell {
+			shellPIDs[pid] = true
+		}
+		if strings.Contains(stat, "+") {
+			fg = append(fg, proc{pid: pid, ppid: ppid, isShell: isShell})
+		}
+	}
+
+	// Prefer a foreground command that is a child of a shell (the running tool).
+	for _, p := range fg {
+		if shellPIDs[p.ppid] && !p.isShell {
+			return p.pid
+		}
+	}
+	// Fallback: the pane's top foreground shell (plain prompt) — its cwd is the
+	// directory the user is working in.
+	for _, p := range fg {
+		if p.isShell && !shellPIDs[p.ppid] {
+			return p.pid
+		}
+	}
+	for _, p := range fg {
+		if p.isShell {
+			return p.pid
+		}
+	}
+	return ""
+}
+
 // parseForegroundCommand extracts the foreground command from ps output.
 // It looks for the process leader: a foreground (S+) process whose parent
 // is a shell. If the leader is a shell itself, returns "".
