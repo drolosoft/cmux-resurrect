@@ -49,3 +49,6 @@ outputs/
 
 # ClaudeMap artifacts
 claudemap-*.json
+
+# Internal marketing/strategy notes (never tracked publicly)
+reports/

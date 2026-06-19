@@ -53,12 +53,6 @@ func NewFileStore(dir string) (*FileStore, error) {
 	return &FileStore{Dir: dir}, nil
 }
 
-// DefaultDir returns the default layout storage directory.
-func DefaultDir() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "crex", "layouts")
-}
-
 func (s *FileStore) Path(name string) string {
 	return filepath.Join(s.Dir, name+".toml")
 }

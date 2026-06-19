@@ -219,6 +219,7 @@ func styledHelp() string {
 	b.WriteString("\n")
 	helpCmd(&b, "save", "[name]", "Snapshot current layout")
 	helpCmd(&b, "restore", "[name]", "Restore a saved layout")
+	helpCmd(&b, "pop", "[name]", "Quick-launch a layout (Ctrl+G picker)")
 	helpCmd(&b, "list", "", "List saved layouts")
 	helpCmd(&b, "show", "<name>", "Display layout details")
 	helpCmd(&b, "edit", "<name>", "Open in $EDITOR")
@@ -231,6 +232,7 @@ func styledHelp() string {
 	helpCmd(&b, "export-to-md", "", "Export to Blueprint")
 	helpCmd(&b, "blueprint", "<cmd>", "Manage Blueprint (add|remove|list|toggle)")
 	helpCmd(&b, "template", "<cmd>", "Template gallery (list|show|use|customize)")
+	helpCmd(&b, "update", "", "Check for and install updates")
 	helpCmd(&b, "version", "", "Version info")
 	helpCmd(&b, "completion", "<shell>", "Shell completions (bash|zsh|fish)")
 

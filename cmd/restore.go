@@ -14,11 +14,11 @@ import (
 func readKey() (byte, error) {
 	state, err := term.MakeRaw(os.Stdin.Fd())
 	if err != nil {
-		return 0, fmt.Errorf("cancelled")
+		return 0, fmt.Errorf("read key: cannot enter raw mode (is stdin a terminal?): %w", err)
 	}
 	buf := make([]byte, 3)
 	n, _ := os.Stdin.Read(buf)
-	term.Restore(os.Stdin.Fd(), state)
+	_ = term.Restore(os.Stdin.Fd(), state)
 	if n == 0 {
 		return 0, fmt.Errorf("cancelled")
 	}

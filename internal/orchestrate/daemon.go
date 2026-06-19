@@ -27,7 +27,7 @@ func WritePIDFile(path string, pid int) error {
 		return fmt.Errorf("create pid dir: %w", err)
 	}
 	data := []byte(strconv.Itoa(pid) + "\n")
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := os.WriteFile(path, data, 0o600); err != nil {
 		return fmt.Errorf("write pid file: %w", err)
 	}
 	return nil
@@ -65,7 +65,7 @@ func OpenLogWriter(path string, maxBytes int64) (*os.File, error) {
 		_ = os.Rename(path, oldPath)
 	}
 
-	return os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	return os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 }
 
 // IsDaemonRunning checks whether the process recorded in pidPath is alive.

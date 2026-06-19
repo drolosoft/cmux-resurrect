@@ -322,20 +322,6 @@ func clearAutoDetectedCommands(layout *model.Layout) {
 // full resume commands instead.
 var aiProcessNames = detect.ProcessNames()
 
-// clearBareAICommands removes commands that are just a bare AI tool name
-// (set by foreground detection). This allows the AI detection pass to
-// handle these panes with proper session resolution.
-func clearBareAICommands(layout *model.Layout) {
-	for i := range layout.Workspaces {
-		for j := range layout.Workspaces[i].Panes {
-			cmd := layout.Workspaces[i].Panes[j].Command
-			if aiProcessNames[cmd] {
-				layout.Workspaces[i].Panes[j].Command = ""
-			}
-		}
-	}
-}
-
 // aiTitlePatterns is populated from the detector registry in the detect package.
 // Each tool's title patterns and detection logic are co-located there.
 var aiTitlePatterns = detect.TitlePatterns()
