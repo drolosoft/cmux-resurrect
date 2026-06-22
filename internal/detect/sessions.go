@@ -207,29 +207,54 @@ const cmdTimeout = 5 * time.Second
 func listAIProcesses(detectors map[string]detector) []aiProcess {
 	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "ps", "axo", "pid,comm").Output()
-	if err != nil {
-		return nil
-	}
 
 	var pids []struct {
 		pid  string
 		tool string
 	}
+	matched := make(map[string]bool) // pids already claimed, to avoid duplicates
+	isKnown := func(name string) bool { _, ok := detectors[name]; return ok }
 
-	for _, line := range strings.Split(string(out), "\n") {
-		fields := strings.Fields(line)
-		if len(fields) < 2 {
-			continue
+	// Pass 1: match by `comm` (the executable name). Fast and unambiguous for
+	// tools whose binary is named after the tool (e.g. an nvm/brew `claude` shim).
+	if out, err := exec.CommandContext(ctx, "ps", "axo", "pid,comm").Output(); err == nil {
+		for _, line := range strings.Split(string(out), "\n") {
+			fields := strings.Fields(line)
+			if len(fields) < 2 {
+				continue
+			}
+			pid := fields[0]
+			comm := filepath.Base(fields[1])
+			if isKnown(comm) {
+				pids = append(pids, struct {
+					pid  string
+					tool string
+				}{pid, comm})
+				matched[pid] = true
+			}
 		}
-		pid := fields[0]
-		comm := filepath.Base(fields[1])
+	}
 
-		if _, ok := detectors[comm]; ok {
-			pids = append(pids, struct {
-				pid  string
-				tool string
-			}{pid, comm})
+	// Pass 2: match by full command line (`args`), catching what `comm` misses —
+	// shell aliases/functions, wrapper scripts, and interpreter-launched CLIs like
+	// `node …/claude/cli.js` whose `comm` is "node" (GitHub #6).
+	if out, err := exec.CommandContext(ctx, "ps", "axo", "pid=,args=").Output(); err == nil {
+		for _, line := range strings.Split(string(out), "\n") {
+			fields := strings.Fields(line)
+			if len(fields) < 2 {
+				continue
+			}
+			pid := fields[0]
+			if matched[pid] {
+				continue
+			}
+			if tool, ok := matchAIToolArgs(strings.Join(fields[1:], " "), isKnown); ok {
+				pids = append(pids, struct {
+					pid  string
+					tool string
+				}{pid, tool})
+				matched[pid] = true
+			}
 		}
 	}
 
