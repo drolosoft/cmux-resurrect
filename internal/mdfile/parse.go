@@ -155,12 +155,13 @@ func parseTemplatePaneLine(line string) (model.TemplatePan, bool) {
 		rest = strings.TrimSpace(rest[idx+1:])
 	}
 
-	// Extract command in backticks if present.
+	// Extract command in backticks if present, preserving text after the closing
+	// backtick (e.g. a trailing "(focused)") — mirrors the gallery parser.
 	if backtickStart := strings.Index(rest, "`"); backtickStart >= 0 {
 		backtickEnd := strings.Index(rest[backtickStart+1:], "`")
 		if backtickEnd >= 0 {
 			tp.Command = rest[backtickStart+1 : backtickStart+1+backtickEnd]
-			rest = rest[:backtickStart]
+			rest = rest[:backtickStart] + rest[backtickStart+1+backtickEnd+1:]
 		}
 	}
 
@@ -171,6 +172,9 @@ func parseTemplatePaneLine(line string) (model.TemplatePan, bool) {
 	}
 
 	rest = strings.TrimSpace(rest)
+
+	// Extract an optional quoted display name: `split right "Diff"` → name "Diff".
+	tp.Name, rest = model.ExtractPaneName(rest)
 
 	// Parse "main terminal", "split right:", etc.
 	switch {

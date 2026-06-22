@@ -28,6 +28,7 @@ type Pane struct {
 	Type        string    `toml:"type"`
 	Split       string    `toml:"split,omitempty"`
 	CWD         string    `toml:"cwd,omitempty"`
+	Name        string    `toml:"name,omitempty"` // optional tab/pane label, shown as the surface title
 	Command     string    `toml:"command,omitempty"`
 	Focus       bool      `toml:"focus,omitempty"`
 	URL         string    `toml:"url,omitempty"`
@@ -41,6 +42,7 @@ type Pane struct {
 // The first surface's data lives in the parent Pane's flat fields.
 type Surface struct {
 	Type    string `toml:"type,omitempty"`
+	Name    string `toml:"name,omitempty"` // optional tab label, shown as the surface title
 	Command string `toml:"command,omitempty"`
 	CWD     string `toml:"cwd,omitempty"`
 	URL     string `toml:"url,omitempty"`

@@ -102,6 +102,7 @@ func BuildPanes(tmpl *model.Template) []model.Pane {
 			// Attach as extra surface to the most recent pane.
 			panes[len(panes)-1].Surfaces = append(panes[len(panes)-1].Surfaces, model.Surface{
 				Type:    tp.Type,
+				Name:    tp.Name,
 				Command: tp.Command,
 			})
 			continue
@@ -109,6 +110,7 @@ func BuildPanes(tmpl *model.Template) []model.Pane {
 
 		pane := model.Pane{
 			Type:        tp.Type,
+			Name:        tp.Name,
 			Command:     tp.Command,
 			Focus:       tp.Focus,
 			FocusTarget: tp.FocusTarget,
@@ -140,6 +142,7 @@ func buildPanesFromTemplate(tmpl *model.Template) []model.Pane {
 			// Attach as extra surface to the most recent pane.
 			panes[len(panes)-1].Surfaces = append(panes[len(panes)-1].Surfaces, model.Surface{
 				Type:    tp.Type,
+				Name:    tp.Name,
 				Command: tp.Command,
 			})
 			continue
@@ -147,6 +150,7 @@ func buildPanesFromTemplate(tmpl *model.Template) []model.Pane {
 
 		pane := model.Pane{
 			Type:        tp.Type,
+			Name:        tp.Name,
 			Command:     tp.Command,
 			Focus:       tp.Focus,
 			FocusTarget: tp.FocusTarget,
@@ -264,6 +268,9 @@ func parseGalleryPaneLine(line string) model.TemplatePan {
 	}
 
 	rest = strings.TrimSpace(rest)
+
+	// Extract an optional quoted display name: `split right "Diff"` → name "Diff".
+	tp.Name, rest = model.ExtractPaneName(rest)
 
 	// Parse "main terminal", "split right:", etc.
 	switch {

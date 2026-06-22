@@ -505,6 +505,15 @@ func (g *GhosttyClient) RenameWorkspace(ref, title string) error {
 	return err
 }
 
+// GhosttyClient deliberately does NOT implement client.SurfaceRenamer (GitHub #7).
+// In Ghostty the only nameable unit is the tab, which maps to a crex workspace and
+// is already titled via RenameWorkspace. Individual splits within a tab have no
+// title property, and Ghostty has no sub-tabs (NewSurface returns ErrNotSupported),
+// so per-pane Blueprint names have nowhere to render. Not implementing the
+// interface makes applyName a clean no-op for Ghostty (vs. a set_tab_title that
+// would fight the workspace title). Per-pane names still work on cmux, and the
+// name is preserved in the Blueprint either way.
+
 func (g *GhosttyClient) SelectWorkspace(ref string) error {
 	tabIdx, err := parseTabIndex(ref)
 	if err != nil {

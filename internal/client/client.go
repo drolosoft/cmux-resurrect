@@ -91,3 +91,11 @@ type PaneGeometryProvider interface {
 type PaneResizer interface {
 	ResizePane(opts ResizePaneOpts) error
 }
+
+// SurfaceRenamer is optionally implemented by backends that can set the title of
+// an individual surface/tab (not just the workspace). Used to apply optional
+// per-pane names from a Blueprint (GitHub #7). Backends that don't implement it
+// are detected via type assertion and the name is silently skipped.
+type SurfaceRenamer interface {
+	RenameSurface(workspaceRef, surfaceRef, title string) error
+}

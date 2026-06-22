@@ -270,3 +270,47 @@ func TestParseTemplatePaneLine_Tab(t *testing.T) {
 		t.Errorf("pans[3].Command = %q, want yazi", pans[3].Command)
 	}
 }
+
+func TestParseTemplatePaneLine_Names(t *testing.T) {
+	cases := []struct {
+		line      string
+		wantName  string
+		wantMain  bool
+		wantTab   bool
+		wantSplit string
+		wantCmd   string
+		wantFocus bool
+	}{
+		{`- [x] main terminal "Plan": ` + "`claude`" + ` (focused)`, "Plan", true, false, "", "claude", true},
+		{`- [x] tab 2 "Feature": ` + "`claude`", "Feature", false, true, "", "claude", false},
+		{`- [x] split right "Diff": ` + "`git diff`", "Diff", false, false, "right", "git diff", false},
+		{`- [x] split down "Logs":`, "Logs", false, false, "down", "", false},
+		// Backward compatible: no name.
+		{`- [x] split right: ` + "`git diff`", "", false, false, "right", "git diff", false},
+		{`- [x] main terminal: ` + "`claude`", "", true, false, "", "claude", false},
+	}
+	for _, c := range cases {
+		tp, ok := parseTemplatePaneLine(c.line)
+		if !ok {
+			t.Fatalf("parse failed: %q", c.line)
+		}
+		if tp.Name != c.wantName {
+			t.Errorf("%q: Name = %q, want %q", c.line, tp.Name, c.wantName)
+		}
+		if tp.IsMain != c.wantMain {
+			t.Errorf("%q: IsMain = %v, want %v", c.line, tp.IsMain, c.wantMain)
+		}
+		if tp.IsTab != c.wantTab {
+			t.Errorf("%q: IsTab = %v, want %v", c.line, tp.IsTab, c.wantTab)
+		}
+		if tp.Split != c.wantSplit {
+			t.Errorf("%q: Split = %q, want %q", c.line, tp.Split, c.wantSplit)
+		}
+		if tp.Command != c.wantCmd {
+			t.Errorf("%q: Command = %q, want %q", c.line, tp.Command, c.wantCmd)
+		}
+		if tp.Focus != c.wantFocus {
+			t.Errorf("%q: Focus = %v, want %v", c.line, tp.Focus, c.wantFocus)
+		}
+	}
+}

@@ -125,11 +125,23 @@ func (im *Importer) importSurfaces(pane model.Pane, paneRef, workspaceRef, title
 			})
 			continue
 		}
+		im.applyName(workspaceRef, surfRef, surf.Name)
 		if surf.Command != "" {
 			if err := waitForShellReady(im.Client, workspaceRef, surfRef); err == nil {
 				_ = im.Client.Send(workspaceRef, surfRef, noHistoryCmd(im.applyAutoAccept(surf.Command)))
 			}
 		}
+	}
+}
+
+// applyName sets a surface's title from an optional Blueprint name (GitHub #7).
+// No-op when the name is empty or the backend can't rename individual surfaces.
+func (im *Importer) applyName(workspaceRef, surfaceRef, name string) {
+	if name == "" {
+		return
+	}
+	if rn, ok := im.Client.(client.SurfaceRenamer); ok {
+		_ = rn.RenameSurface(workspaceRef, surfaceRef, name)
 	}
 }
 
@@ -227,6 +239,7 @@ func (im *Importer) ImportFromMD(wf *model.WorkspaceFile, dryRun bool) (*ImportR
 						_ = im.Client.Send(ref, "", noHistoryCmd(im.applyAutoAccept(pane.Command)))
 					}
 				}
+				im.applyName(ref, "", pane.Name)
 				continue
 			}
 			// Focus a specific pane before splitting (for quad, etc.)
@@ -276,6 +289,7 @@ func (im *Importer) ImportFromMD(wf *model.WorkspaceFile, dryRun bool) (*ImportR
 				}
 				paneSurfaceRefs[j] = surfaceRef
 				lastSurfaceRef = surfaceRef
+				im.applyName(ref, surfaceRef, pane.Name)
 				if pane.Command != "" {
 					if err := waitForShellReady(im.Client, ref, surfaceRef); err == nil {
 						_ = im.Client.Send(ref, surfaceRef, noHistoryCmd(im.applyAutoAccept(pane.Command)))
