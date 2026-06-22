@@ -44,6 +44,7 @@ func (r *Restorer) restoreSurfaces(pane model.Pane, paneRef, workspaceRef string
 			result.Errors = append(result.Errors, fmt.Sprintf("  pane %d surface %d: new-surface: %v", paneIdx, j+1, err))
 			continue
 		}
+		r.applyName(workspaceRef, surfRef, surf.Name)
 		if surf.Command != "" {
 			if err := waitForShellReady(r.Client, workspaceRef, surfRef); err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("  pane %d surface %d: shell not ready: %v", paneIdx, j+1, err))
@@ -51,6 +52,17 @@ func (r *Restorer) restoreSurfaces(pane model.Pane, paneRef, workspaceRef string
 				result.Errors = append(result.Errors, fmt.Sprintf("  pane %d surface %d: send command: %v", paneIdx, j+1, err))
 			}
 		}
+	}
+}
+
+// applyName sets a surface's title from an optional Blueprint name (GitHub #7).
+// No-op when the name is empty or the backend can't rename individual surfaces.
+func (r *Restorer) applyName(workspaceRef, surfaceRef, name string) {
+	if name == "" {
+		return
+	}
+	if rn, ok := r.Client.(client.SurfaceRenamer); ok {
+		_ = rn.RenameSurface(workspaceRef, surfaceRef, name)
 	}
 }
 
@@ -258,6 +270,8 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 					result.Errors = append(result.Errors, fmt.Sprintf("  pane %d send command: %v", i, err))
 				}
 			}
+			// Name the first surface if the Blueprint labeled it (#7).
+			r.applyName(ref, "", pane.Name)
 			// Create extra surfaces (tabs) in this pane.
 			if len(pane.Surfaces) > 0 {
 				r.restoreSurfaces(pane, "pane:0", ref, result, 0)
@@ -317,6 +331,9 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 				result.Errors = append(result.Errors, fmt.Sprintf("  pane %d split: %v", i, err))
 				continue
 			}
+
+			// Name the split's surface if the Blueprint labeled it (#7).
+			r.applyName(ref, surfaceRef, pane.Name)
 
 			// Apply saved split ratio if available.
 			if needsResize(pane.SplitRatio) {

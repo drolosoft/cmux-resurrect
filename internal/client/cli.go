@@ -114,6 +114,42 @@ func (c *CLIClient) NewWorkspace(opts NewWorkspaceOpts) (string, error) {
 	return ref, nil
 }
 
+// RenameSurface titles an individual surface/tab via `cmux rename-tab`. When
+// surfaceRef is empty (the workspace's first/default surface, e.g. pane 0) it
+// resolves the first surface from the tree rather than letting cmux fall back to
+// an arbitrary default. If it can't be resolved, the rename is skipped.
+func (c *CLIClient) RenameSurface(workspaceRef, surfaceRef, title string) error {
+	if surfaceRef == "" {
+		surfaceRef = c.firstSurfaceRef(workspaceRef)
+		if surfaceRef == "" {
+			return nil
+		}
+	}
+	_, err := c.run("rename-tab", "--workspace", workspaceRef, "--surface", surfaceRef, title)
+	return err
+}
+
+// firstSurfaceRef returns the ref of the first surface in a workspace, or "".
+func (c *CLIClient) firstSurfaceRef(workspaceRef string) string {
+	tree, err := c.Tree()
+	if err != nil || tree == nil {
+		return ""
+	}
+	for _, w := range tree.Windows {
+		for _, ws := range w.Workspaces {
+			if ws.Ref != workspaceRef {
+				continue
+			}
+			for _, p := range ws.Panes {
+				for _, s := range p.Surfaces {
+					return s.Ref
+				}
+			}
+		}
+	}
+	return ""
+}
+
 func (c *CLIClient) RenameWorkspace(ref, title string) error {
 	_, err := c.run("rename-workspace", "--workspace", ref, title)
 	return err

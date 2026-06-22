@@ -1,6 +1,33 @@
 package model
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
+
+// ExtractPaneName pulls a double-quoted display name out of a pane descriptor,
+// returning the name and the descriptor with the quoted segment removed. The
+// colon that follows the descriptor stays attached exactly as in the no-name
+// form, so existing prefix parsing is unaffected.
+//
+//	`split right "Diff"` → ("Diff", "split right")
+//	`main terminal "Plan":` → ("Plan", "main terminal:")
+//	`split right` → ("", "split right")   // no quotes, unchanged
+func ExtractPaneName(s string) (name, rest string) {
+	start := strings.IndexByte(s, '"')
+	if start < 0 {
+		return "", s
+	}
+	rel := strings.IndexByte(s[start+1:], '"')
+	if rel < 0 {
+		return "", s
+	}
+	end := start + 1 + rel
+	name = s[start+1 : end]
+	left := strings.TrimRight(s[:start], " ")
+	rest = strings.TrimSpace(left + s[end+1:])
+	return name, rest
+}
 
 // Project represents a workspace entry in the MD file.
 type Project struct {
@@ -76,6 +103,7 @@ func (wf *WorkspaceFile) ResolveTemplate(templateName string) []Pane {
 		}
 		pane := Pane{
 			Type:    tp.Type,
+			Name:    tp.Name,
 			Command: tp.Command,
 			Focus:   tp.Focus,
 		}
