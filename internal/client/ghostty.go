@@ -505,26 +505,14 @@ func (g *GhosttyClient) RenameWorkspace(ref, title string) error {
 	return err
 }
 
-// RenameSurface titles an individual terminal (surface) within a tab via the
-// set_tab_title action. An empty surfaceRef targets terminal 1 (the workspace's
-// first surface, e.g. pane 0), mirroring RenameWorkspace.
-func (g *GhosttyClient) RenameSurface(workspaceRef, surfaceRef, title string) error {
-	tabIdx, err := parseTabIndex(workspaceRef)
-	if err != nil {
-		return err
-	}
-	termIdx := 1
-	if surfaceRef != "" {
-		if ti, err := parseTerminalIndex(surfaceRef); err == nil {
-			termIdx = ti
-		}
-	}
-	_, err = g.runScript(fmt.Sprintf(
-		`tell application "%s" to perform action "set_tab_title:%s" on terminal %d of tab %d of front window`, g.appName(),
-		escapeAppleScript(title), termIdx, tabIdx,
-	))
-	return err
-}
+// GhosttyClient deliberately does NOT implement client.SurfaceRenamer (GitHub #7).
+// In Ghostty the only nameable unit is the tab, which maps to a crex workspace and
+// is already titled via RenameWorkspace. Individual splits within a tab have no
+// title property, and Ghostty has no sub-tabs (NewSurface returns ErrNotSupported),
+// so per-pane Blueprint names have nowhere to render. Not implementing the
+// interface makes applyName a clean no-op for Ghostty (vs. a set_tab_title that
+// would fight the workspace title). Per-pane names still work on cmux, and the
+// name is preserved in the Blueprint either way.
 
 func (g *GhosttyClient) SelectWorkspace(ref string) error {
 	tabIdx, err := parseTabIndex(ref)

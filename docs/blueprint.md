@@ -53,10 +53,40 @@ Templates define reusable pane layouts. Reference them by name from any workspac
 | `main terminal` | 🖥️ First pane in the workspace |
 | `split right:` | ➡️ Vertical split to the right |
 | `split down:` | ⬇️ Horizontal split below |
+| `tab N:` | 🗂️ Extra sub-tab (surface) inside the preceding pane |
+| `"Name"` | 🏷️ Optional label for the pane/tab (see below) |
 | `(focused)` | 🎯 This pane gets focus after creation |
 | `` `command` `` | ⚡ Send this command to the pane |
 
 Define your own templates by adding `### template-name` sections. Uncheck any pane line to disable that split.
+
+### Naming tabs and panes
+
+Add a quoted name after the descriptor to label a pane or sub-tab. The name is
+**optional** — omit it and the line behaves exactly as before (fully backward
+compatible):
+
+```markdown
+### dev-workflow
+- [x] main terminal "Plan": `claude`
+- [x] tab 2 "Feature": `claude`
+- [x] split right "Diff": `git diff`
+- [x] tab 2 "Files": `yazi`
+```
+
+Where the name actually shows depends on the backend:
+
+| Unit | cmux | Ghostty |
+|------|------|---------|
+| Workspace / tab title | ✅ | ✅ (this is the workspace title) |
+| Sub-tab (`tab N:`, a surface) | ✅ shown in the pane's tab bar | ❌ Ghostty has no sub-tabs |
+| Split (`split right`/`down`) | label stored | ❌ splits have no title slot in Ghostty |
+
+In short: **per-tab/per-surface names render in cmux.** In Ghostty the only
+nameable unit is the tab itself (= the crex workspace title); individual splits
+and sub-tabs can't carry their own title, so a name on those is stored in the
+Blueprint but not displayed. The name is always preserved on save/import either
+way, so a layout stays portable between backends.
 
 ### Three-Tier Resolution
 
