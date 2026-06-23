@@ -364,12 +364,25 @@ func (c *CLIClient) NewSurface(paneRef, workspaceRef string) (string, error) {
 }
 
 func (c *CLIClient) FocusPane(paneRef, workspaceRef string) error {
-	args := []string{"focus-pane", "--pane", paneRef}
+	args := []string{"focus-pane", "--pane", paneCLIRef(paneRef, workspaceRef)}
 	if workspaceRef != "" {
 		args = append(args, "--workspace", workspaceRef)
 	}
 	_, err := c.run(args...)
 	return err
+}
+
+// paneCLIRef adapts a pane ref for a cmux CLI flag. cmux reads a "pane:N" string
+// as a GLOBAL ref, but crex passes workspace-local indexes; when a workspace is
+// specified, strip the "pane:" prefix so cmux reads N as the workspace-local
+// index (otherwise it rejects it with "Missing or invalid pane_id"). Real refs
+// and the no-workspace case pass through unchanged. Ghostty's own FocusPane
+// consumes "pane:N" natively, so this cmux-only adaptation lives in CLIClient.
+func paneCLIRef(paneRef, workspaceRef string) string {
+	if workspaceRef != "" && strings.HasPrefix(paneRef, "pane:") {
+		return strings.TrimPrefix(paneRef, "pane:")
+	}
+	return paneRef
 }
 
 func (c *CLIClient) DryRunFormatter() DryRunFormatter { return CmuxDryRun{} }
@@ -444,12 +457,7 @@ func (c *CLIClient) ResizePane(opts ResizePaneOpts) error {
 	if opts.Amount <= 0 {
 		return nil // no-op for zero or negative
 	}
-	// Strip "pane:" prefix when workspace is specified — cmux interprets
-	// "pane:N" as a global ref, but we pass workspace-local indexes.
-	ref := opts.PaneRef
-	if opts.WorkspaceRef != "" && strings.HasPrefix(ref, "pane:") {
-		ref = strings.TrimPrefix(ref, "pane:")
-	}
+	ref := paneCLIRef(opts.PaneRef, opts.WorkspaceRef)
 	args := []string{"resize-pane", "--pane", ref, "-" + opts.Direction, "--amount", fmt.Sprintf("%d", opts.Amount)}
 	if opts.WorkspaceRef != "" {
 		args = append(args, "--workspace", opts.WorkspaceRef)
