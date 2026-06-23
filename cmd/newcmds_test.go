@@ -264,9 +264,15 @@ func TestListAlfred_WithLayouts(t *testing.T) {
 			Arg          string `json:"arg"`
 			Autocomplete string `json:"autocomplete"`
 			Mods         struct {
-				Cmd  struct{ Arg string `json:"arg"` } `json:"cmd"`
-				Alt  struct{ Arg string `json:"arg"` } `json:"alt"`
-				Ctrl struct{ Arg string `json:"arg"` } `json:"ctrl"`
+				Cmd struct {
+					Arg string `json:"arg"`
+				} `json:"cmd"`
+				Alt struct {
+					Arg string `json:"arg"`
+				} `json:"alt"`
+				Ctrl struct {
+					Arg string `json:"arg"`
+				} `json:"ctrl"`
 			} `json:"mods"`
 		} `json:"items"`
 	}

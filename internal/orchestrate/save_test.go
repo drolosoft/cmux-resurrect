@@ -43,8 +43,8 @@ func (m *mockClient) NewWorkspace(opts client.NewWorkspaceOpts) (string, error) 
 	return "workspace:new", nil
 }
 
-func (m *mockClient) RenameWorkspace(ref, title string) error  { return nil }
-func (m *mockClient) SelectWorkspace(ref string) error         { return nil }
+func (m *mockClient) RenameWorkspace(ref, title string) error           { return nil }
+func (m *mockClient) SelectWorkspace(ref string) error                  { return nil }
 func (m *mockClient) NewSplit(dir, ref, surfRef string) (string, error) { return "surface:mock", nil }
 func (m *mockClient) NewPane(opts client.NewPaneOpts) (string, error) {
 	return "surface:new", nil
