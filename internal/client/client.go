@@ -99,3 +99,20 @@ type PaneResizer interface {
 type SurfaceRenamer interface {
 	RenameSurface(workspaceRef, surfaceRef, title string) error
 }
+
+// SurfaceState is the live state of a single surface.
+type SurfaceState struct {
+	Ref   string // surface ref, e.g. "surface:9"
+	CWD   string // live working directory of the surface's shell
+	Ready bool   // true once the surface's shell is interactive
+}
+
+// SurfaceStater is optionally implemented by backends that can report live
+// per-surface state. Used during restore to gate on the real readiness/cwd of
+// the specific pane being created (not a workspace-level heuristic), which makes
+// per-pane CWD restore reliable (GitHub #8). cmux implements it via
+// `cmux rpc debug.terminals`; backends that don't are detected via type
+// assertion and restore falls back to the heuristic readiness path.
+type SurfaceStater interface {
+	SurfaceState(surfaceRef string) (*SurfaceState, error)
+}

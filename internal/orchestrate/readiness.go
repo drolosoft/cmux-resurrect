@@ -35,6 +35,26 @@ var (
 func waitForShellReady(c client.Backend, workspaceRef, surfaceRef string) error {
 	deadline := time.Now().Add(ShellReadyTimeout)
 
+	// Preferred path: deterministic per-surface readiness. The workspace-level
+	// heuristic below can't see a brand-new split's shell (sidebar-state is
+	// workspace-scoped and reflects pane 0), so it returns "ready" too early and
+	// the follow-up cd/command is typed into a PTY that isn't draining input yet
+	// (GitHub #8). When the backend can report the specific surface's readiness
+	// (cmux via debug.terminals), gate on that instead.
+	if ss, ok := c.(client.SurfaceStater); ok && surfaceRef != "" {
+		for time.Now().Before(deadline) {
+			if st, err := ss.SurfaceState(surfaceRef); err == nil && st != nil && st.Ready {
+				return nil
+			}
+			time.Sleep(ShellReadyPoll)
+		}
+		// Timed out waiting for the surface; fall through is pointless (the
+		// heuristic watches the wrong surface). Best-effort return — the
+		// caller's cwd verify/retry is the real safety net.
+		return nil
+	}
+
+	// Fallback (Ghostty, or no surface ref): workspace-level CWD heuristic.
 	// Phase 1: Wait for CWD to appear.
 	var lastCWD string
 	for time.Now().Before(deadline) {

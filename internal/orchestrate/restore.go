@@ -50,6 +50,8 @@ func (r *Restorer) restoreSurfaces(pane model.Pane, paneRef, workspaceRef string
 				result.Errors = append(result.Errors, fmt.Sprintf("  pane %d surface %d: shell not ready: %v", paneIdx, j+1, err))
 			} else if err := r.Client.Send(workspaceRef, surfRef, noHistoryCmd(cwdCommand(surf.CWD, r.applyAutoAccept(surf.Command)))); err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("  pane %d surface %d: send command: %v", paneIdx, j+1, err))
+			} else {
+				r.verifyCWD(workspaceRef, surfRef, surf.CWD)
 			}
 		}
 	}
@@ -63,6 +65,30 @@ func (r *Restorer) applyName(workspaceRef, surfaceRef, name string) {
 	}
 	if rn, ok := r.Client.(client.SurfaceRenamer); ok {
 		_ = rn.RenameSurface(workspaceRef, surfaceRef, name)
+	}
+}
+
+// verifyCWD makes per-pane CWD restore reliable (GitHub #8). A freshly-created
+// split's shell can drop the `cd` if it wasn't input-ready, leaving the pane in
+// its inherited directory. After the cd-bearing Send, poll the surface's live
+// cwd and re-send the BARE cd (never the command — idempotent, never re-runs a
+// program) until it sticks or CWDVerifyTimeout passes. No-op when there's no
+// target cwd/surface or the backend can't report surface state (e.g. Ghostty).
+func (r *Restorer) verifyCWD(workspaceRef, surfaceRef, wantCWD string) {
+	if wantCWD == "" || surfaceRef == "" {
+		return
+	}
+	ss, ok := r.Client.(client.SurfaceStater)
+	if !ok {
+		return
+	}
+	deadline := time.Now().Add(CWDVerifyTimeout)
+	for time.Now().Before(deadline) {
+		if st, err := ss.SurfaceState(surfaceRef); err == nil && st != nil && st.CWD == wantCWD {
+			return // cd landed
+		}
+		time.Sleep(CWDVerifyPoll)
+		_ = r.Client.Send(workspaceRef, surfaceRef, noHistoryCmd(cwdCommand(wantCWD, "")))
 	}
 }
 
@@ -369,6 +395,8 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 					result.Errors = append(result.Errors, fmt.Sprintf("  pane %d shell not ready: %v", i, err))
 				} else if err := r.Client.Send(ref, surfaceRef, noHistoryCmd(cwdCommand(pane.CWD, r.applyAutoAccept(pane.Command)))); err != nil {
 					result.Errors = append(result.Errors, fmt.Sprintf("  pane %d send command: %v", i, err))
+				} else {
+					r.verifyCWD(ref, surfaceRef, pane.CWD)
 				}
 			}
 			// Create extra surfaces (tabs) in this pane.

@@ -129,6 +129,37 @@ func (c *CLIClient) RenameSurface(workspaceRef, surfaceRef, title string) error 
 	return err
 }
 
+// SurfaceState returns live state for a specific surface via `cmux rpc
+// debug.terminals`, or nil if the surface isn't found. Implements SurfaceStater.
+func (c *CLIClient) SurfaceState(surfaceRef string) (*SurfaceState, error) {
+	out, err := c.run("rpc", "debug.terminals")
+	if err != nil {
+		return nil, err
+	}
+	return parseSurfaceState(out, surfaceRef)
+}
+
+// parseSurfaceState extracts a surface's live state from `cmux rpc
+// debug.terminals` JSON. Returns nil if the surface isn't present.
+func parseSurfaceState(jsonOut, surfaceRef string) (*SurfaceState, error) {
+	var resp struct {
+		Terminals []struct {
+			SurfaceRef string `json:"surface_ref"`
+			CWD        string `json:"current_directory"`
+			Ready      bool   `json:"runtime_surface_ready"`
+		} `json:"terminals"`
+	}
+	if err := json.Unmarshal([]byte(jsonOut), &resp); err != nil {
+		return nil, fmt.Errorf("parse debug.terminals: %w", err)
+	}
+	for _, t := range resp.Terminals {
+		if t.SurfaceRef == surfaceRef {
+			return &SurfaceState{Ref: t.SurfaceRef, CWD: t.CWD, Ready: t.Ready}, nil
+		}
+	}
+	return nil, nil
+}
+
 // firstSurfaceRef returns the ref of the first surface in a workspace, or "".
 func (c *CLIClient) firstSurfaceRef(workspaceRef string) string {
 	tree, err := c.Tree()
