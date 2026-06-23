@@ -146,6 +146,12 @@ func (s *Saver) buildWorkspace(tw client.TreeWorkspace) (*model.Workspace, error
 				if cmd := detect.ForegroundCommand(surf.TTY); cmd != "" {
 					pane.Command = cmd
 				}
+				// Capture a per-pane CWD only when it differs from the workspace
+				// CWD, so restore can recreate this pane in its own directory
+				// (GitHub #8) without cluttering the layout with redundant paths.
+				if cwd := detect.ForegroundCWD(surf.TTY); cwd != "" && cwd != ws.CWD {
+					pane.CWD = cwd
+				}
 			}
 
 			// Surfaces 1..N → Pane.Surfaces (extra tabs in this pane).
@@ -159,6 +165,9 @@ func (s *Saver) buildWorkspace(tw client.TreeWorkspace) (*model.Workspace, error
 				if extra.Type == "terminal" && extra.TTY != "" {
 					if cmd := detect.ForegroundCommand(extra.TTY); cmd != "" {
 						s.Command = cmd
+					}
+					if cwd := detect.ForegroundCWD(extra.TTY); cwd != "" && cwd != ws.CWD {
+						s.CWD = cwd
 					}
 				}
 				pane.Surfaces = append(pane.Surfaces, s)

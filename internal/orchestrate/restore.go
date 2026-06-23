@@ -45,10 +45,10 @@ func (r *Restorer) restoreSurfaces(pane model.Pane, paneRef, workspaceRef string
 			continue
 		}
 		r.applyName(workspaceRef, surfRef, surf.Name)
-		if surf.Command != "" {
+		if surf.Command != "" || surf.CWD != "" {
 			if err := waitForShellReady(r.Client, workspaceRef, surfRef); err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("  pane %d surface %d: shell not ready: %v", paneIdx, j+1, err))
-			} else if err := r.Client.Send(workspaceRef, surfRef, noHistoryCmd(r.applyAutoAccept(surf.Command))); err != nil {
+			} else if err := r.Client.Send(workspaceRef, surfRef, noHistoryCmd(cwdCommand(surf.CWD, r.applyAutoAccept(surf.Command)))); err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("  pane %d surface %d: send command: %v", paneIdx, j+1, err))
 			}
 		}
@@ -74,6 +74,26 @@ func (r *Restorer) applyAutoAccept(command string) string {
 		r.OnProgress(fmt.Sprintf("⚡ auto-accept: %s %s", tool, flag), 0, nil)
 	}
 	return cmd
+}
+
+// shellQuote single-quotes a string for safe interpolation into a shell command.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// cwdCommand builds the shell input for a pane/surface, prepending a `cd` into
+// the saved per-pane directory when one was captured (GitHub #8). With no saved
+// CWD it returns the command unchanged, so panes inherit the workspace path as
+// before. A CWD with no command becomes a bare `cd`.
+func cwdCommand(cwd, command string) string {
+	if cwd == "" {
+		return command
+	}
+	cd := "cd " + shellQuote(cwd)
+	if command == "" {
+		return cd
+	}
+	return cd + " && " + command
 }
 
 // RestoreResult reports what happened during restore.
@@ -263,10 +283,12 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 				} else if err := r.Client.Send(ref, "", noHistoryCmd(fmt.Sprintf("open %q", pane.URL))); err != nil {
 					result.Errors = append(result.Errors, fmt.Sprintf("  pane %d open url: %v", i, err))
 				}
-			} else if pane.Command != "" {
+			} else if pane.Command != "" || pane.CWD != "" {
+				// pane.CWD is only set when it differs from the workspace CWD, so a
+				// non-empty value here means this pane needs its own `cd` (GitHub #8).
 				if err := waitForShellReady(r.Client, ref, ""); err != nil {
 					result.Errors = append(result.Errors, fmt.Sprintf("  pane %d shell not ready: %v", i, err))
-				} else if err := r.Client.Send(ref, "", noHistoryCmd(r.applyAutoAccept(pane.Command))); err != nil {
+				} else if err := r.Client.Send(ref, "", noHistoryCmd(cwdCommand(pane.CWD, r.applyAutoAccept(pane.Command)))); err != nil {
 					result.Errors = append(result.Errors, fmt.Sprintf("  pane %d send command: %v", i, err))
 				}
 			}
@@ -340,11 +362,12 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 				resizeAfterSplit(r, surfaceRef, ref, direction, pane.SplitRatio)
 			}
 
-			if pane.Command != "" {
+			if pane.Command != "" || pane.CWD != "" {
 				// Wait for the shell in the new pane to become interactive before sending.
+				// A non-empty pane.CWD means this split needs its own `cd` (GitHub #8).
 				if err := waitForShellReady(r.Client, ref, surfaceRef); err != nil {
 					result.Errors = append(result.Errors, fmt.Sprintf("  pane %d shell not ready: %v", i, err))
-				} else if err := r.Client.Send(ref, surfaceRef, noHistoryCmd(r.applyAutoAccept(pane.Command))); err != nil {
+				} else if err := r.Client.Send(ref, surfaceRef, noHistoryCmd(cwdCommand(pane.CWD, r.applyAutoAccept(pane.Command)))); err != nil {
 					result.Errors = append(result.Errors, fmt.Sprintf("  pane %d send command: %v", i, err))
 				}
 			}
@@ -490,13 +513,13 @@ func (r *Restorer) dryRunWorkspace(ws model.Workspace, result *RestoreResult) (s
 		if i == 0 {
 			if pane.Type == "browser" && pane.URL != "" {
 				result.Commands = append(result.Commands, f.FmtSend(ref, fmt.Sprintf("open %q", pane.URL)))
-			} else if pane.Command != "" {
-				result.Commands = append(result.Commands, f.FmtSend(ref, r.applyAutoAccept(pane.Command)))
+			} else if pane.Command != "" || pane.CWD != "" {
+				result.Commands = append(result.Commands, f.FmtSend(ref, cwdCommand(pane.CWD, r.applyAutoAccept(pane.Command))))
 			}
 			for _, surf := range pane.Surfaces {
 				result.Commands = append(result.Commands, f.FmtNewSurface(fmt.Sprintf("pane:%d", i), ref))
-				if surf.Command != "" {
-					result.Commands = append(result.Commands, f.FmtSend(ref, r.applyAutoAccept(surf.Command)))
+				if surf.Command != "" || surf.CWD != "" {
+					result.Commands = append(result.Commands, f.FmtSend(ref, cwdCommand(surf.CWD, r.applyAutoAccept(surf.Command))))
 				}
 			}
 			continue
@@ -513,13 +536,13 @@ func (r *Restorer) dryRunWorkspace(ws model.Workspace, result *RestoreResult) (s
 			result.Commands = append(result.Commands, f.FmtNewPane(pane.Type, direction, ref, pane.URL))
 		} else {
 			result.Commands = append(result.Commands, f.FmtNewSplit(direction, ref))
-			if pane.Command != "" {
-				result.Commands = append(result.Commands, f.FmtSend(ref, r.applyAutoAccept(pane.Command)))
+			if pane.Command != "" || pane.CWD != "" {
+				result.Commands = append(result.Commands, f.FmtSend(ref, cwdCommand(pane.CWD, r.applyAutoAccept(pane.Command))))
 			}
 			for _, surf := range pane.Surfaces {
 				result.Commands = append(result.Commands, f.FmtNewSurface(fmt.Sprintf("pane:%d", i), ref))
-				if surf.Command != "" {
-					result.Commands = append(result.Commands, f.FmtSend(ref, r.applyAutoAccept(surf.Command)))
+				if surf.Command != "" || surf.CWD != "" {
+					result.Commands = append(result.Commands, f.FmtSend(ref, cwdCommand(surf.CWD, r.applyAutoAccept(surf.Command))))
 				}
 			}
 		}
