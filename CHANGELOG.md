@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.21.0] — 2026-06-23
+
+### Added
+- **AI session detection via alias, wrapper, or interpreter** — `crex save` now detects AI CLIs launched through a shell alias/function, a wrapper script, or an interpreter (e.g. `node …/claude/cli.js`, where the process name is "node"), not just the bare binary name (#6)
+- **Optional tab/pane names in Blueprints** — label any pane or sub-tab with a quoted name after the descriptor (`split right "Diff"`); the label shows as the surface title. Optional and fully backward-compatible — existing Blueprints are unchanged (#7)
+- **Per-pane working directory** — save captures each pane's own working directory and restore recreates each pane in its own folder, instead of collapsing every pane to a single path per workspace (#8)
+- **`crex now`** — print the live workspace/pane tree (CLI equivalent of the TUI `now`)
+- **`crex settings restore-mode get|set|list`** — manage the default restore mode from the CLI; it's persisted to the config and honored by `crex restore`
+
+### Changed
+- **`list` and `show` write their data to stdout** (previously stderr), so `crex list | grep` and `crex show x > file` work; progress and status stay on stderr. ANSI styling is disabled automatically when output isn't a terminal or `NO_COLOR` is set
+- **`pop` and `update`** are now listed in the root `--help`
+- Command-bearing files (Blueprint, config, pid, watch log) are written with `0600` permissions
+
+### Fixed
+- **Reliable cmux multi-pane restore** — fixed `focus-pane` rejecting workspace-local `pane:N` refs ("Missing or invalid pane_id") on multi-pane layouts, and made the per-pane `cd` reliable by gating on real per-surface shell readiness (`debug.terminals`) and verifying/retrying the `cd` (previously ~1-in-3 restores lost a pane's directory)
+- **`crex setup` honors `CREX_BACKEND`** — the env override was previously ignored during the first-run save
+- **Hardened restore** — split direction is validated against an allowlist (blocks AppleScript injection via a crafted layout), unchecked errors fixed, dead code removed
+
+### Note
+- In Ghostty, tab/pane names apply to the tab (= workspace) only — Ghostty has no sub-tabs and its splits carry no individual title, so per-surface names render on cmux. The name is always preserved in the Blueprint, keeping layouts portable
+
+---
+
+## [v1.20.0] — 2026-06-09
+
+### Added
+- **Multi-surface panes** — save, restore, and import additional tabs (surfaces) within a pane using the `tab N:` Blueprint syntax
+
+### Fixed
+- **Ghostty fresh launch** — correct handling when Ghostty is running with no windows / all windows closed; close the restored default tab on a clean launch
+
+### Changed
+- **README** redesigned as a visual front page; Alfred guide documents cmux automation mode + Ghostty
+
+---
+
 ## [v1.19.2] — 2026-06-06
 
 ### Added
@@ -452,3 +489,5 @@ Initial public release.
 [v1.18.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.18.0
 [v1.19.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.19.0
 [v1.19.2]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.19.2
+[v1.20.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.20.0
+[v1.21.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.21.0
