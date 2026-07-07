@@ -7,29 +7,36 @@ import (
 	"github.com/drolosoft/cmux-resurrect/internal/client"
 )
 
-// PaneSplitInfo describes the inferred split direction, ratio, and focus target.
-type PaneSplitInfo struct {
-	PaneIndex   int
-	Direction   string  // "right", "left", "down", "up"
-	Ratio       float64 // fraction the new pane occupies (0.0–1.0)
-	FocusTarget int     // pane index to focus before splitting, -1 if not needed
+// PaneCreation describes one step of recreating a workspace's pane layout.
+// Steps are in creation order: the first entry is the workspace's initial
+// pane (no split); each later entry is created by splitting an existing pane
+// — the currently focused one when FocusTarget is -1, otherwise the pane at
+// live index FocusTarget.
+type PaneCreation struct {
+	PaneIndex   int     // cmux pane index (visual order) of the pane this step creates
+	Direction   string  // "" for the initial pane; else "right" or "down"
+	Ratio       float64 // fraction of the split region the new pane occupies (0.0–1.0)
+	FocusTarget int     // live pane index to focus before splitting; -1 if none needed
 }
 
-// InferSplitDirections analyzes pane pixel geometry and returns split info
-// for each pane after the first. Returns nil for 0 or 1 pane.
-func InferSplitDirections(panes []client.PaneListPane) []PaneSplitInfo {
+// InferCreationOrder analyzes pane pixel geometry and returns the sequence of
+// splits that recreates the layout. Returns nil for 0 or 1 pane, or when the
+// geometry can't be reconstructed (zero/overlapping frames).
+//
+// cmux indexes panes by visual position (left-to-right, then top-to-bottom),
+// not creation order — e.g. a full-height right pane has the highest index in
+// a "left column split in two + right pane" layout, yet it must be created
+// FIRST (splitting the left column before the right pane exists changes what
+// region each split divides). So the saved pane order must be a valid
+// creation order derived from the split tree, not the index order (GitHub #8
+// follow-up: restored layouts came back with panes in the wrong positions).
+func InferCreationOrder(panes []client.PaneListPane) []PaneCreation {
 	if len(panes) <= 1 {
 		return nil
 	}
 
-	// Sort by index.
-	sorted := make([]client.PaneListPane, len(panes))
-	copy(sorted, panes)
-	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Index < sorted[j].Index })
-
-	// Convert to internal rects.
-	rects := make([]paneRect, len(sorted))
-	for i, p := range sorted {
+	rects := make([]paneRect, len(panes))
+	for i, p := range panes {
 		rects[i] = paneRect{
 			index: p.Index,
 			x:     p.PixelFrame.X,
@@ -39,18 +46,143 @@ func InferSplitDirections(panes []client.PaneListPane) []PaneSplitInfo {
 		}
 	}
 
-	// Build BSP tree.
 	tree := buildBSP(rects)
-
-	// Walk panes in index order and extract split info.
-	var splits []PaneSplitInfo
-	for i := 1; i < len(sorted); i++ {
-		idx := sorted[i].Index
-		prevIdx := sorted[i-1].Index
-		info := extractSplitInfo(tree, idx, prevIdx)
-		splits = append(splits, info)
+	if countLeaves(tree) != len(rects) {
+		return nil // BSP reconstruction failed (degenerate frames)
 	}
-	return splits
+
+	st := &creationState{
+		origin: make(map[int]paneRect, len(rects)),
+		live:   make(map[int]paneRect, len(rects)),
+	}
+	for _, r := range rects {
+		st.origin[r.index] = r
+	}
+
+	root := st.repOf(tree)
+	st.live[root] = boundingBox(rects)
+	st.focused = root
+	st.steps = append(st.steps, PaneCreation{PaneIndex: root, FocusTarget: -1})
+	st.flatten(tree)
+	return st.steps
+}
+
+// creationState tracks the simulated workspace while flattening the BSP tree
+// into a creation sequence.
+type creationState struct {
+	origin  map[int]paneRect // final rect per pane index (for representative selection)
+	live    map[int]paneRect // region each already-created pane currently occupies
+	focused int              // pane index holding focus (the last one created)
+	steps   []PaneCreation
+}
+
+// flatten walks the BSP tree pre-order. At each internal node the right/bottom
+// child's representative pane is created by splitting the left/top child's
+// representative — which currently occupies the node's whole region.
+func (st *creationState) flatten(node *bspNode) {
+	if node.paneIndex >= 0 {
+		return
+	}
+	leftRep := st.repOf(node.left)
+	rightRep := st.repOf(node.right)
+	region := st.live[leftRep]
+
+	dir := "right"
+	leftR, rightR := region, region
+	if node.axis == "vertical" {
+		leftR.w = region.w * (1 - node.ratio)
+		rightR.x = region.x + leftR.w
+		rightR.w = region.w * node.ratio
+	} else {
+		dir = "down"
+		leftR.h = region.h * (1 - node.ratio)
+		rightR.y = region.y + leftR.h
+		rightR.h = region.h * node.ratio
+	}
+
+	// If focus moved elsewhere (a sibling subtree was flattened first), the
+	// restore must refocus the pane being split — by its live index at this
+	// step, since cmux re-ranks pane indexes as panes are created.
+	focusTarget := -1
+	if st.focused != leftRep {
+		focusTarget = st.liveIndexOf(leftRep)
+	}
+
+	st.live[leftRep] = leftR
+	st.live[rightRep] = rightR
+	st.steps = append(st.steps, PaneCreation{
+		PaneIndex:   rightRep,
+		Direction:   dir,
+		Ratio:       node.ratio,
+		FocusTarget: focusTarget,
+	})
+	st.focused = rightRep
+
+	st.flatten(node.left)
+	st.flatten(node.right)
+}
+
+// repOf returns the subtree's representative pane: the leaf occupying the
+// region's top-left corner in the final layout. Splits keep the original
+// pane on the left/top side, so this pane holds the whole region until the
+// subtree is subdivided.
+func (st *creationState) repOf(n *bspNode) int {
+	if n.paneIndex >= 0 {
+		return n.paneIndex
+	}
+	l, r := st.repOf(n.left), st.repOf(n.right)
+	lr, rr := st.origin[l], st.origin[r]
+	if lr.x < rr.x || (lr.x == rr.x && lr.y <= rr.y) {
+		return l
+	}
+	return r
+}
+
+// liveIndexOf returns a pane's index in cmux's live visual ordering
+// (left-to-right, then top-to-bottom) among the panes created so far.
+func (st *creationState) liveIndexOf(idx int) int {
+	target := st.live[idx]
+	rank := 0
+	for other, r := range st.live {
+		if other == idx {
+			continue
+		}
+		if r.x < target.x || (r.x == target.x && r.y < target.y) {
+			rank++
+		}
+	}
+	return rank
+}
+
+// countLeaves returns the number of leaf panes in the BSP tree.
+func countLeaves(n *bspNode) int {
+	if n.paneIndex >= 0 {
+		return 1
+	}
+	return countLeaves(n.left) + countLeaves(n.right)
+}
+
+// boundingBox returns the rect enclosing all pane rects.
+func boundingBox(rects []paneRect) paneRect {
+	bb := rects[0]
+	maxX, maxY := bb.x+bb.w, bb.y+bb.h
+	for _, r := range rects[1:] {
+		if r.x < bb.x {
+			bb.x = r.x
+		}
+		if r.y < bb.y {
+			bb.y = r.y
+		}
+		if r.x+r.w > maxX {
+			maxX = r.x + r.w
+		}
+		if r.y+r.h > maxY {
+			maxY = r.y + r.h
+		}
+	}
+	bb.w = maxX - bb.x
+	bb.h = maxY - bb.y
+	return bb
 }
 
 // paneRect is an internal representation of a pane's geometry.
@@ -72,27 +204,6 @@ type bspNode struct {
 	ratio float64  // fraction of total extent that the right/bottom side occupies
 	left  *bspNode // left or top subtree
 	right *bspNode // right or bottom subtree
-}
-
-// minIndex returns the smallest pane index in this subtree.
-func (n *bspNode) minIndex() int {
-	if n.paneIndex >= 0 {
-		return n.paneIndex
-	}
-	l := n.left.minIndex()
-	r := n.right.minIndex()
-	if l < r {
-		return l
-	}
-	return r
-}
-
-// containsIndex checks if a pane index exists in this subtree.
-func (n *bspNode) containsIndex(idx int) bool {
-	if n.paneIndex >= 0 {
-		return n.paneIndex == idx
-	}
-	return n.left.containsIndex(idx) || n.right.containsIndex(idx)
 }
 
 const edgeTolerance = 2.0
@@ -232,112 +343,4 @@ func collectEdges(rects []paneRect, extract func(paneRect) float64) []float64 {
 	}
 	sort.Float64s(edges)
 	return edges
-}
-
-// pathToLeaf returns the path of (node, side) pairs from root to the leaf
-// containing paneIdx. Side is "left" or "right" indicating which child was taken.
-func pathToLeaf(node *bspNode, paneIdx int) []pathEntry {
-	if node.paneIndex >= 0 {
-		if node.paneIndex == paneIdx {
-			return []pathEntry{}
-		}
-		return nil
-	}
-	if node.left.containsIndex(paneIdx) {
-		sub := pathToLeaf(node.left, paneIdx)
-		if sub != nil {
-			return append([]pathEntry{{node: node, side: "left"}}, sub...)
-		}
-	}
-	if node.right.containsIndex(paneIdx) {
-		sub := pathToLeaf(node.right, paneIdx)
-		if sub != nil {
-			return append([]pathEntry{{node: node, side: "right"}}, sub...)
-		}
-	}
-	return nil
-}
-
-type pathEntry struct {
-	node *bspNode
-	side string // "left" or "right" — which child contains the target pane
-}
-
-// extractSplitInfo derives PaneSplitInfo for a pane from the BSP tree.
-//
-// For pane P(i), walk up the BSP path from the leaf. At each ancestor,
-// look at the sibling subtree. The sibling's min-index pane that is < P(i)
-// is the focus target — the pane that was split to create P(i).
-// The ancestor node's axis + which side P(i) is on gives the direction.
-func extractSplitInfo(root *bspNode, paneIdx, prevIdx int) PaneSplitInfo {
-	path := pathToLeaf(root, paneIdx)
-	if len(path) == 0 {
-		return PaneSplitInfo{PaneIndex: paneIdx, Direction: "right", Ratio: 0.5, FocusTarget: -1}
-	}
-
-	// Walk the path from leaf (deepest) to root (shallowest).
-	// Find the deepest ancestor whose sibling subtree contains a pane with index < paneIdx.
-	for i := len(path) - 1; i >= 0; i-- {
-		entry := path[i]
-		var sibling *bspNode
-		if entry.side == "left" {
-			sibling = entry.node.right
-		} else {
-			sibling = entry.node.left
-		}
-
-		sibMin := sibling.minIndex()
-		if sibMin < paneIdx {
-			// This ancestor's sibling contains a pane created before paneIdx.
-			// The focus target is the min-index pane in the sibling subtree.
-			dir := inferDirection(entry.node.axis, entry.side)
-
-			ratio := entry.node.ratio
-			if entry.side == "left" {
-				ratio = 1.0 - entry.node.ratio
-			}
-
-			focusTarget := -1
-			if sibMin != prevIdx {
-				focusTarget = sibMin
-			}
-
-			return PaneSplitInfo{
-				PaneIndex:   paneIdx,
-				Direction:   dir,
-				Ratio:       ratio,
-				FocusTarget: focusTarget,
-			}
-		}
-	}
-
-	// Fallback: use the shallowest ancestor.
-	entry := path[0]
-	dir := inferDirection(entry.node.axis, entry.side)
-	ratio := entry.node.ratio
-	if entry.side == "left" {
-		ratio = 1.0 - entry.node.ratio
-	}
-	return PaneSplitInfo{
-		PaneIndex:   paneIdx,
-		Direction:   dir,
-		Ratio:       ratio,
-		FocusTarget: -1,
-	}
-}
-
-// inferDirection maps BSP axis + side to a split direction.
-func inferDirection(axis, side string) string {
-	switch {
-	case axis == "vertical" && side == "right":
-		return "right"
-	case axis == "vertical" && side == "left":
-		return "left"
-	case axis == "horizontal" && side == "right":
-		return "down"
-	case axis == "horizontal" && side == "left":
-		return "up"
-	default:
-		return "right"
-	}
 }

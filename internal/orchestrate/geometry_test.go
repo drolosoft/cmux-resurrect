@@ -17,138 +17,160 @@ func plp(index int, frame client.PixelFrame) client.PaneListPane {
 	return client.PaneListPane{Index: index, PixelFrame: frame}
 }
 
-// assertSplit asserts that the split for paneIndex has the expected direction and focus target.
-func assertSplit(t *testing.T, splits []PaneSplitInfo, paneIndex int, wantDir string, wantFocus int) {
+// assertOrder asserts the creation sequence visits panes in the given order.
+func assertOrder(t *testing.T, steps []PaneCreation, want ...int) {
 	t.Helper()
-	for _, s := range splits {
-		if s.PaneIndex == paneIndex {
-			if s.Direction != wantDir {
-				t.Errorf("pane %d: direction = %q, want %q", paneIndex, s.Direction, wantDir)
-			}
-			if s.FocusTarget != wantFocus {
-				t.Errorf("pane %d: focus_target = %d, want %d", paneIndex, s.FocusTarget, wantFocus)
-			}
-			return
+	if len(steps) != len(want) {
+		t.Fatalf("creation steps = %d, want %d", len(steps), len(want))
+	}
+	for i, w := range want {
+		if steps[i].PaneIndex != w {
+			t.Errorf("step %d: pane = %d, want %d (full order: %+v)", i, steps[i].PaneIndex, w, steps)
 		}
 	}
-	t.Errorf("pane %d: not found in splits", paneIndex)
 }
 
-// assertRatioApprox asserts that the ratio for paneIndex is within ±0.05 of wantRatio.
-func assertRatioApprox(t *testing.T, splits []PaneSplitInfo, paneIndex int, wantRatio float64) {
+// assertStep asserts direction and focus target of creation step i.
+func assertStep(t *testing.T, steps []PaneCreation, i int, wantDir string, wantFocus int) {
 	t.Helper()
-	for _, s := range splits {
-		if s.PaneIndex == paneIndex {
-			if math.Abs(s.Ratio-wantRatio) > 0.05 {
-				t.Errorf("pane %d: ratio = %.4f, want ≈%.4f (±0.05)", paneIndex, s.Ratio, wantRatio)
-			}
-			return
-		}
+	if i >= len(steps) {
+		t.Fatalf("step %d out of range (%d steps)", i, len(steps))
 	}
-	t.Errorf("pane %d: not found in splits", paneIndex)
+	s := steps[i]
+	if s.Direction != wantDir {
+		t.Errorf("step %d (pane %d): direction = %q, want %q", i, s.PaneIndex, s.Direction, wantDir)
+	}
+	if s.FocusTarget != wantFocus {
+		t.Errorf("step %d (pane %d): focus_target = %d, want %d", i, s.PaneIndex, s.FocusTarget, wantFocus)
+	}
 }
 
-func TestInferSplitDirections_SinglePane(t *testing.T) {
+// assertRatioApprox asserts that step i's ratio is within ±0.05 of wantRatio.
+func assertRatioApprox(t *testing.T, steps []PaneCreation, i int, wantRatio float64) {
+	t.Helper()
+	if math.Abs(steps[i].Ratio-wantRatio) > 0.05 {
+		t.Errorf("step %d (pane %d): ratio = %.4f, want ≈%.4f (±0.05)", i, steps[i].PaneIndex, steps[i].Ratio, wantRatio)
+	}
+}
+
+func TestInferCreationOrder_SinglePane(t *testing.T) {
 	panes := []client.PaneListPane{
 		plp(0, pf(0, 0, 1000, 800)),
 	}
-	splits := InferSplitDirections(panes)
-	if len(splits) != 0 {
-		t.Errorf("expected empty splits for single pane, got %d", len(splits))
+	if steps := InferCreationOrder(panes); steps != nil {
+		t.Errorf("expected nil for single pane, got %+v", steps)
 	}
 }
 
-func TestInferSplitDirections_Cols(t *testing.T) {
+func TestInferCreationOrder_ZeroFrames(t *testing.T) {
+	// Never-rendered workspaces report zero pixel frames — inference must
+	// bail (caller keeps the default right-chain) instead of guessing.
+	panes := []client.PaneListPane{
+		plp(0, pf(0, 0, 0, 0)),
+		plp(1, pf(0, 0, 0, 0)),
+	}
+	if steps := InferCreationOrder(panes); steps != nil {
+		t.Errorf("expected nil for zero frames, got %+v", steps)
+	}
+}
+
+func TestInferCreationOrder_Cols(t *testing.T) {
 	// Two columns: P0 left, P1 right
 	panes := []client.PaneListPane{
 		plp(0, pf(0, 0, 500, 800)),
 		plp(1, pf(500, 0, 500, 800)),
 	}
-	splits := InferSplitDirections(panes)
-	if len(splits) != 1 {
-		t.Fatalf("expected 1 split, got %d", len(splits))
-	}
-	assertSplit(t, splits, 1, "right", -1)
+	steps := InferCreationOrder(panes)
+	assertOrder(t, steps, 0, 1)
+	assertStep(t, steps, 1, "right", -1)
 }
 
-func TestInferSplitDirections_Rows(t *testing.T) {
+func TestInferCreationOrder_Rows(t *testing.T) {
 	// Two rows: P0 top, P1 bottom
 	panes := []client.PaneListPane{
 		plp(0, pf(0, 0, 1000, 400)),
 		plp(1, pf(0, 400, 1000, 400)),
 	}
-	splits := InferSplitDirections(panes)
-	if len(splits) != 1 {
-		t.Fatalf("expected 1 split, got %d", len(splits))
-	}
-	assertSplit(t, splits, 1, "down", -1)
+	steps := InferCreationOrder(panes)
+	assertOrder(t, steps, 0, 1)
+	assertStep(t, steps, 1, "down", -1)
 }
 
-func TestInferSplitDirections_Triple(t *testing.T) {
+func TestInferCreationOrder_Triple(t *testing.T) {
 	// Three equal columns
 	panes := []client.PaneListPane{
 		plp(0, pf(0, 0, 333, 800)),
 		plp(1, pf(333, 0, 333, 800)),
 		plp(2, pf(666, 0, 334, 800)),
 	}
-	splits := InferSplitDirections(panes)
-	if len(splits) != 2 {
-		t.Fatalf("expected 2 splits, got %d", len(splits))
-	}
-	assertSplit(t, splits, 1, "right", -1)
-	assertSplit(t, splits, 2, "right", -1)
+	steps := InferCreationOrder(panes)
+	assertOrder(t, steps, 0, 1, 2)
+	assertStep(t, steps, 1, "right", -1)
+	assertStep(t, steps, 2, "right", -1)
 }
 
-func TestInferSplitDirections_Aside(t *testing.T) {
+func TestInferCreationOrder_Aside(t *testing.T) {
 	// P0 full-height left, P1 top-right, P2 bottom-right
 	panes := []client.PaneListPane{
 		plp(0, pf(0, 0, 500, 800)),
 		plp(1, pf(500, 0, 500, 400)),
 		plp(2, pf(500, 400, 500, 400)),
 	}
-	splits := InferSplitDirections(panes)
-	if len(splits) != 2 {
-		t.Fatalf("expected 2 splits, got %d", len(splits))
-	}
-	assertSplit(t, splits, 1, "right", -1)
-	assertSplit(t, splits, 2, "down", -1)
+	steps := InferCreationOrder(panes)
+	assertOrder(t, steps, 0, 1, 2)
+	assertStep(t, steps, 1, "right", -1)
+	assertStep(t, steps, 2, "down", -1)
 }
 
-func TestInferSplitDirections_Shelf(t *testing.T) {
+func TestInferCreationOrder_MirroredAside(t *testing.T) {
+	// P0 top-left, P1 bottom-left, P2 full-height RIGHT — cmux's visual
+	// indexing puts the full-height pane last, but it must be created
+	// FIRST: splitting the left column while P0 still spans the full width
+	// yields a full-width bottom strip instead (GitHub #8 follow-up, the
+	// "restored layout not respected" report).
+	panes := []client.PaneListPane{
+		plp(0, pf(0, 0, 500, 400)),
+		plp(1, pf(0, 400, 500, 400)),
+		plp(2, pf(500, 0, 500, 800)),
+	}
+	steps := InferCreationOrder(panes)
+	assertOrder(t, steps, 0, 2, 1)
+	assertStep(t, steps, 1, "right", -1) // P2: split P0 right while it spans full height
+	assertStep(t, steps, 2, "down", 0)   // P1: refocus P0 (live index 0), split down
+}
+
+func TestInferCreationOrder_Shelf(t *testing.T) {
 	// P0 full-width top, P1 bottom-left, P2 bottom-right
 	panes := []client.PaneListPane{
 		plp(0, pf(0, 0, 1000, 400)),
 		plp(1, pf(0, 400, 500, 400)),
 		plp(2, pf(500, 400, 500, 400)),
 	}
-	splits := InferSplitDirections(panes)
-	if len(splits) != 2 {
-		t.Fatalf("expected 2 splits, got %d", len(splits))
-	}
-	assertSplit(t, splits, 1, "down", -1)
-	assertSplit(t, splits, 2, "right", -1)
+	steps := InferCreationOrder(panes)
+	assertOrder(t, steps, 0, 1, 2)
+	assertStep(t, steps, 1, "down", -1)
+	assertStep(t, steps, 2, "right", -1)
 }
 
-func TestInferSplitDirections_Quad(t *testing.T) {
-	// 2x2 grid:
-	// P0 top-left, P1 top-right, P2 bottom-left, P3 bottom-right
-	// P2 must focus P0 (not P1), P3 must focus P1 (not P2)
+func TestInferCreationOrder_Quad(t *testing.T) {
+	// 2x2 grid with cmux's visual (column-major) indexing:
+	// P0 top-left, P1 bottom-left, P2 top-right, P3 bottom-right.
+	// Build columns first, then split each column; focus targets are LIVE
+	// pane indexes at each step, not final ones.
 	panes := []client.PaneListPane{
 		plp(0, pf(0, 0, 500, 400)),
-		plp(1, pf(500, 0, 500, 400)),
-		plp(2, pf(0, 400, 500, 400)),
+		plp(1, pf(0, 400, 500, 400)),
+		plp(2, pf(500, 0, 500, 400)),
 		plp(3, pf(500, 400, 500, 400)),
 	}
-	splits := InferSplitDirections(panes)
-	if len(splits) != 3 {
-		t.Fatalf("expected 3 splits, got %d", len(splits))
-	}
-	assertSplit(t, splits, 1, "right", -1)
-	assertSplit(t, splits, 2, "down", 0)
-	assertSplit(t, splits, 3, "down", 1)
+	steps := InferCreationOrder(panes)
+	assertOrder(t, steps, 0, 2, 1, 3)
+	assertStep(t, steps, 1, "right", -1) // P2: split P0 right → two columns
+	assertStep(t, steps, 2, "down", 0)   // P1: refocus P0 (live 0), split down
+	assertStep(t, steps, 3, "down", 2)   // P3: refocus P2 (live 2: after P0, P1), split down
 }
 
-func TestInferSplitDirections_Dashboard(t *testing.T) {
+func TestInferCreationOrder_Dashboard(t *testing.T) {
 	// P0 full-width top, P1-P3 three equal columns on the bottom
 	panes := []client.PaneListPane{
 		plp(0, pf(0, 0, 1000, 400)),
@@ -156,16 +178,14 @@ func TestInferSplitDirections_Dashboard(t *testing.T) {
 		plp(2, pf(333, 400, 333, 400)),
 		plp(3, pf(666, 400, 334, 400)),
 	}
-	splits := InferSplitDirections(panes)
-	if len(splits) != 3 {
-		t.Fatalf("expected 3 splits, got %d", len(splits))
-	}
-	assertSplit(t, splits, 1, "down", -1)
-	assertSplit(t, splits, 2, "right", -1)
-	assertSplit(t, splits, 3, "right", -1)
+	steps := InferCreationOrder(panes)
+	assertOrder(t, steps, 0, 1, 2, 3)
+	assertStep(t, steps, 1, "down", -1)
+	assertStep(t, steps, 2, "right", -1)
+	assertStep(t, steps, 3, "right", -1)
 }
 
-func TestInferSplitDirections_IDE(t *testing.T) {
+func TestInferCreationOrder_IDE(t *testing.T) {
 	// P0 left sidebar, P1 top-right editor, P2 bottom-mid terminal, P3 bottom-right terminal
 	panes := []client.PaneListPane{
 		plp(0, pf(0, 0, 300, 800)),
@@ -173,28 +193,24 @@ func TestInferSplitDirections_IDE(t *testing.T) {
 		plp(2, pf(300, 400, 350, 400)),
 		plp(3, pf(650, 400, 350, 400)),
 	}
-	splits := InferSplitDirections(panes)
-	if len(splits) != 3 {
-		t.Fatalf("expected 3 splits, got %d", len(splits))
-	}
-	assertSplit(t, splits, 1, "right", -1)
-	assertSplit(t, splits, 2, "down", -1)
-	assertSplit(t, splits, 3, "right", -1)
+	steps := InferCreationOrder(panes)
+	assertOrder(t, steps, 0, 1, 2, 3)
+	assertStep(t, steps, 1, "right", -1)
+	assertStep(t, steps, 2, "down", -1)
+	assertStep(t, steps, 3, "right", -1)
 }
 
-func TestInferSplitDirections_Ratio(t *testing.T) {
+func TestInferCreationOrder_Ratio(t *testing.T) {
 	// Aside with 70/30 split
 	panes := []client.PaneListPane{
 		plp(0, pf(0, 0, 700, 800)),
 		plp(1, pf(700, 0, 300, 400)),
 		plp(2, pf(700, 400, 300, 400)),
 	}
-	splits := InferSplitDirections(panes)
-	if len(splits) != 2 {
-		t.Fatalf("expected 2 splits, got %d", len(splits))
-	}
-	assertSplit(t, splits, 1, "right", -1)
-	assertRatioApprox(t, splits, 1, 0.30)
-	assertSplit(t, splits, 2, "down", -1)
-	assertRatioApprox(t, splits, 2, 0.50)
+	steps := InferCreationOrder(panes)
+	assertOrder(t, steps, 0, 1, 2)
+	assertStep(t, steps, 1, "right", -1)
+	assertRatioApprox(t, steps, 1, 0.30)
+	assertStep(t, steps, 2, "down", -1)
+	assertRatioApprox(t, steps, 2, 0.50)
 }

@@ -484,6 +484,101 @@ func TestSave_GeometryInfersAsideLayout(t *testing.T) {
 
 func strPtr(s string) *string { return &s }
 
+// geometrySurfaceMock combines pane geometry with live surface state, like the
+// real cmux backend.
+type geometrySurfaceMock struct {
+	geometryMockClient
+	surfaceCWDs map[string]string
+}
+
+func (m *geometrySurfaceMock) SurfaceState(ref string) (*client.SurfaceState, error) {
+	cwd, ok := m.surfaceCWDs[ref]
+	if !ok {
+		return nil, nil
+	}
+	return &client.SurfaceState{Ref: ref, CWD: cwd, Ready: true}, nil
+}
+
+func TestSave_GeometryReordersPanesToCreationOrder(t *testing.T) {
+	// Mirrored aside: P0 top-left, P1 bottom-left, P2 full-height right.
+	// cmux's visual indexing puts the right pane last, but it must be saved
+	// (and thus restored) second — right after P0 — or the left column's
+	// down-split divides the full width and every pane lands in the wrong
+	// place. CWDs must travel with their panes through the reorder.
+	treeResp := &client.TreeResponse{
+		Windows: []client.TreeWindow{{
+			Ref: "window:1",
+			Workspaces: []client.TreeWorkspace{{
+				Ref:   "workspace:1",
+				Title: "multi-dir",
+				Index: 0,
+				Panes: []client.TreePane{
+					{Index: 0, Focused: true, Surfaces: []client.TreeSurface{{Ref: "surface:1", Type: "terminal"}}},
+					{Index: 1, Surfaces: []client.TreeSurface{{Ref: "surface:2", Type: "terminal"}}},
+					{Index: 2, Surfaces: []client.TreeSurface{{Ref: "surface:3", Type: "terminal"}}},
+				},
+			}},
+		}},
+	}
+
+	mc := &geometrySurfaceMock{
+		geometryMockClient: geometryMockClient{
+			mockClient: mockClient{
+				treeResp:    treeResp,
+				sidebarCWDs: map[string]string{"workspace:1": "/home/user"},
+			},
+			paneListByRef: map[string]*client.PaneListResponse{
+				"workspace:1": {
+					WorkspaceRef:   "workspace:1",
+					ContainerFrame: client.ContainerFrame{Width: 1000, Height: 800},
+					Panes: []client.PaneListPane{
+						{Index: 0, PixelFrame: client.PixelFrame{X: 0, Y: 0, Width: 500, Height: 400}},
+						{Index: 1, PixelFrame: client.PixelFrame{X: 0, Y: 400, Width: 500, Height: 400}},
+						{Index: 2, PixelFrame: client.PixelFrame{X: 500, Y: 0, Width: 500, Height: 800}},
+					},
+				},
+			},
+		},
+		surfaceCWDs: map[string]string{
+			"surface:1": "/home/user",           // P0 top-left
+			"surface:2": "/home/user/git",       // P1 bottom-left
+			"surface:3": "/home/user/downloads", // P2 full-height right
+		},
+	}
+
+	dir := t.TempDir()
+	store, _ := persist.NewFileStore(dir)
+	saver := &Saver{Client: mc, Store: store}
+
+	layout, err := saver.Save("geo-reorder", "")
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+
+	ws := layout.Workspaces[0]
+	if len(ws.Panes) != 3 {
+		t.Fatalf("panes = %d, want 3", len(ws.Panes))
+	}
+
+	// Creation order: P0, P2 (right pane FIRST), P1.
+	p0, p1, p2 := ws.Panes[0], ws.Panes[1], ws.Panes[2]
+	if p0.Index != 0 || p0.Split != "" || p0.CWD != "" {
+		t.Errorf("pane[0] = index %d split %q cwd %q, want index 0, no split, no cwd", p0.Index, p0.Split, p0.CWD)
+	}
+	if p1.Index != 2 || p1.Split != "right" || p1.FocusTarget != -1 {
+		t.Errorf("pane[1] = index %d split %q focus %d, want index 2, right, -1", p1.Index, p1.Split, p1.FocusTarget)
+	}
+	if p1.CWD != "/home/user/downloads" {
+		t.Errorf("pane[1] cwd = %q, want /home/user/downloads (must travel with the pane)", p1.CWD)
+	}
+	if p2.Index != 1 || p2.Split != "down" || p2.FocusTarget != 0 {
+		t.Errorf("pane[2] = index %d split %q focus %d, want index 1, down, 0", p2.Index, p2.Split, p2.FocusTarget)
+	}
+	if p2.CWD != "/home/user/git" {
+		t.Errorf("pane[2] cwd = %q, want /home/user/git (must travel with the pane)", p2.CWD)
+	}
+}
+
 func TestMergeUserEdits_NoBrowserCommandLeak(t *testing.T) {
 	live := &model.Layout{
 		Name: "test",

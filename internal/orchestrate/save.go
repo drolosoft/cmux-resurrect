@@ -219,37 +219,49 @@ func (s *Saver) buildWorkspace(tw client.TreeWorkspace) (*model.Workspace, error
 }
 
 // applySplitGeometry uses pane pixel geometry to set correct split directions,
-// ratios, and focus targets on the workspace panes. Replaces the default
-// "all splits are right" heuristic with BSP tree inference.
+// ratios, and focus targets on the workspace panes, and reorders the panes
+// into a valid creation order. cmux indexes panes visually, and that order
+// is not always buildable by sequential splits (a full-height right pane must
+// exist before the left column is split under it) — so the saved pane array
+// follows the inferred creation sequence, not the index order.
 func applySplitGeometry(ws *model.Workspace, paneList *client.PaneListResponse) {
 	if len(paneList.Panes) <= 1 || len(ws.Panes) <= 1 {
 		return
 	}
 
-	splits := InferSplitDirections(paneList.Panes)
-	if splits == nil {
-		return // BSP reconstruction failed, keep defaults
+	order := InferCreationOrder(paneList.Panes)
+	if order == nil || len(order) != len(ws.Panes) {
+		return // BSP reconstruction failed or tree/pane.list mismatch, keep defaults
 	}
 
-	// Build lookup by pane index.
-	byIndex := make(map[int]PaneSplitInfo, len(splits))
-	for _, s := range splits {
-		byIndex[s.PaneIndex] = s
+	// Build lookup by cmux pane index.
+	byIndex := make(map[int]model.Pane, len(ws.Panes))
+	for _, p := range ws.Panes {
+		byIndex[p.Index] = p
 	}
 
-	for i := range ws.Panes {
-		info, ok := byIndex[ws.Panes[i].Index]
+	reordered := make([]model.Pane, 0, len(order))
+	for i, step := range order {
+		pane, ok := byIndex[step.PaneIndex]
 		if !ok {
-			continue
+			return // pane.list index not in tree, keep defaults
 		}
-		ws.Panes[i].Split = info.Direction
-		ws.Panes[i].FocusTarget = info.FocusTarget
-
-		// Only store ratio if it's meaningfully different from 0.5 (equal split).
-		if info.Ratio > 0 && (info.Ratio < 0.48 || info.Ratio > 0.52) {
-			ws.Panes[i].SplitRatio = info.Ratio
+		if i == 0 {
+			pane.Split = ""
+			pane.SplitRatio = 0
+			pane.FocusTarget = -1
+		} else {
+			pane.Split = step.Direction
+			pane.FocusTarget = step.FocusTarget
+			pane.SplitRatio = 0
+			// Only store ratio if it's meaningfully different from 0.5 (equal split).
+			if step.Ratio > 0 && (step.Ratio < 0.48 || step.Ratio > 0.52) {
+				pane.SplitRatio = step.Ratio
+			}
 		}
+		reordered = append(reordered, pane)
 	}
+	ws.Panes = reordered
 }
 
 // deduplicateWorkspaces removes ghost workspaces that share a title with
