@@ -161,7 +161,8 @@ func (s *FileStore) List() ([]model.LayoutMeta, error) {
 func workspacePaneSummary(ws model.Workspace) string {
 	var parts []string
 	for _, p := range ws.Panes {
-		if p.Type == "browser" {
+		switch {
+		case p.Type == "browser":
 			url := p.URL
 			if url != "" {
 				// Strip protocol for brevity.
@@ -177,13 +178,13 @@ func workspacePaneSummary(ws model.Workspace) string {
 			} else {
 				parts = append(parts, "🌐 browser")
 			}
-		} else if p.Command != "" {
+		case p.Command != "":
 			cmd := p.Command
 			if len(cmd) > 30 {
 				cmd = cmd[:27] + "..."
 			}
 			parts = append(parts, cmd)
-		} else {
+		default:
 			parts = append(parts, "shell")
 		}
 	}

@@ -166,14 +166,17 @@ func tryVerticalSplit(rects []paneRect, minX, totalW float64) (float64, []paneRe
 		valid := true
 		for _, r := range rects {
 			rRight := r.x + r.w
-			if rRight <= edge+edgeTolerance && r.x >= minX-edgeTolerance {
+			switch {
+			case rRight <= edge+edgeTolerance && r.x >= minX-edgeTolerance:
 				// Rect is entirely to the left of the split.
 				left = append(left, r)
-			} else if r.x >= edge-edgeTolerance {
+			case r.x >= edge-edgeTolerance:
 				// Rect is entirely to the right of the split.
 				right = append(right, r)
-			} else {
+			default:
 				valid = false
+			}
+			if !valid {
 				break
 			}
 		}
@@ -197,12 +200,15 @@ func tryHorizontalSplit(rects []paneRect, minY, totalH float64) (float64, []pane
 		valid := true
 		for _, r := range rects {
 			rBottom := r.y + r.h
-			if rBottom <= edge+edgeTolerance && r.y >= minY-edgeTolerance {
+			switch {
+			case rBottom <= edge+edgeTolerance && r.y >= minY-edgeTolerance:
 				top = append(top, r)
-			} else if r.y >= edge-edgeTolerance {
+			case r.y >= edge-edgeTolerance:
 				bottom = append(bottom, r)
-			} else {
+			default:
 				valid = false
+			}
+			if !valid {
 				break
 			}
 		}

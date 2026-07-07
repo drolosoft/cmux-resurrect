@@ -86,7 +86,8 @@ func runShow(cmd *cobra.Command, args []string) error {
 			if p.Split != "" {
 				desc = magentaStyle.Render("→"+p.Split) + " "
 			}
-			if p.Type == "browser" {
+			switch {
+			case p.Type == "browser":
 				url := p.URL
 				if len(url) > 50 {
 					url = url[:47] + "..."
@@ -96,13 +97,13 @@ func runShow(cmd *cobra.Command, args []string) error {
 				} else {
 					desc += dimStyle.Render("🌐 browser")
 				}
-			} else if p.Command != "" {
+			case p.Command != "":
 				cmd := p.Command
 				if len(cmd) > 50 {
 					cmd = cmd[:47] + "..."
 				}
 				desc += cyanStyle.Render(cmd)
-			} else {
+			default:
 				desc += dimStyle.Render("shell")
 			}
 			if p.Focus {

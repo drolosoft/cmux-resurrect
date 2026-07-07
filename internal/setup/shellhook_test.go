@@ -71,7 +71,9 @@ func TestHookLine_Fish(t *testing.T) {
 func TestInstallHook_Idempotent(t *testing.T) {
 	dir := t.TempDir()
 	rcFile := filepath.Join(dir, ".zshrc")
-	os.WriteFile(rcFile, []byte("# existing config\n"), 0644)
+	if err := os.WriteFile(rcFile, []byte("# existing config\n"), 0644); err != nil {
+		t.Fatalf("write rc file: %v", err)
+	}
 
 	err := InstallHookToFile(rcFile, "zsh", "^G")
 	if err != nil {
@@ -95,10 +97,16 @@ func TestInstallHook_Idempotent(t *testing.T) {
 func TestUninstallHook(t *testing.T) {
 	dir := t.TempDir()
 	rcFile := filepath.Join(dir, ".zshrc")
-	os.WriteFile(rcFile, []byte("# before\n"), 0644)
+	if err := os.WriteFile(rcFile, []byte("# before\n"), 0644); err != nil {
+		t.Fatalf("write rc file: %v", err)
+	}
 
-	InstallHookToFile(rcFile, "zsh", "^G")
-	UninstallHookFromFile(rcFile)
+	if err := InstallHookToFile(rcFile, "zsh", "^G"); err != nil {
+		t.Fatalf("install hook: %v", err)
+	}
+	if err := UninstallHookFromFile(rcFile); err != nil {
+		t.Fatalf("uninstall hook: %v", err)
+	}
 
 	content, _ := os.ReadFile(rcFile)
 	if strings.Contains(string(content), "crex-pop-hook") {

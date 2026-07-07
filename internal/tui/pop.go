@@ -703,7 +703,8 @@ func (m *PopModel) applyFilter() {
 
 	for _, match := range goodMatches {
 		item := m.items[match.Index]
-		if item.Kind == "workspace" {
+		switch item.Kind {
+		case "workspace":
 			key := item.Name + "|" + item.SearchText // title + layout
 			if seenWs[key] {
 				continue
@@ -711,10 +712,10 @@ func (m *PopModel) applyFilter() {
 			seenWs[key] = true
 			workspaces = append(workspaces, item)
 			workspacePos = append(workspacePos, match.MatchedIndexes)
-		} else if item.Kind == "template" {
+		case "template":
 			templates = append(templates, item)
 			templatePos = append(templatePos, match.MatchedIndexes)
-		} else {
+		default:
 			layouts = append(layouts, item)
 			layoutPos = append(layoutPos, match.MatchedIndexes)
 		}
@@ -773,11 +774,12 @@ func (m *PopModel) enterDrill(layoutName string) {
 	for _, ws := range layout.Workspaces {
 		var parts []string
 		for _, p := range ws.Panes {
-			if p.Command != "" {
+			switch {
+			case p.Command != "":
 				parts = append(parts, shortCmd(p.Command))
-			} else if p.URL != "" {
+			case p.URL != "":
 				parts = append(parts, "browser")
-			} else {
+			default:
 				parts = append(parts, "shell")
 			}
 		}

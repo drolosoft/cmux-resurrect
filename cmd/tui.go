@@ -38,8 +38,7 @@ func runTUI(cmd *cobra.Command, args []string) error {
 	m.SetBannerStyle(style)
 	m.SetRestoreMode(cfg.RestoreMode)
 	m.OnSettingChanged = func(key, value string) {
-		switch key {
-		case "restore_mode":
+		if key == "restore_mode" {
 			cfg.RestoreMode = value
 		}
 		_ = config.Save(config.DefaultConfigPath(), cfg)

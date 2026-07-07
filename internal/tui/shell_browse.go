@@ -289,15 +289,16 @@ func (bm BrowseModel) View() string {
 		b.WriteString("\n")
 	}
 
-	if bm.filtering {
+	switch {
+	case bm.filtering:
 		fmt.Fprintf(&b, "  / %s", bm.filterText)
 		b.WriteString(shellDimStyle.Render("▌"))
 		b.WriteString("\n")
-	} else if bm.inDetail {
+	case bm.inDetail:
 		hint := "  ↑/↓ select · ↵ restore · / filter · ←/esc back"
 		b.WriteString(shellDimStyle.Render(hint))
 		b.WriteString("\n")
-	} else {
+	default:
 		hint := fmt.Sprintf("  ↑/↓ select · ↵ %s · / filter · q back", bm.action)
 		if bm.action == "restore" {
 			hint = "  ↑/↓ select · ↵ restore · →/tab pick workspace · / filter · esc cancel"

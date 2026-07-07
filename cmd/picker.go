@@ -54,8 +54,7 @@ func newPickerModel(metas []model.LayoutMeta, skipMode bool) pickerModel {
 func (m pickerModel) Init() tea.Cmd { return nil }
 
 func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	if msg, ok := msg.(tea.KeyMsg); ok {
 		if msg.Type == tea.KeyCtrlC {
 			m.cancelled = true
 			return m, tea.Quit
@@ -82,10 +81,11 @@ func (m pickerModel) updateLayout(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		item := m.browse.SelectedItem()
 		m.layout = item.Name
 		m.workspace = ""
-		if item.Kind == tui.KindWorkspace {
+		switch item.Kind {
+		case tui.KindWorkspace:
 			m.workspace = item.Name
 			m.layout = m.browse.LayoutName()
-		} else if item.Kind == tui.KindAllWs {
+		case tui.KindAllWs:
 			m.layout = m.browse.LayoutName()
 		}
 
