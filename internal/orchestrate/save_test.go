@@ -597,3 +597,130 @@ func TestSplitRatio_TOMLRoundTrip(t *testing.T) {
 		t.Errorf("pane 2: split_ratio = %f, want 0", pane2.SplitRatio)
 	}
 }
+
+// surfaceStateMock is a mockClient that also implements client.SurfaceStater,
+// like the real cmux backend.
+type surfaceStateMock struct {
+	mockClient
+	surfaceCWDs map[string]string
+}
+
+func (m *surfaceStateMock) SurfaceState(ref string) (*client.SurfaceState, error) {
+	cwd, ok := m.surfaceCWDs[ref]
+	if !ok {
+		return nil, nil
+	}
+	return &client.SurfaceState{Ref: ref, CWD: cwd, Ready: true}, nil
+}
+
+func TestSave_PerPaneCWD_FallsBackToSurfaceState(t *testing.T) {
+	// Current cmux builds report no tty for surfaces in `tree --json`, so
+	// TTY-based foreground CWD capture yields nothing. Save must fall back
+	// to the backend's live surface state or the per-pane CWD round-trip
+	// breaks (GitHub #8).
+	tree := &client.TreeResponse{
+		Windows: []client.TreeWindow{{
+			Workspaces: []client.TreeWorkspace{{
+				Ref:   "workspace:1",
+				Title: "multi-dir",
+				Panes: []client.TreePane{
+					{
+						Index:   0,
+						Focused: true,
+						Surfaces: []client.TreeSurface{
+							{Ref: "surface:1", Type: "terminal"}, // no TTY
+							{Ref: "surface:2", Type: "terminal"}, // extra tab, no TTY
+						},
+					},
+					{
+						Index: 1,
+						Surfaces: []client.TreeSurface{
+							{Ref: "surface:3", Type: "terminal"}, // no TTY
+						},
+					},
+				},
+			}},
+		}},
+	}
+
+	mc := &surfaceStateMock{
+		mockClient: mockClient{
+			treeResp:    tree,
+			sidebarCWDs: map[string]string{"workspace:1": "/home/user"},
+		},
+		surfaceCWDs: map[string]string{
+			"surface:1": "/home/user/docs",
+			"surface:2": "/home/user/downloads",
+			"surface:3": "/home/user/pictures",
+		},
+	}
+
+	dir := t.TempDir()
+	store, _ := persist.NewFileStore(dir)
+	saver := &Saver{Client: mc, Store: store}
+
+	layout, err := saver.Save("cwd-fallback", "")
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	if len(layout.Workspaces) != 1 {
+		t.Fatalf("Workspaces = %d, want 1", len(layout.Workspaces))
+	}
+
+	ws := layout.Workspaces[0]
+	if len(ws.Panes) != 2 {
+		t.Fatalf("Panes = %d, want 2", len(ws.Panes))
+	}
+	if got := ws.Panes[0].CWD; got != "/home/user/docs" {
+		t.Errorf("pane 0 CWD = %q, want /home/user/docs", got)
+	}
+	if len(ws.Panes[0].Surfaces) != 1 {
+		t.Fatalf("pane 0 extra surfaces = %d, want 1", len(ws.Panes[0].Surfaces))
+	}
+	if got := ws.Panes[0].Surfaces[0].CWD; got != "/home/user/downloads" {
+		t.Errorf("pane 0 surface 1 CWD = %q, want /home/user/downloads", got)
+	}
+	if got := ws.Panes[1].CWD; got != "/home/user/pictures" {
+		t.Errorf("pane 1 CWD = %q, want /home/user/pictures", got)
+	}
+}
+
+func TestSave_PerPaneCWD_SurfaceStateEqualToWorkspaceCWDOmitted(t *testing.T) {
+	// A surface whose live CWD matches the workspace CWD must not clutter
+	// the layout with a redundant per-pane cwd.
+	tree := &client.TreeResponse{
+		Windows: []client.TreeWindow{{
+			Workspaces: []client.TreeWorkspace{{
+				Ref:   "workspace:1",
+				Title: "same-dir",
+				Panes: []client.TreePane{{
+					Index:   0,
+					Focused: true,
+					Surfaces: []client.TreeSurface{
+						{Ref: "surface:1", Type: "terminal"},
+					},
+				}},
+			}},
+		}},
+	}
+
+	mc := &surfaceStateMock{
+		mockClient: mockClient{
+			treeResp:    tree,
+			sidebarCWDs: map[string]string{"workspace:1": "/home/user"},
+		},
+		surfaceCWDs: map[string]string{"surface:1": "/home/user"},
+	}
+
+	dir := t.TempDir()
+	store, _ := persist.NewFileStore(dir)
+	saver := &Saver{Client: mc, Store: store}
+
+	layout, err := saver.Save("cwd-same", "")
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	if got := layout.Workspaces[0].Panes[0].CWD; got != "" {
+		t.Errorf("pane 0 CWD = %q, want empty (matches workspace cwd)", got)
+	}
+}

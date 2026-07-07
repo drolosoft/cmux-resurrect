@@ -99,6 +99,27 @@ func (s *Saver) Save(name, description string) (*model.Layout, error) {
 	return layout, nil
 }
 
+// surfaceCWD returns the live working directory of a surface's shell. It
+// prefers the TTY foreground process (most precise when a foreground command
+// cd'd deeper), but current cmux builds report no tty in `tree --json`, so it
+// falls back to the backend's live surface state (`cmux rpc debug.terminals`).
+func (s *Saver) surfaceCWD(surf client.TreeSurface) string {
+	if surf.TTY != "" {
+		if cwd := detect.ForegroundCWD(surf.TTY); cwd != "" {
+			return cwd
+		}
+	}
+	ss, ok := s.Client.(client.SurfaceStater)
+	if !ok || surf.Ref == "" {
+		return ""
+	}
+	st, err := ss.SurfaceState(surf.Ref)
+	if err != nil || st == nil {
+		return ""
+	}
+	return st.CWD
+}
+
 func (s *Saver) buildWorkspace(tw client.TreeWorkspace) (*model.Workspace, error) {
 	// Get CWD from sidebar-state.
 	sidebar, err := s.Client.SidebarState(tw.Ref)
@@ -142,35 +163,39 @@ func (s *Saver) buildWorkspace(tw client.TreeWorkspace) (*model.Workspace, error
 			if surf.URL != nil {
 				pane.URL = *surf.URL
 			}
-			if surf.Type == "terminal" && surf.TTY != "" {
-				if cmd := detect.ForegroundCommand(surf.TTY); cmd != "" {
-					pane.Command = cmd
+			if surf.Type == "terminal" {
+				if surf.TTY != "" {
+					if cmd := detect.ForegroundCommand(surf.TTY); cmd != "" {
+						pane.Command = cmd
+					}
 				}
 				// Capture a per-pane CWD only when it differs from the workspace
 				// CWD, so restore can recreate this pane in its own directory
 				// (GitHub #8) without cluttering the layout with redundant paths.
-				if cwd := detect.ForegroundCWD(surf.TTY); cwd != "" && cwd != ws.CWD {
+				if cwd := s.surfaceCWD(surf); cwd != "" && cwd != ws.CWD {
 					pane.CWD = cwd
 				}
 			}
 
 			// Surfaces 1..N → Pane.Surfaces (extra tabs in this pane).
 			for _, extra := range tp.Surfaces[1:] {
-				s := model.Surface{
+				es := model.Surface{
 					Type: extra.Type,
 				}
 				if extra.URL != nil {
-					s.URL = *extra.URL
+					es.URL = *extra.URL
 				}
-				if extra.Type == "terminal" && extra.TTY != "" {
-					if cmd := detect.ForegroundCommand(extra.TTY); cmd != "" {
-						s.Command = cmd
+				if extra.Type == "terminal" {
+					if extra.TTY != "" {
+						if cmd := detect.ForegroundCommand(extra.TTY); cmd != "" {
+							es.Command = cmd
+						}
 					}
-					if cwd := detect.ForegroundCWD(extra.TTY); cwd != "" && cwd != ws.CWD {
-						s.CWD = cwd
+					if cwd := s.surfaceCWD(extra); cwd != "" && cwd != ws.CWD {
+						es.CWD = cwd
 					}
 				}
-				pane.Surfaces = append(pane.Surfaces, s)
+				pane.Surfaces = append(pane.Surfaces, es)
 			}
 		}
 
