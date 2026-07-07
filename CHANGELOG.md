@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.21.1] — 2026-07-08
+
+### Fixed
+- **Restored layouts keep their exact shape** — `crex save` now writes panes in a valid creation order derived from the split tree. cmux numbers panes by visual position (left-to-right, top-to-bottom), and replaying that order could rebuild a different arrangement — e.g. a "left column split in two + full-height right pane" layout came back as a split top row + full-width bottom strip, with every pane's directory in the wrong place (#8)
+- **Per-pane working directories survive `save` on current cmux** — recent cmux builds no longer report a `tty` for surfaces in `tree --json`, which silently disabled per-pane CWD capture: restored layouts kept their folders, but re-saving lost them again. Save now falls back to cmux's live surface state (`debug.terminals`) — the same source restore already uses for readiness gating (#8)
+
+### Changed
+- Internal lint cleanup (unchecked error returns in tests, if-else chains rewritten as switches) — no behavior change
+
+---
+
 ## [v1.21.0] — 2026-06-23
 
 ### Added
@@ -491,3 +502,4 @@ Initial public release.
 [v1.19.2]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.19.2
 [v1.20.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.20.0
 [v1.21.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.21.0
+[v1.21.1]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.21.1

@@ -26,7 +26,7 @@ Save layouts by name. Restore them anytime. Switch between them in seconds. Resu
 <td width="50%" valign="top">
 
 **💾 [Save & Restore](docs/commands.md)**<br>
-Every tab, pane, CWD, and command — captured and restored by name.
+Every tab, pane, CWD, and command — captured and restored by name, with the exact split arrangement.
 
 **📦 [16 Templates](docs/templates.md)**<br>
 Instant workspace setup — splits, IDE layouts, AI pair-programming.
