@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.22.1] — 2026-07-08
+
+### Fixed
+- **Aside layouts no longer restore mirrored** — a workspace with one full-height pane beside a split column (e.g. a sidebar on the left, two stacked panes on the right) came back mirrored: the full-height pane jumped to the other side. cmux keeps keyboard focus on the pane it just split (not the new one), and `new-split` acts on the focused pane, so every split during restore now carries an explicit focus target instead of relying on cmux's implicit focus. Directories were already correct; now the arrangement is too (#8)
+
+---
+
 ## [v1.22.0] — 2026-07-08
 
 ### Added
@@ -511,3 +518,4 @@ Initial public release.
 [v1.21.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.21.0
 [v1.21.1]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.21.1
 [v1.22.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.22.0
+[v1.22.1]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.22.1

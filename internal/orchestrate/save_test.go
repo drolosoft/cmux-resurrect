@@ -560,13 +560,15 @@ func TestSave_GeometryReordersPanesToCreationOrder(t *testing.T) {
 		t.Fatalf("panes = %d, want 3", len(ws.Panes))
 	}
 
-	// Creation order: P0, P2 (right pane FIRST), P1.
+	// Creation order: P0, P2 (right pane FIRST), P1. Every split carries an
+	// explicit focus target (cmux keeps focus on the split pane, not the new
+	// one), so both later panes split P0 at its live index 0.
 	p0, p1, p2 := ws.Panes[0], ws.Panes[1], ws.Panes[2]
 	if p0.Index != 0 || p0.Split != "" || p0.CWD != "" {
 		t.Errorf("pane[0] = index %d split %q cwd %q, want index 0, no split, no cwd", p0.Index, p0.Split, p0.CWD)
 	}
-	if p1.Index != 2 || p1.Split != "right" || p1.FocusTarget != -1 {
-		t.Errorf("pane[1] = index %d split %q focus %d, want index 2, right, -1", p1.Index, p1.Split, p1.FocusTarget)
+	if p1.Index != 2 || p1.Split != "right" || p1.FocusTarget != 0 {
+		t.Errorf("pane[1] = index %d split %q focus %d, want index 2, right, 0", p1.Index, p1.Split, p1.FocusTarget)
 	}
 	if p1.CWD != "/home/user/downloads" {
 		t.Errorf("pane[1] cwd = %q, want /home/user/downloads (must travel with the pane)", p1.CWD)

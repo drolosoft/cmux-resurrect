@@ -61,7 +61,6 @@ func InferCreationOrder(panes []client.PaneListPane) []PaneCreation {
 
 	root := st.repOf(tree)
 	st.live[root] = boundingBox(rects)
-	st.focused = root
 	st.steps = append(st.steps, PaneCreation{PaneIndex: root, FocusTarget: -1})
 	st.flatten(tree)
 	return st.steps
@@ -70,10 +69,9 @@ func InferCreationOrder(panes []client.PaneListPane) []PaneCreation {
 // creationState tracks the simulated workspace while flattening the BSP tree
 // into a creation sequence.
 type creationState struct {
-	origin  map[int]paneRect // final rect per pane index (for representative selection)
-	live    map[int]paneRect // region each already-created pane currently occupies
-	focused int              // pane index holding focus (the last one created)
-	steps   []PaneCreation
+	origin map[int]paneRect // final rect per pane index (for representative selection)
+	live   map[int]paneRect // region each already-created pane currently occupies
+	steps  []PaneCreation
 }
 
 // flatten walks the BSP tree pre-order. At each internal node the right/bottom
@@ -100,13 +98,12 @@ func (st *creationState) flatten(node *bspNode) {
 		rightR.h = region.h * node.ratio
 	}
 
-	// If focus moved elsewhere (a sibling subtree was flattened first), the
-	// restore must refocus the pane being split — by its live index at this
-	// step, since cmux re-ranks pane indexes as panes are created.
-	focusTarget := -1
-	if st.focused != leftRep {
-		focusTarget = st.liveIndexOf(leftRep)
-	}
+	// Always emit an explicit focus target — the live index of the pane being
+	// split — computed BEFORE this split adds rightRep. cmux keeps focus on
+	// the pane it split (not the new one) and `new-split` with no --surface
+	// splits whatever is focused, so restore must refocus leftRep before every
+	// split. Relying on implicit focus mirrored aside layouts (GitHub #8).
+	focusTarget := st.liveIndexOf(leftRep)
 
 	st.live[leftRep] = leftR
 	st.live[rightRep] = rightR
@@ -116,7 +113,6 @@ func (st *creationState) flatten(node *bspNode) {
 		Ratio:       node.ratio,
 		FocusTarget: focusTarget,
 	})
-	st.focused = rightRep
 
 	st.flatten(node.left)
 	st.flatten(node.right)

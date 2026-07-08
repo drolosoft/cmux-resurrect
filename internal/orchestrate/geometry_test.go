@@ -82,7 +82,7 @@ func TestInferCreationOrder_Cols(t *testing.T) {
 	}
 	steps := InferCreationOrder(panes)
 	assertOrder(t, steps, 0, 1)
-	assertStep(t, steps, 1, "right", -1)
+	assertStep(t, steps, 1, "right", 0)
 }
 
 func TestInferCreationOrder_Rows(t *testing.T) {
@@ -93,7 +93,7 @@ func TestInferCreationOrder_Rows(t *testing.T) {
 	}
 	steps := InferCreationOrder(panes)
 	assertOrder(t, steps, 0, 1)
-	assertStep(t, steps, 1, "down", -1)
+	assertStep(t, steps, 1, "down", 0)
 }
 
 func TestInferCreationOrder_Triple(t *testing.T) {
@@ -105,12 +105,16 @@ func TestInferCreationOrder_Triple(t *testing.T) {
 	}
 	steps := InferCreationOrder(panes)
 	assertOrder(t, steps, 0, 1, 2)
-	assertStep(t, steps, 1, "right", -1)
-	assertStep(t, steps, 2, "right", -1)
+	assertStep(t, steps, 1, "right", 0)
+	assertStep(t, steps, 2, "right", 1)
 }
 
 func TestInferCreationOrder_Aside(t *testing.T) {
-	// P0 full-height left, P1 top-right, P2 bottom-right
+	// P0 full-height left, P1 top-right, P2 bottom-right.
+	// cmux keeps focus on the SPLIT pane after a split (not the new one), so
+	// every split must carry an explicit focus target — P2 splits P1 (live
+	// index 1), not whatever happens to be focused. Relying on implicit focus
+	// here produced a mirrored layout (P2 landing under P0 on the left).
 	panes := []client.PaneListPane{
 		plp(0, pf(0, 0, 500, 800)),
 		plp(1, pf(500, 0, 500, 400)),
@@ -118,8 +122,8 @@ func TestInferCreationOrder_Aside(t *testing.T) {
 	}
 	steps := InferCreationOrder(panes)
 	assertOrder(t, steps, 0, 1, 2)
-	assertStep(t, steps, 1, "right", -1)
-	assertStep(t, steps, 2, "down", -1)
+	assertStep(t, steps, 1, "right", 0) // P1: split P0 (live index 0) right
+	assertStep(t, steps, 2, "down", 1)  // P2: split P1 (live index 1) down
 }
 
 func TestInferCreationOrder_MirroredAside(t *testing.T) {
@@ -135,8 +139,8 @@ func TestInferCreationOrder_MirroredAside(t *testing.T) {
 	}
 	steps := InferCreationOrder(panes)
 	assertOrder(t, steps, 0, 2, 1)
-	assertStep(t, steps, 1, "right", -1) // P2: split P0 right while it spans full height
-	assertStep(t, steps, 2, "down", 0)   // P1: refocus P0 (live index 0), split down
+	assertStep(t, steps, 1, "right", 0) // P2: split P0 (live index 0) right while it spans full height
+	assertStep(t, steps, 2, "down", 0)  // P1: split P0 (live index 0) down
 }
 
 func TestInferCreationOrder_Shelf(t *testing.T) {
@@ -148,8 +152,8 @@ func TestInferCreationOrder_Shelf(t *testing.T) {
 	}
 	steps := InferCreationOrder(panes)
 	assertOrder(t, steps, 0, 1, 2)
-	assertStep(t, steps, 1, "down", -1)
-	assertStep(t, steps, 2, "right", -1)
+	assertStep(t, steps, 1, "down", 0)
+	assertStep(t, steps, 2, "right", 1)
 }
 
 func TestInferCreationOrder_Quad(t *testing.T) {
@@ -165,9 +169,9 @@ func TestInferCreationOrder_Quad(t *testing.T) {
 	}
 	steps := InferCreationOrder(panes)
 	assertOrder(t, steps, 0, 2, 1, 3)
-	assertStep(t, steps, 1, "right", -1) // P2: split P0 right → two columns
-	assertStep(t, steps, 2, "down", 0)   // P1: refocus P0 (live 0), split down
-	assertStep(t, steps, 3, "down", 2)   // P3: refocus P2 (live 2: after P0, P1), split down
+	assertStep(t, steps, 1, "right", 0) // P2: split P0 (live 0) right → two columns
+	assertStep(t, steps, 2, "down", 0)  // P1: split P0 (live 0) down
+	assertStep(t, steps, 3, "down", 2)  // P3: split P2 (live 2: after P0, P1) down
 }
 
 func TestInferCreationOrder_Dashboard(t *testing.T) {
@@ -180,9 +184,9 @@ func TestInferCreationOrder_Dashboard(t *testing.T) {
 	}
 	steps := InferCreationOrder(panes)
 	assertOrder(t, steps, 0, 1, 2, 3)
-	assertStep(t, steps, 1, "down", -1)
-	assertStep(t, steps, 2, "right", -1)
-	assertStep(t, steps, 3, "right", -1)
+	assertStep(t, steps, 1, "down", 0)
+	assertStep(t, steps, 2, "right", 1)
+	assertStep(t, steps, 3, "right", 2)
 }
 
 func TestInferCreationOrder_IDE(t *testing.T) {
@@ -195,9 +199,9 @@ func TestInferCreationOrder_IDE(t *testing.T) {
 	}
 	steps := InferCreationOrder(panes)
 	assertOrder(t, steps, 0, 1, 2, 3)
-	assertStep(t, steps, 1, "right", -1)
-	assertStep(t, steps, 2, "down", -1)
-	assertStep(t, steps, 3, "right", -1)
+	assertStep(t, steps, 1, "right", 0)
+	assertStep(t, steps, 2, "down", 1)
+	assertStep(t, steps, 3, "right", 2)
 }
 
 func TestInferCreationOrder_Ratio(t *testing.T) {
@@ -209,8 +213,8 @@ func TestInferCreationOrder_Ratio(t *testing.T) {
 	}
 	steps := InferCreationOrder(panes)
 	assertOrder(t, steps, 0, 1, 2)
-	assertStep(t, steps, 1, "right", -1)
+	assertStep(t, steps, 1, "right", 0)
 	assertRatioApprox(t, steps, 1, 0.30)
-	assertStep(t, steps, 2, "down", -1)
+	assertStep(t, steps, 2, "down", 1)
 	assertRatioApprox(t, steps, 2, 0.50)
 }
