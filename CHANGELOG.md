@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.22.0] — 2026-07-08
+
+### Added
+- **`crex --version` flag** — the conventional flag now prints a grep-friendly one-liner (version, commit, build date). `crex -v`, Go-style `crex -version`, and the existing `crex version` (full banner) all work too
+
+---
+
 ## [v1.21.1] — 2026-07-08
 
 ### Fixed
@@ -503,3 +510,4 @@ Initial public release.
 [v1.20.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.20.0
 [v1.21.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.21.0
 [v1.21.1]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.21.1
+[v1.22.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.22.0
