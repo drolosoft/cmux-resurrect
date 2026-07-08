@@ -55,6 +55,12 @@ func configureColorOutput() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
+
+	// Enable the conventional `crex --version` flag. `crex version` keeps the
+	// full banner; the flag prints a grep-friendly one-liner.
+	rootCmd.Version = Version
+	rootCmd.SetVersionTemplate(fmt.Sprintf("crex {{.Version}} (%s) built %s\n", Commit, Date))
+
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default ~/.config/crex/config.toml)")
 	rootCmd.PersistentFlags().StringVar(&layoutsDir, "layouts-dir", "", "layouts directory (default ~/.config/crex/layouts)")
 	rootCmd.PersistentFlags().StringVar(&workspaceFile, "workspace-file", "", "Workspace Blueprint path (default ~/.config/crex/workspaces.md)")
