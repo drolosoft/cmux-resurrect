@@ -587,9 +587,9 @@ func TestMergeUserEdits_NoBrowserCommandLeak(t *testing.T) {
 		Workspaces: []model.Workspace{{
 			Title: "ws1",
 			Panes: []model.Pane{
-				{Type: "terminal"},
-				{Type: "terminal", Split: "right", Command: "lnav /tmp/app.log"},
-				{Type: "browser", Split: "right", URL: "http://localhost:3000"},
+				{Type: "terminal", Index: 0},
+				{Type: "terminal", Index: 1, Split: "right", Command: "lnav /tmp/app.log"},
+				{Type: "browser", Index: 2, Split: "right", URL: "http://localhost:3000"},
 			},
 		}},
 	}
@@ -598,14 +598,14 @@ func TestMergeUserEdits_NoBrowserCommandLeak(t *testing.T) {
 		Workspaces: []model.Workspace{{
 			Title: "ws1",
 			Panes: []model.Pane{
-				{Type: "terminal"},
-				{Type: "terminal", Split: "right", Command: "lnav /tmp/app.log"},
-				{Type: "browser", Split: "right", Command: "lnav /tmp/app.log", URL: "http://localhost:3000"},
+				{Type: "terminal", Index: 0},
+				{Type: "terminal", Index: 1, Split: "right", Command: "lnav /tmp/app.log"},
+				{Type: "browser", Index: 2, Split: "right", Command: "lnav /tmp/app.log", URL: "http://localhost:3000"},
 			},
 		}},
 	}
 
-	mergeUserEdits(live, existing)
+	mergeUserEdits(live, existing, nil)
 
 	// The browser pane must NOT inherit the terminal command.
 	if got := live.Workspaces[0].Panes[2].Command; got != "" {
@@ -819,5 +819,149 @@ func TestSave_PerPaneCWD_SurfaceStateEqualToWorkspaceCWDOmitted(t *testing.T) {
 	}
 	if got := layout.Workspaces[0].Panes[0].CWD; got != "" {
 		t.Errorf("pane 0 CWD = %q, want empty (matches workspace cwd)", got)
+	}
+}
+
+// asideMock builds a standard aside layout (P0 full-height left, P1 top-right,
+// P2 bottom-right) with geometry and live surface state, like real cmux.
+func asideMock() *geometrySurfaceMock {
+	tree := &client.TreeResponse{
+		Windows: []client.TreeWindow{{
+			Ref: "window:1",
+			Workspaces: []client.TreeWorkspace{{
+				Ref:   "workspace:1",
+				Title: "aside",
+				Index: 0,
+				Panes: []client.TreePane{
+					{Index: 0, Focused: true, Surfaces: []client.TreeSurface{{Ref: "surface:1", Type: "terminal"}}},
+					{Index: 1, Surfaces: []client.TreeSurface{{Ref: "surface:2", Type: "terminal"}}},
+					{Index: 2, Surfaces: []client.TreeSurface{{Ref: "surface:3", Type: "terminal"}}},
+				},
+			}},
+		}},
+	}
+	return &geometrySurfaceMock{
+		geometryMockClient: geometryMockClient{
+			mockClient: mockClient{
+				treeResp:    tree,
+				sidebarCWDs: map[string]string{"workspace:1": "/home/user"},
+			},
+			paneListByRef: map[string]*client.PaneListResponse{
+				"workspace:1": {
+					WorkspaceRef:   "workspace:1",
+					ContainerFrame: client.ContainerFrame{Width: 1000, Height: 800},
+					Panes: []client.PaneListPane{
+						{Index: 0, PixelFrame: client.PixelFrame{X: 0, Y: 0, Width: 500, Height: 800}},
+						{Index: 1, PixelFrame: client.PixelFrame{X: 500, Y: 0, Width: 500, Height: 400}},
+						{Index: 2, PixelFrame: client.PixelFrame{X: 500, Y: 400, Width: 500, Height: 400}},
+					},
+				},
+			},
+		},
+		surfaceCWDs: map[string]string{
+			"surface:1": "/home/user/left",
+			"surface:2": "/home/user/topright",
+			"surface:3": "/home/user/botright",
+		},
+	}
+}
+
+// paneKey captures the fields a restore depends on, for comparing saves.
+type paneKey struct {
+	Index       int
+	Split       string
+	FocusTarget int
+	CWD         string
+	Command     string
+}
+
+func paneKeysOf(ws model.Workspace) []paneKey {
+	keys := make([]paneKey, len(ws.Panes))
+	for i, p := range ws.Panes {
+		keys[i] = paneKey{p.Index, p.Split, p.FocusTarget, p.CWD, p.Command}
+	}
+	return keys
+}
+
+// TestSave_ReSaveIsIdempotent verifies the precondition that re-saving an
+// unchanged live layout over the same name reproduces the identical pane
+// arrangement — order, splits, focus targets, and CWDs. A positional merge of
+// the previous save used to scramble this (GitHub #8 follow-up).
+func TestSave_ReSaveIsIdempotent(t *testing.T) {
+	mc := asideMock()
+	dir := t.TempDir()
+	store, _ := persist.NewFileStore(dir)
+	saver := &Saver{Client: mc, Store: store}
+
+	first, err := saver.Save("aside", "")
+	if err != nil {
+		t.Fatalf("first save: %v", err)
+	}
+	second, err := saver.Save("aside", "")
+	if err != nil {
+		t.Fatalf("second save: %v", err)
+	}
+
+	want := paneKeysOf(first.Workspaces[0])
+	got := paneKeysOf(second.Workspaces[0])
+	if len(want) != len(got) {
+		t.Fatalf("pane count drift: first %d, second %d", len(want), len(got))
+	}
+	for i := range want {
+		if want[i] != got[i] {
+			t.Errorf("pane[%d] drifted on re-save:\n  first  = %+v\n  second = %+v", i, want[i], got[i])
+		}
+	}
+	// Sanity: the aside must have captured its real shape on the first save.
+	if want[1].Split != "right" || want[2].Split != "down" {
+		t.Errorf("first save shape wrong: %+v", want)
+	}
+}
+
+// TestSave_ReSaveOverStaleLayoutKeepsGeometry reproduces the exact reported
+// failure: an existing TOML holds a different arrangement (a stale split
+// direction at the same pane index). Re-saving the live aside must keep the
+// live geometry, not resurrect the stale split.
+func TestSave_ReSaveOverStaleLayoutKeepsGeometry(t *testing.T) {
+	mc := asideMock()
+	dir := t.TempDir()
+	store, _ := persist.NewFileStore(dir)
+	saver := &Saver{Client: mc, Store: store}
+
+	// Seed the store with a stale layout: the pane at cmux Index 1 (which the
+	// live aside splits "right") is recorded as "down" from a prior arrangement.
+	stale := &model.Layout{
+		Name:    "aside",
+		Version: 1,
+		SavedAt: time.Now().UTC(),
+		Workspaces: []model.Workspace{{
+			Title: "aside",
+			CWD:   "/home/user",
+			Panes: []model.Pane{
+				{Type: "terminal", Index: 0, FocusTarget: -1},
+				{Type: "terminal", Index: 1, Split: "down", FocusTarget: 0},
+				{Type: "terminal", Index: 2, Split: "down", FocusTarget: 1},
+			},
+		}},
+	}
+	if err := store.Save("aside", stale); err != nil {
+		t.Fatalf("seed stale: %v", err)
+	}
+
+	layout, err := saver.Save("aside", "")
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	byIndex := map[int]model.Pane{}
+	for _, p := range layout.Workspaces[0].Panes {
+		byIndex[p.Index] = p
+	}
+	// Pane at Index 1 is the top-right pane of the aside — split "right",
+	// never the stale "down".
+	if got := byIndex[1].Split; got != "right" {
+		t.Errorf("pane index 1: split = %q, want right (live geometry, not stale down)", got)
+	}
+	if got := byIndex[2].Split; got != "down" {
+		t.Errorf("pane index 2: split = %q, want down (live geometry)", got)
 	}
 }

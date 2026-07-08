@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.22.2] — 2026-07-08
+
+### Fixed
+- **Re-saving over an existing layout name now reproduces the same layout** — saving on top of a previously saved name could scramble panes: a stale split direction from the old file was reapplied over the live one, and pane data was merged by array position even though save reorders panes into creation order. The merge now matches panes by their stable cmux index and never overrides a split direction that live geometry resolved. Re-saving an unchanged layout is idempotent (#8)
+
+---
+
 ## [v1.22.1] — 2026-07-08
 
 ### Fixed
@@ -519,3 +526,4 @@ Initial public release.
 [v1.21.1]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.21.1
 [v1.22.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.22.0
 [v1.22.1]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.22.1
+[v1.22.2]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.22.2

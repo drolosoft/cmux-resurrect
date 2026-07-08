@@ -45,12 +45,19 @@ func (s *Saver) Save(name, description string) (*model.Layout, error) {
 	// one with the most panes that have ttys.
 	workspaces := deduplicateWorkspaces(win.Workspaces)
 
+	// Titles of workspaces whose split geometry was resolved from live pixel
+	// frames. For these, live geometry is authoritative and a previously saved
+	// split direction must not override it on re-save (GitHub #8 follow-up).
+	geoTitles := make(map[string]bool)
 	for _, tw := range workspaces {
-		ws, err := s.buildWorkspace(tw)
+		ws, geometryApplied, err := s.buildWorkspace(tw)
 		if err != nil {
 			// Log but don't fail — isolate errors per workspace.
 			fmt.Fprintf(os.Stderr, "  warning: workspace %q: %v\n", tw.Title, err)
 			continue
+		}
+		if geometryApplied {
+			geoTitles[ws.Title] = true
 		}
 		layout.Workspaces = append(layout.Workspaces, *ws)
 	}
@@ -62,9 +69,9 @@ func (s *Saver) Save(name, description string) (*model.Layout, error) {
 	// Load existing layout for merge and revision tracking.
 	existing, loadErr := s.Store.Load(name)
 
-	// If a TOML already exists, merge user-edited fields (split direction, commands).
+	// If a TOML already exists, merge user-edited fields (description, commands).
 	if loadErr == nil {
-		mergeUserEdits(layout, existing)
+		mergeUserEdits(layout, existing, geoTitles)
 	}
 
 	// Clear all auto-detected commands before re-detection. Each save is
@@ -120,11 +127,15 @@ func (s *Saver) surfaceCWD(surf client.TreeSurface) string {
 	return st.CWD
 }
 
-func (s *Saver) buildWorkspace(tw client.TreeWorkspace) (*model.Workspace, error) {
+// buildWorkspace captures one workspace. The returned bool reports whether
+// pane geometry was resolved from live pixel frames (true) or fell back to the
+// default right-chain (false); the merge step uses it to decide whether a
+// previously saved split direction may override the live one.
+func (s *Saver) buildWorkspace(tw client.TreeWorkspace) (*model.Workspace, bool, error) {
 	// Get CWD from sidebar-state.
 	sidebar, err := s.Client.SidebarState(tw.Ref)
 	if err != nil {
-		return nil, fmt.Errorf("sidebar-state: %w", err)
+		return nil, false, fmt.Errorf("sidebar-state: %w", err)
 	}
 
 	ws := &model.Workspace{
@@ -203,9 +214,10 @@ func (s *Saver) buildWorkspace(tw client.TreeWorkspace) (*model.Workspace, error
 	}
 
 	// Infer split directions from pane pixel geometry when available.
+	geometryApplied := false
 	if gp, ok := s.Client.(client.PaneGeometryProvider); ok {
 		if paneList, err := gp.PaneList(tw.Ref); err == nil {
-			applySplitGeometry(ws, paneList)
+			geometryApplied = applySplitGeometry(ws, paneList)
 		}
 		// Silently fall back to default "right" if PaneList fails.
 	}
@@ -215,7 +227,7 @@ func (s *Saver) buildWorkspace(tw client.TreeWorkspace) (*model.Workspace, error
 		ws.Panes = []model.Pane{{Type: "terminal", Focus: true}}
 	}
 
-	return ws, nil
+	return ws, geometryApplied, nil
 }
 
 // applySplitGeometry uses pane pixel geometry to set correct split directions,
@@ -224,14 +236,17 @@ func (s *Saver) buildWorkspace(tw client.TreeWorkspace) (*model.Workspace, error
 // is not always buildable by sequential splits (a full-height right pane must
 // exist before the left column is split under it) — so the saved pane array
 // follows the inferred creation sequence, not the index order.
-func applySplitGeometry(ws *model.Workspace, paneList *client.PaneListResponse) {
+// It returns true when the geometry was resolved and applied, false when it
+// bailed to the default right-chain (single pane, degenerate frames, or a
+// tree/pane.list mismatch).
+func applySplitGeometry(ws *model.Workspace, paneList *client.PaneListResponse) bool {
 	if len(paneList.Panes) <= 1 || len(ws.Panes) <= 1 {
-		return
+		return false
 	}
 
 	order := InferCreationOrder(paneList.Panes)
 	if order == nil || len(order) != len(ws.Panes) {
-		return // BSP reconstruction failed or tree/pane.list mismatch, keep defaults
+		return false // BSP reconstruction failed or tree/pane.list mismatch, keep defaults
 	}
 
 	// Build lookup by cmux pane index.
@@ -244,7 +259,7 @@ func applySplitGeometry(ws *model.Workspace, paneList *client.PaneListResponse) 
 	for i, step := range order {
 		pane, ok := byIndex[step.PaneIndex]
 		if !ok {
-			return // pane.list index not in tree, keep defaults
+			return false // pane.list index not in tree, keep defaults
 		}
 		if i == 0 {
 			pane.Split = ""
@@ -262,6 +277,7 @@ func applySplitGeometry(ws *model.Workspace, paneList *client.PaneListResponse) 
 		reordered = append(reordered, pane)
 	}
 	ws.Panes = reordered
+	return true
 }
 
 // deduplicateWorkspaces removes ghost workspaces that share a title with
@@ -527,10 +543,21 @@ func layoutContentChanged(a, b *model.Layout) bool {
 	return false
 }
 
-// mergeUserEdits preserves user-edited fields from an existing TOML.
-// Fields like split direction, command, and description are kept from existing
-// if the user has edited them (since the live tree doesn't expose these).
-func mergeUserEdits(live, existing *model.Layout) {
+// mergeUserEdits preserves fields from an existing TOML that the live tree
+// can't report: the workspace description, and user-typed commands.
+//
+// Panes are matched by their cmux pane Index (visual position), NOT by array
+// position, because save reorders panes into a valid creation sequence — a
+// positional match would apply a previous save's fields to the wrong pane and
+// scramble re-saved layouts (GitHub #8 follow-up: re-saving over a name must
+// reproduce the same layout).
+//
+// geoTitles lists workspaces whose split direction was resolved from live
+// geometry; for those, live geometry is authoritative and a previously saved
+// split is never reapplied. Split preservation survives only for workspaces
+// with no geometry (e.g. never-rendered), where the default right-chain would
+// otherwise clobber a hand-edited direction.
+func mergeUserEdits(live, existing *model.Layout, geoTitles map[string]bool) {
 	if live.Description == "" && existing.Description != "" {
 		live.Description = existing.Description
 	}
@@ -551,23 +578,29 @@ func mergeUserEdits(live, existing *model.Layout) {
 		if lw.Description == "" && ew.Description != "" {
 			lw.Description = ew.Description
 		}
-		// Merge pane-level user edits.
+
+		// Match existing panes by cmux pane Index (stable across reorder).
+		exByIndex := make(map[int]*model.Pane, len(ew.Panes))
+		for k := range ew.Panes {
+			exByIndex[ew.Panes[k].Index] = &ew.Panes[k]
+		}
+		geoResolved := geoTitles[lw.Title]
+
 		for j := range lw.Panes {
-			if j >= len(ew.Panes) {
-				break
-			}
-			ep := &ew.Panes[j]
 			lp := &lw.Panes[j]
-			// Preserve user-set split direction only when geometry
-			// inference is unavailable (live split == default "right").
-			// When geometry detected a real direction, trust it over
-			// the existing file — the user may have repositioned panes.
-			if lp.Split == "right" && ep.Split != "" && ep.Split != "right" {
+			ep, ok := exByIndex[lp.Index]
+			if !ok {
+				continue
+			}
+			// Preserve a hand-edited split direction only when live geometry
+			// did NOT resolve it. When geometry is authoritative, trust it —
+			// reapplying a stale split mirrored aside layouts on re-save.
+			if !geoResolved && lp.Split == "right" && ep.Split != "" && ep.Split != "right" {
 				lp.Split = ep.Split
 			}
 			// Preserve user-set command, but never for browser panes
 			// (browser panes don't run shell commands; a stale command
-			// from a previous pane at this index would leak through).
+			// would leak through).
 			if ep.Command != "" && lp.Type != "browser" {
 				lp.Command = ep.Command
 			}
