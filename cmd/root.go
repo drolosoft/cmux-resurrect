@@ -40,7 +40,22 @@ var rootCmd = &cobra.Command{
 
 func Execute() error {
 	configureColorOutput()
+	rootCmd.SetArgs(normalizeSingleDashVersion(os.Args[1:]))
 	return rootCmd.Execute()
+}
+
+// normalizeSingleDashVersion rewrites the Go-style `-version` to `--version`.
+// POSIX flag parsing would otherwise read it as a cluster of shorthands and
+// fail on 'e'. Only the exact bare token is rewritten.
+func normalizeSingleDashVersion(args []string) []string {
+	out := make([]string, len(args))
+	for i, a := range args {
+		if a == "-version" {
+			a = "--version"
+		}
+		out[i] = a
+	}
+	return out
 }
 
 // configureColorOutput disables ANSI styling when output is not an interactive
@@ -56,10 +71,13 @@ func configureColorOutput() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	// Enable the conventional `crex --version` flag. `crex version` keeps the
-	// full banner; the flag prints a grep-friendly one-liner.
+	// Enable the conventional `crex --version` / `-v` flags. `crex version`
+	// keeps the full banner; the flag prints a grep-friendly one-liner.
+	// Defining the flag before cobra's InitDefaultVersionFlag keeps the -v
+	// shorthand.
 	rootCmd.Version = Version
 	rootCmd.SetVersionTemplate(fmt.Sprintf("crex {{.Version}} (%s) built %s\n", Commit, Date))
+	rootCmd.Flags().BoolP("version", "v", false, "version for crex")
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default ~/.config/crex/config.toml)")
 	rootCmd.PersistentFlags().StringVar(&layoutsDir, "layouts-dir", "", "layouts directory (default ~/.config/crex/layouts)")
