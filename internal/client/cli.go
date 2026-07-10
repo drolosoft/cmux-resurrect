@@ -68,6 +68,16 @@ func (c *CLIClient) ListWorkspaces() ([]WorkspaceInfo, error) {
 }
 
 func (c *CLIClient) NewWorkspace(opts NewWorkspaceOpts) (string, error) {
+	return c.createWorkspace(opts, "")
+}
+
+// NewWorkspaceLayout creates a workspace atomically from a split-tree layout
+// JSON (cmux `new-workspace --layout`). Implements LayoutWorkspaceCreator.
+func (c *CLIClient) NewWorkspaceLayout(opts NewWorkspaceOpts, layoutJSON string) (string, error) {
+	return c.createWorkspace(opts, layoutJSON)
+}
+
+func (c *CLIClient) createWorkspace(opts NewWorkspaceOpts, layoutJSON string) (string, error) {
 	// Snapshot existing workspace refs before creation.
 	before := make(map[string]bool)
 	if wsList, err := c.ListWorkspaces(); err == nil {
@@ -82,6 +92,9 @@ func (c *CLIClient) NewWorkspace(opts NewWorkspaceOpts) (string, error) {
 	}
 	if opts.Command != "" {
 		args = append(args, "--command", opts.Command)
+	}
+	if layoutJSON != "" {
+		args = append(args, "--layout", layoutJSON)
 	}
 	_, err := c.run(args...)
 	if err != nil {

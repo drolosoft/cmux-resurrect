@@ -58,6 +58,71 @@ func (r *Restorer) restoreSurfaces(pane model.Pane, paneRef, workspaceRef string
 	}
 }
 
+// typeCommands sends each pane's (and extra surface's) command into an
+// atomically created workspace. Structure and cwds are already native, so
+// only the commands are typed — readiness-gated, without any cd prefix.
+// Panes are addressed by their live visual index (from the layout builder);
+// each pane's first surface receives the pane command.
+func (r *Restorer) typeCommands(ws model.Workspace, ref string, visualIdx []int, result *RestoreResult) {
+	// Resolve surface refs per visual pane index from the live tree.
+	surfacesByPane := map[int][]string{}
+	if tree, err := r.Client.Tree(); err == nil && tree != nil {
+		for _, w := range tree.Windows {
+			for _, tw := range w.Workspaces {
+				if tw.Ref != ref {
+					continue
+				}
+				for _, tp := range tw.Panes {
+					for _, s := range tp.Surfaces {
+						surfacesByPane[tp.Index] = append(surfacesByPane[tp.Index], s.Ref)
+					}
+				}
+			}
+		}
+	}
+
+	sendTo := func(surfaceRef, command string, label string) {
+		if command == "" {
+			return
+		}
+		if err := waitForShellReady(r.Client, ref, surfaceRef); err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("  %s shell not ready: %v", label, err))
+			return
+		}
+		if err := r.Client.Send(ref, surfaceRef, noHistoryCmd(r.applyAutoAccept(command))); err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("  %s send command: %v", label, err))
+		}
+	}
+
+	for i, pane := range ws.Panes {
+		if pane.Type == "browser" {
+			continue // browser surfaces carry their url natively
+		}
+		vi := i
+		if i < len(visualIdx) && visualIdx[i] >= 0 {
+			vi = visualIdx[i]
+		}
+		surfs := surfacesByPane[vi]
+		if pane.Command != "" {
+			target := ""
+			if len(surfs) > 0 {
+				target = surfs[0]
+			}
+			sendTo(target, pane.Command, fmt.Sprintf("pane %d", i))
+		}
+		for j, extra := range pane.Surfaces {
+			if extra.Command == "" || extra.Type == "browser" {
+				continue
+			}
+			target := ""
+			if j+1 < len(surfs) {
+				target = surfs[j+1]
+			}
+			sendTo(target, extra.Command, fmt.Sprintf("pane %d tab %d", i, j+1))
+		}
+	}
+}
+
 // applyName sets a surface's title from an optional Blueprint name (GitHub #7).
 // No-op when the name is empty or the backend can't rename individual surfaces.
 func (r *Restorer) applyName(workspaceRef, surfaceRef, name string) {
@@ -309,7 +374,38 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 		return r.dryRunWorkspace(ws, result)
 	}
 
-	// 1. Create workspace.
+	// 1. Create workspace — atomically with the full split tree when the
+	// backend supports it (cmux `--layout`): per-surface cwds, names, urls,
+	// and focus land natively, with exact ratios and no typed `cd` per pane.
+	if lc, ok := r.Client.(client.LayoutWorkspaceCreator); ok {
+		if layoutJSON, visualIdx, buildable := buildCmuxLayout(ws); buildable {
+			lref, lerr := lc.NewWorkspaceLayout(client.NewWorkspaceOpts{CWD: expandHome(ws.CWD)}, layoutJSON)
+			if lerr == nil {
+				time.Sleep(DelayAfterCreate)
+				if err := r.Client.SelectWorkspace(lref); err != nil {
+					result.Errors = append(result.Errors, fmt.Sprintf("select workspace: %v", err))
+				}
+				time.Sleep(DelayAfterSelect)
+				r.typeCommands(ws, lref, visualIdx, result)
+				// Same tail as the sequential path: deferred rename (the
+				// shell prompt overwrites early titles) and pinning. Focus
+				// is already native via the layout's focus flag.
+				time.Sleep(DelayBeforeRename)
+				if err := r.Client.RenameWorkspace(lref, ws.Title); err != nil {
+					result.Errors = append(result.Errors, fmt.Sprintf("rename %q: %v", ws.Title, err))
+				}
+				if ws.Pinned {
+					if err := r.Client.PinWorkspace(lref); err != nil {
+						result.Errors = append(result.Errors, fmt.Sprintf("pin %q: %v", ws.Title, err))
+					}
+				}
+				return lref, nil
+			}
+			// Layout creation failed (older cmux without --layout, or an
+			// unrepresentable edge) — fall through to the sequential path.
+		}
+	}
+
 	ref, err := r.Client.NewWorkspace(client.NewWorkspaceOpts{CWD: expandHome(ws.CWD)})
 	if err != nil {
 		return "", fmt.Errorf("new-workspace: %w", err)

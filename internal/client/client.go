@@ -107,6 +107,15 @@ type SurfaceState struct {
 	Ready bool   // true once the surface's shell is interactive
 }
 
+// LayoutWorkspaceCreator is optionally implemented by backends that can
+// create a whole workspace atomically from a split-tree layout JSON (cmux's
+// `workspace create --layout`). Atomic creation carries per-surface cwd,
+// name, url, and focus — no typed `cd` per pane, no readiness races, exact
+// split ratios. Backends without it (Ghostty) use the sequential path.
+type LayoutWorkspaceCreator interface {
+	NewWorkspaceLayout(opts NewWorkspaceOpts, layoutJSON string) (string, error)
+}
+
 // SurfaceStater is optionally implemented by backends that can report live
 // per-surface state. Used during restore to gate on the real readiness/cwd of
 // the specific pane being created (not a workspace-level heuristic), which makes
