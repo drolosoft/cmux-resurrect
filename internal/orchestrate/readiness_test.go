@@ -107,3 +107,83 @@ func TestWaitForShellReady_TimeoutOnNoCWD_BestEffort(t *testing.T) {
 		t.Errorf("returned in %v — must still wait out the timeout before giving up", elapsed)
 	}
 }
+
+// readyStateMock implements Backend + SurfaceStater with a scripted
+// readiness/cwd timeline and records every Send.
+type readyStateMock struct {
+	readinessMockClient
+	mu      sync.Mutex
+	readyAt time.Time
+	cwd     string // reported once a send has landed
+	wantCWD string
+	sends   []time.Time
+	start   time.Time
+}
+
+func (m *readyStateMock) SurfaceState(ref string) (*client.SurfaceState, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	ready := time.Now().After(m.readyAt)
+	return &client.SurfaceState{Ref: ref, CWD: m.cwd, Ready: ready}, nil
+}
+
+func (m *readyStateMock) Send(ws, surf, text string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.sends = append(m.sends, time.Now())
+	if time.Now().After(m.readyAt) {
+		m.cwd = m.wantCWD // a send into a READY shell lands
+	}
+	return nil
+}
+
+func TestWaitForShellReady_WaitsPastHeuristicTimeoutForReadiness(t *testing.T) {
+	// A slow shell (mail check, plugins) can take longer than the heuristic
+	// timeout to become interactive. On backends with reliable per-surface
+	// readiness (cmux), crex must keep waiting for Ready instead of giving
+	// up at the heuristic timeout and typing into a dead shell.
+	origHeur, origSurf := ShellReadyTimeout, SurfaceReadyTimeout
+	ShellReadyTimeout = 100 * time.Millisecond
+	SurfaceReadyTimeout = 2 * time.Second
+	defer func() { ShellReadyTimeout, SurfaceReadyTimeout = origHeur, origSurf }()
+
+	m := &readyStateMock{readyAt: time.Now().Add(400 * time.Millisecond)}
+	start := time.Now()
+	if err := waitForShellReady(m, "workspace:1", "surface:1"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if elapsed := time.Since(start); elapsed < 350*time.Millisecond {
+		t.Errorf("returned after %v — gave up before the shell became ready (heuristic timeout leak)", elapsed)
+	}
+}
+
+func TestVerifyCWD_NeverSendsIntoNotReadyShell(t *testing.T) {
+	// Typing into a shell that isn't at its prompt is lost AND leaves
+	// visible junk. verifyCWD must poll silently until Ready, then send.
+	origVerify, origSurf := CWDVerifyTimeout, SurfaceReadyTimeout
+	CWDVerifyTimeout = 500 * time.Millisecond
+	SurfaceReadyTimeout = 2 * time.Second
+	defer func() { CWDVerifyTimeout, SurfaceReadyTimeout = origVerify, origSurf }()
+
+	m := &readyStateMock{
+		readyAt: time.Now().Add(300 * time.Millisecond),
+		wantCWD: "/tmp/target",
+		start:   time.Now(),
+	}
+	r := &Restorer{Client: m}
+	r.verifyCWD("workspace:1", "surface:1", "/tmp/target")
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if len(m.sends) == 0 {
+		t.Fatal("verifyCWD never sent the cd")
+	}
+	for i, ts := range m.sends {
+		if ts.Before(m.readyAt) {
+			t.Errorf("send %d fired %v BEFORE the shell was ready", i, m.readyAt.Sub(ts))
+		}
+	}
+	if m.cwd != "/tmp/target" {
+		t.Errorf("cd never landed: cwd = %q", m.cwd)
+	}
+}

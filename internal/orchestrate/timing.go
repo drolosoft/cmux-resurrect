@@ -28,11 +28,12 @@ const (
 	// early gets overwritten.
 	DelayBeforeRename = 500 * time.Millisecond
 
-	// CWDVerifyTimeout bounds the per-pane `cd` verify/retry loop (GitHub #8):
-	// after sending a cd, the live surface cwd is polled and the bare cd
-	// re-sent until it sticks or this deadline passes.
-	CWDVerifyTimeout = 2 * time.Second
-
 	// CWDVerifyPoll is the interval between cwd checks / cd re-sends.
 	CWDVerifyPoll = 150 * time.Millisecond
 )
+
+// CWDVerifyTimeout bounds the per-pane `cd` verify/retry window (GitHub #8)
+// once the target shell is READY: the live surface cwd is polled and the bare
+// cd re-sent until it sticks or this deadline passes. Var (not const) so tests
+// can shrink it.
+var CWDVerifyTimeout = 2 * time.Second

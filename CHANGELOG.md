@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Bundled demo layout** — `crex setup` now installs a portable example layout named `demo` (two workspaces, a split, per-pane folders — all home-relative paths, no commands). Try it with `crex restore demo --mode add`; setup never overwrites an existing copy
 - **`~` expansion in layout paths** — `cwd` fields in layout TOMLs now expand a leading `~`/`~/` at restore time (workspace, pane, and sub-tab level), making hand-written layouts portable across machines
 
+### Fixed
+- **Per-pane `cd` no longer typed into a shell that isn't ready** — slow shell startups (mail check, plugin managers) can take well over 10s to reach a prompt; restore used to give up waiting, type the `cd` blind, and the input was flushed at shell init — leaving the pane in the wrong directory with visible `cd` junk in the scrollback. On backends with reliable per-surface readiness (cmux), restore now waits up to 30s for the shell to be truly interactive and never types before that; the verify window starts counting only once the shell is ready
+
 ---
 
 ## [v1.24.0] — 2026-07-10

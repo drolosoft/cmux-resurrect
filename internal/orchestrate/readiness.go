@@ -7,8 +7,16 @@ import (
 )
 
 var (
-	// ShellReadyTimeout is the maximum time to wait for a shell to become interactive.
+	// ShellReadyTimeout is the maximum time to wait for a shell to become interactive
+	// on the heuristic (workspace-level CWD) path.
 	ShellReadyTimeout = 10 * time.Second
+
+	// SurfaceReadyTimeout is the maximum time to wait for per-surface readiness on
+	// backends that report it reliably (cmux via debug.terminals). Slow shell
+	// startups (mail check, plugin managers) routinely exceed 10s; typing into a
+	// shell before its prompt is up loses the input, so waiting longer is strictly
+	// better than sending blind.
+	SurfaceReadyTimeout = 30 * time.Second
 
 	// ShellReadyPoll is the interval between readiness checks (phase 1: CWD detection).
 	ShellReadyPoll = 150 * time.Millisecond
@@ -41,6 +49,7 @@ func waitForShellReady(c client.Backend, workspaceRef, surfaceRef string) error 
 	// (GitHub #8). When the backend can report the specific surface's readiness
 	// (cmux via debug.terminals), gate on that instead.
 	if ss, ok := c.(client.SurfaceStater); ok && surfaceRef != "" {
+		deadline = time.Now().Add(SurfaceReadyTimeout)
 		for time.Now().Before(deadline) {
 			if st, err := ss.SurfaceState(surfaceRef); err == nil && st != nil && st.Ready {
 				return nil

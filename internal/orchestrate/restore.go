@@ -84,13 +84,25 @@ func (r *Restorer) verifyCWD(workspaceRef, surfaceRef, wantCWD string) {
 	if !ok {
 		return
 	}
-	deadline := time.Now().Add(CWDVerifyTimeout)
-	for time.Now().Before(deadline) {
-		if st, err := ss.SurfaceState(surfaceRef); err == nil && st != nil && st.CWD == wantCWD {
+	// Hard cap on the whole loop; the verify window proper only starts once
+	// the shell is READY — typing into a pre-prompt shell is lost (the input
+	// gets flushed at init) and leaves visible junk in the pane.
+	hardDeadline := time.Now().Add(SurfaceReadyTimeout)
+	var verifyDeadline time.Time
+	for time.Now().Before(hardDeadline) {
+		st, err := ss.SurfaceState(surfaceRef)
+		if err == nil && st != nil && st.CWD == wantCWD {
 			return // cd landed
 		}
+		if err == nil && st != nil && st.Ready {
+			if verifyDeadline.IsZero() {
+				verifyDeadline = time.Now().Add(CWDVerifyTimeout)
+			} else if time.Now().After(verifyDeadline) {
+				return // the ready shell had its fair chance; stop retrying
+			}
+			_ = r.Client.Send(workspaceRef, surfaceRef, noHistoryCmd(cwdCommand(wantCWD, "")))
+		}
 		time.Sleep(CWDVerifyPoll)
-		_ = r.Client.Send(workspaceRef, surfaceRef, noHistoryCmd(cwdCommand(wantCWD, "")))
 	}
 }
 
