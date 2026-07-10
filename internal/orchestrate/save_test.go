@@ -491,7 +491,7 @@ type geometrySurfaceMock struct {
 	surfaceCWDs map[string]string
 }
 
-func (m *geometrySurfaceMock) SurfaceState(ref string) (*client.SurfaceState, error) {
+func (m *geometrySurfaceMock) SurfaceState(_, ref string) (*client.SurfaceState, error) {
 	cwd, ok := m.surfaceCWDs[ref]
 	if !ok {
 		return nil, nil
@@ -702,7 +702,7 @@ type surfaceStateMock struct {
 	surfaceCWDs map[string]string
 }
 
-func (m *surfaceStateMock) SurfaceState(ref string) (*client.SurfaceState, error) {
+func (m *surfaceStateMock) SurfaceState(_, ref string) (*client.SurfaceState, error) {
 	cwd, ok := m.surfaceCWDs[ref]
 	if !ok {
 		return nil, nil

@@ -29,7 +29,7 @@ import (
 // ═══════════════════════════════════════════════════════════════════════════
 
 func TestValidate_Shortcut_AllTemplates(t *testing.T) {
-	t.Setenv("CMUX_SOCKET_PATH", "/tmp/fake.sock")
+	t.Setenv("CREX_BACKEND", "cmux")
 
 	// Every template in the gallery should work via "template use <name> --dry-run".
 	for _, tmpl := range gallery.List() {
@@ -43,7 +43,7 @@ func TestValidate_Shortcut_AllTemplates(t *testing.T) {
 }
 
 func TestValidate_Shortcut_WithPathArg(t *testing.T) {
-	t.Setenv("CMUX_SOCKET_PATH", "/tmp/fake.sock")
+	t.Setenv("CREX_BACKEND", "cmux")
 
 	explicit := executeTemplateCmd(t, "template", "use", "cols", "/tmp/testdir", "--dry-run")
 	if !strings.Contains(explicit, "/tmp/testdir") {

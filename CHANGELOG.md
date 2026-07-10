@@ -10,13 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [v1.25.0] — 2026-07-10
 
 ### Added
-- **Bundled demo layout** — `crex setup` now installs a portable example layout named `demo` (two workspaces, a split, per-pane folders — all home-relative paths, no commands). Try it with `crex restore demo --mode add`; setup never overwrites an existing copy
+- **Bundled demo layout** — `crex setup` now installs a portable example layout named `demo`: a 🏠 home tab plus a 📁 files workspace with a 2x2 grid of standard folders (`~/Documents`, `~/Downloads`, `~`, `~/Desktop`) — all home-relative paths, no commands. Try it with `crex restore demo --mode add`; setup never overwrites an existing copy
 - **`~` expansion in layout paths** — `cwd` fields in layout TOMLs now expand a leading `~`/`~/` at restore time (workspace, pane, and sub-tab level), making hand-written layouts portable across machines
 
 ### Added
 - **Atomic workspace creation on cmux** — restore now builds each multi-pane workspace in a single `workspace create --layout` call: the exact split tree (directions and ratios), per-pane and per-tab working directories, names, browser URLs, and focus all land natively. No `cd` is ever typed into a pane (clean scrollback, zero readiness races), and a multi-workspace restore completes in ~2s instead of ~30s. Commands (AI session resumes) are still typed after creation so the shell persists when they exit. Older cmux versions and Ghostty fall back to the sequential path automatically
 
 ### Fixed
+- **Backend detection verifies cmux is actually alive** — Ghostty sessions launched from within cmux inherit `CMUX_*` env vars; when cmux was closed, crex picked the dead socket and every command failed with "backend not reachable / broken pipe". Detection now pings cmux first and falls back to a running Ghostty (#8 follow-up, reported in the field)
+- **`crex restore` fails fast when the backend is unreachable** — previously it asked replace-vs-add (and skip-vs-fresh) interactively and only then discovered the backend was dead, wasting your answers
+- **Ghostty: per-pane `cd`s no longer land in the wrong pane** — Ghostty re-indexes terminals when splits are inserted, so index-addressed sends could hit an existing pane (one pane got two `cd`s, another got none). New splits are now identified and addressed by their unique terminal id
+- **Ghostty: real shell-readiness and `cd` verification** — Ghostty now implements per-surface state (OSC 7 working directory with a stat-validated title fallback), so restore waits for each split's shell to actually be interactive and verifies/retries its `cd`, instead of typing blind after a timeout
 - **Per-pane `cd` no longer typed into a shell that isn't ready** — slow shell startups (mail check, plugin managers) can take well over 10s to reach a prompt; restore used to give up waiting, type the `cd` blind, and the input was flushed at shell init — leaving the pane in the wrong directory with visible `cd` junk in the scrollback. On backends with reliable per-surface readiness (cmux), restore now waits up to 30s for the shell to be truly interactive and never types before that; the verify window starts counting only once the shell is ready
 
 ---

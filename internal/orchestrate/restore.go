@@ -155,7 +155,7 @@ func (r *Restorer) verifyCWD(workspaceRef, surfaceRef, wantCWD string) {
 	hardDeadline := time.Now().Add(SurfaceReadyTimeout)
 	var verifyDeadline time.Time
 	for time.Now().Before(hardDeadline) {
-		st, err := ss.SurfaceState(surfaceRef)
+		st, err := ss.SurfaceState(workspaceRef, surfaceRef)
 		if err == nil && st != nil && st.CWD == wantCWD {
 			return // cd landed
 		}

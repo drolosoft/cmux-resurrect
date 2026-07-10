@@ -42,6 +42,12 @@ func TestEmbeddedLayoutIsValid(t *testing.T) {
 			}
 		}
 	}
+	// Showcase: the files workspace is a 2x2 quad (four boxes).
+	for _, ws := range layout.Workspaces {
+		if strings.Contains(ws.Title, "files") && len(ws.Panes) != 4 {
+			t.Errorf("files workspace has %d panes, want 4 (2x2 grid)", len(ws.Panes))
+		}
+	}
 	// Showcase: at least one split with its own cwd (the #8 feature).
 	found := false
 	for _, ws := range layout.Workspaces {

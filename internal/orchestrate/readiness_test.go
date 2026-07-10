@@ -120,7 +120,7 @@ type readyStateMock struct {
 	start   time.Time
 }
 
-func (m *readyStateMock) SurfaceState(ref string) (*client.SurfaceState, error) {
+func (m *readyStateMock) SurfaceState(_, ref string) (*client.SurfaceState, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	ready := time.Now().After(m.readyAt)

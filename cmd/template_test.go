@@ -292,7 +292,7 @@ func TestTemplateShow_FocusedPaneMarked(t *testing.T) {
 
 func TestTemplateUse_DryRun(t *testing.T) {
 	// Force cmux backend so dry-run output is deterministic regardless of host terminal.
-	t.Setenv("CMUX_SOCKET_PATH", "/tmp/fake.sock")
+	t.Setenv("CREX_BACKEND", "cmux")
 
 	output := executeTemplateCmd(t, "template", "use", "cols", "/tmp", "--dry-run")
 
@@ -315,7 +315,7 @@ func TestTemplateUse_NonExistentTemplate(t *testing.T) {
 }
 
 func TestTemplateUse_DryRunShowsCommands(t *testing.T) {
-	t.Setenv("CMUX_SOCKET_PATH", "/tmp/fake.sock")
+	t.Setenv("CREX_BACKEND", "cmux")
 
 	output := executeTemplateCmd(t, "template", "use", "claude", "/tmp/test", "--dry-run")
 
@@ -331,7 +331,7 @@ func TestTemplateUse_DryRunShowsCommands(t *testing.T) {
 }
 
 func TestTemplateUse_DryRunDefaultCWD(t *testing.T) {
-	t.Setenv("CMUX_SOCKET_PATH", "/tmp/fake.sock")
+	t.Setenv("CREX_BACKEND", "cmux")
 
 	output := executeTemplateCmd(t, "template", "use", "cols", "--dry-run")
 
@@ -341,7 +341,7 @@ func TestTemplateUse_DryRunDefaultCWD(t *testing.T) {
 }
 
 func TestTemplateUse_DryRunWithName(t *testing.T) {
-	t.Setenv("CMUX_SOCKET_PATH", "/tmp/fake.sock")
+	t.Setenv("CREX_BACKEND", "cmux")
 
 	output := executeTemplateCmd(t, "template", "use", "cols", "/tmp", "--dry-run", "--name", "my-ws")
 
@@ -351,7 +351,7 @@ func TestTemplateUse_DryRunWithName(t *testing.T) {
 }
 
 func TestTemplateUse_DryRunWithPin(t *testing.T) {
-	t.Setenv("CMUX_SOCKET_PATH", "/tmp/fake.sock")
+	t.Setenv("CREX_BACKEND", "cmux")
 
 	output := executeTemplateCmd(t, "template", "use", "cols", "/tmp", "--dry-run", "--pin")
 
@@ -361,7 +361,7 @@ func TestTemplateUse_DryRunWithPin(t *testing.T) {
 }
 
 func TestTemplateUse_TplAlias(t *testing.T) {
-	t.Setenv("CMUX_SOCKET_PATH", "/tmp/fake.sock")
+	t.Setenv("CREX_BACKEND", "cmux")
 
 	output := executeTemplateCmd(t, "tpl", "use", "cols", "/tmp", "--dry-run")
 
@@ -536,7 +536,7 @@ func TestTemplateBareCommand_ShowsStyledHelp(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestTemplateShortcut_WithPath(t *testing.T) {
-	t.Setenv("CMUX_SOCKET_PATH", "/tmp/fake.sock")
+	t.Setenv("CREX_BACKEND", "cmux")
 
 	// "template cols /tmp" should behave like "template use cols /tmp".
 	// Flags (--dry-run, --pin) require "template use" explicitly.

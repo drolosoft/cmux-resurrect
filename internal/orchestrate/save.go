@@ -111,7 +111,7 @@ func (s *Saver) Save(name, description string) (*model.Layout, error) {
 // cd'd deeper); then a CWD the backend reported in the tree itself (Ghostty);
 // then the backend's live surface state (`cmux rpc debug.terminals`, since
 // current cmux builds report no tty in `tree --json`).
-func (s *Saver) surfaceCWD(surf client.TreeSurface) string {
+func (s *Saver) surfaceCWD(wsRef string, surf client.TreeSurface) string {
 	if surf.TTY != "" {
 		if cwd := detect.ForegroundCWD(surf.TTY); cwd != "" {
 			return cwd
@@ -124,7 +124,7 @@ func (s *Saver) surfaceCWD(surf client.TreeSurface) string {
 	if !ok || surf.Ref == "" {
 		return ""
 	}
-	st, err := ss.SurfaceState(surf.Ref)
+	st, err := ss.SurfaceState(wsRef, surf.Ref)
 	if err != nil || st == nil {
 		return ""
 	}
@@ -187,7 +187,7 @@ func (s *Saver) buildWorkspace(tw client.TreeWorkspace) (*model.Workspace, bool,
 				// Capture a per-pane CWD only when it differs from the workspace
 				// CWD, so restore can recreate this pane in its own directory
 				// (GitHub #8) without cluttering the layout with redundant paths.
-				if cwd := s.surfaceCWD(surf); cwd != "" && cwd != ws.CWD {
+				if cwd := s.surfaceCWD(tw.Ref, surf); cwd != "" && cwd != ws.CWD {
 					pane.CWD = cwd
 				}
 			}
@@ -206,7 +206,7 @@ func (s *Saver) buildWorkspace(tw client.TreeWorkspace) (*model.Workspace, bool,
 							es.Command = cmd
 						}
 					}
-					if cwd := s.surfaceCWD(extra); cwd != "" && cwd != ws.CWD {
+					if cwd := s.surfaceCWD(tw.Ref, extra); cwd != "" && cwd != ws.CWD {
 						es.CWD = cwd
 					}
 				}

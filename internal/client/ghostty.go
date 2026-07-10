@@ -116,6 +116,22 @@ func parseTabIndex(ref string) (int, error) {
 // parseTerminalIndex extracts the 1-based terminal index from refs.
 // "terminal:N" refs are already 1-based (pass through).
 // "pane:N" refs are 0-based (cmux convention) — adds 1 for AppleScript.
+// ghosttyTerminalSpecifier builds the AppleScript specifier for a surface
+// ref. Refs of the form "tid:<uuid>" address the terminal by its unique id —
+// immune to Ghostty re-indexing terminals when later splits are inserted
+// (index-based sends could land in the WRONG pane). Index refs
+// ("terminal:N" / "pane:N") remain supported for layout-derived targeting.
+func ghosttyTerminalSpecifier(surfaceRef string, tabIdx int) (string, error) {
+	if id, ok := strings.CutPrefix(surfaceRef, "tid:"); ok && id != "" {
+		return fmt.Sprintf(`terminal id "%s" of tab %d of front window`, escapeAppleScript(id), tabIdx), nil
+	}
+	termIdx, err := parseTerminalIndex(surfaceRef)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(`terminal %d of tab %d of front window`, termIdx, tabIdx), nil
+}
+
 // cwdFromTitle extracts a working directory from a terminal title, for shells
 // that don't emit OSC 7 (Ghostty's `working directory` AppleScript property
 // stays empty then, but shell titles conventionally carry the cwd: bare paths
@@ -584,14 +600,32 @@ func (g *GhosttyClient) NewSplit(direction, workspaceRef, surfaceRef string) (st
 		return "", err
 	}
 
-	beforeOut, err := g.runScript(fmt.Sprintf(
-		`tell application "%s" to count of terminals of tab %d of front window`, g.appName(),
-		tabIdx,
-	))
-	if err != nil {
-		return "", fmt.Errorf("count terminals: %w", err)
+	listIDs := func() (map[string]bool, error) {
+		out, err := g.runScriptLines(
+			g.tell(),
+			`  set ids to ""`,
+			fmt.Sprintf(`  repeat with t in terminals of tab %d of front window`, tabIdx),
+			`    set ids to ids & (id of t) & linefeed`,
+			`  end repeat`,
+			`  return ids`,
+			`end tell`,
+		)
+		if err != nil {
+			return nil, err
+		}
+		set := map[string]bool{}
+		for _, line := range strings.Split(out, "\n") {
+			if line = strings.TrimSpace(line); line != "" {
+				set[line] = true
+			}
+		}
+		return set, nil
 	}
-	beforeCount, _ := strconv.Atoi(beforeOut)
+
+	before, err := listIDs()
+	if err != nil {
+		return "", fmt.Errorf("list terminals: %w", err)
+	}
 
 	_, err = g.runScriptLines(
 		g.tell(),
@@ -603,19 +637,20 @@ func (g *GhosttyClient) NewSplit(direction, workspaceRef, surfaceRef string) (st
 		return "", fmt.Errorf("split: %w", err)
 	}
 
+	// Identify the NEW terminal by id, never by index: Ghostty re-indexes
+	// terminals when a split is inserted, so "the last index" can be an
+	// EXISTING pane — sends addressed that way landed in the wrong pane.
 	deadline := time.Now().Add(NewSplitDeadline)
 	for time.Now().Before(deadline) {
 		time.Sleep(PollInterval)
-		afterOut, err := g.runScript(fmt.Sprintf(
-			`tell application "%s" to count of terminals of tab %d of front window`, g.appName(),
-			tabIdx,
-		))
+		after, err := listIDs()
 		if err != nil {
 			continue
 		}
-		afterCount, _ := strconv.Atoi(afterOut)
-		if afterCount > beforeCount {
-			return fmt.Sprintf("terminal:%d", afterCount), nil
+		for id := range after {
+			if !before[id] {
+				return "tid:" + id, nil
+			}
 		}
 	}
 	return "", fmt.Errorf("split created but could not determine new terminal ref")
@@ -687,15 +722,13 @@ func (g *GhosttyClient) Send(workspaceRef, surfaceRef, text string) error {
 		return err
 	}
 
-	termIdx := 1
-	if surfaceRef != "" {
-		termIdx, err = parseTerminalIndex(surfaceRef)
-		if err != nil {
-			return err
-		}
+	if surfaceRef == "" {
+		surfaceRef = "terminal:1"
 	}
-
-	target := fmt.Sprintf("terminal %d of tab %d of front window", termIdx, tabIdx)
+	target, err := ghosttyTerminalSpecifier(surfaceRef, tabIdx)
+	if err != nil {
+		return err
+	}
 
 	needsEnter := false
 	if strings.HasSuffix(text, "\\n") {
@@ -741,4 +774,45 @@ func (g *GhosttyClient) CloseWorkspace(ref string) error {
 		tabIdx,
 	))
 	return err
+}
+
+// surfaceStateFromProbe builds a SurfaceState from the raw AppleScript probe:
+// the `working directory` property (OSC 7-fed; empty when the shell doesn't
+// emit it) and the terminal's title. The title fallback is stat-validated by
+// cwdFromTitle, so junk titles never fake readiness. A shell is considered
+// ready once we can see its cwd by either channel — both only report after
+// the prompt is up.
+func surfaceStateFromProbe(ref, prop, name string) *SurfaceState {
+	cwd := prop
+	if cwd == "" {
+		cwd = cwdFromTitle(name)
+	}
+	return &SurfaceState{Ref: ref, CWD: cwd, Ready: cwd != ""}
+}
+
+// SurfaceState reports a terminal's live state. Implements SurfaceStater,
+// enabling real per-surface readiness gating and cd verification on Ghostty
+// (previously cds were typed blind after a timeout and could be flushed by
+// slow shell startups). workspaceRef is required — Ghostty terminal refs are
+// tab-local.
+func (g *GhosttyClient) SurfaceState(workspaceRef, surfaceRef string) (*SurfaceState, error) {
+	tabIdx, err := parseTabIndex(workspaceRef)
+	if err != nil {
+		return nil, err
+	}
+	spec, err := ghosttyTerminalSpecifier(surfaceRef, tabIdx)
+	if err != nil {
+		return nil, err
+	}
+	out, err := g.runScriptLines(
+		g.tell(),
+		fmt.Sprintf(`  set t to %s`, spec),
+		`  return (working directory of t) & "|" & (name of t)`,
+		`end tell`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	prop, name, _ := strings.Cut(out, "|")
+	return surfaceStateFromProbe(surfaceRef, prop, name), nil
 }

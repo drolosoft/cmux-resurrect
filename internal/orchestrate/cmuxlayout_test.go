@@ -245,7 +245,7 @@ func (m *layoutMock) Send(ws, surf, text string) error {
 	m.sends = append(m.sends, text)
 	return nil
 }
-func (m *layoutMock) SurfaceState(ref string) (*model2.SurfaceState, error) {
+func (m *layoutMock) SurfaceState(_, ref string) (*model2.SurfaceState, error) {
 	return &model2.SurfaceState{Ref: ref, CWD: "/anything", Ready: true}, nil
 }
 func (m *layoutMock) RenameWorkspace(ref, title string) error {

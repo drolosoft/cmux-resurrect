@@ -51,7 +51,7 @@ func waitForShellReady(c client.Backend, workspaceRef, surfaceRef string) error 
 	if ss, ok := c.(client.SurfaceStater); ok && surfaceRef != "" {
 		deadline = time.Now().Add(SurfaceReadyTimeout)
 		for time.Now().Before(deadline) {
-			if st, err := ss.SurfaceState(surfaceRef); err == nil && st != nil && st.Ready {
+			if st, err := ss.SurfaceState(workspaceRef, surfaceRef); err == nil && st != nil && st.Ready {
 				return nil
 			}
 			time.Sleep(ShellReadyPoll)

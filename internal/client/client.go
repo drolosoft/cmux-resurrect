@@ -123,5 +123,8 @@ type LayoutWorkspaceCreator interface {
 // `cmux rpc debug.terminals`; backends that don't are detected via type
 // assertion and restore falls back to the heuristic readiness path.
 type SurfaceStater interface {
-	SurfaceState(surfaceRef string) (*SurfaceState, error)
+	// SurfaceState reports a surface's live state. workspaceRef scopes the
+	// lookup on backends whose surface refs are workspace-local (Ghostty
+	// "terminal:N of tab:M"); cmux refs are global and may ignore it.
+	SurfaceState(workspaceRef, surfaceRef string) (*SurfaceState, error)
 }

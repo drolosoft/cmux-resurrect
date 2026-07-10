@@ -107,6 +107,15 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Fail fast BEFORE any interactive prompt: asking replace-vs-add and
+	// only then discovering the backend is unreachable wastes the user's
+	// answers (a dead leaked-env backend used to die exactly there).
+	if !restoreDryRun && os.Getenv("CREX_BACKEND") == "" {
+		if err := cl.Ping(); err != nil {
+			return fmt.Errorf("backend not reachable: %w", err)
+		}
+	}
+
 	restorer := &orchestrate.Restorer{
 		Client:     cl,
 		Store:      store,

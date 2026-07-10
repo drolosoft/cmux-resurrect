@@ -2,7 +2,7 @@
 # Try it:   crex restore demo --mode add
 # Inspect:  crex show demo
 name = 'demo'
-description = 'Portable example — two workspaces, a split, per-pane folders. Safe to restore.'
+description = 'Portable example — a 2x2 grid of standard folders plus a home tab. Safe to restore.'
 version = 1
 saved_at = 2026-07-10T12:00:00Z
 
@@ -21,6 +21,7 @@ title = '📁 files'
 cwd = '~/Documents'
 index = 1
 
+# 2x2 grid, creation order: top-left, top-right, bottom-left, bottom-right.
 [[workspace.pane]]
 type = 'terminal'
 focus = true
@@ -30,5 +31,19 @@ focus_target = -1
 type = 'terminal'
 split = 'right'
 cwd = '~/Downloads'
+index = 2
+focus_target = 0
+
+[[workspace.pane]]
+type = 'terminal'
+split = 'down'
+cwd = '~'
 index = 1
 focus_target = 0
+
+[[workspace.pane]]
+type = 'terminal'
+split = 'down'
+cwd = '~/Desktop'
+index = 3
+focus_target = 2

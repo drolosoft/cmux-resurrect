@@ -93,3 +93,27 @@ func homeDirOrEmpty() string {
 	}
 	return h
 }
+
+func TestSurfaceStateFromProbe(t *testing.T) {
+	tmp := t.TempDir()
+	tests := []struct {
+		name    string
+		prop    string
+		title   string
+		wantCWD string
+		wantRdy bool
+	}{
+		{"osc7 present", tmp, "whatever", tmp, true},
+		{"no osc7, path title", "", "txeo@Mac: " + tmp, tmp, true},
+		{"no osc7, junk title", "", "Ghostty", "", false},
+		{"nothing", "", "", "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := surfaceStateFromProbe("terminal:1", tt.prop, tt.title)
+			if st.CWD != tt.wantCWD || st.Ready != tt.wantRdy {
+				t.Errorf("got cwd=%q ready=%v, want cwd=%q ready=%v", st.CWD, st.Ready, tt.wantCWD, tt.wantRdy)
+			}
+		})
+	}
+}

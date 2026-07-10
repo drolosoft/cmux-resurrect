@@ -144,7 +144,7 @@ func (c *CLIClient) RenameSurface(workspaceRef, surfaceRef, title string) error 
 
 // SurfaceState returns live state for a specific surface via `cmux rpc
 // debug.terminals`, or nil if the surface isn't found. Implements SurfaceStater.
-func (c *CLIClient) SurfaceState(surfaceRef string) (*SurfaceState, error) {
+func (c *CLIClient) SurfaceState(_ /* workspaceRef */, surfaceRef string) (*SurfaceState, error) {
 	out, err := c.run("rpc", "debug.terminals")
 	if err != nil {
 		return nil, err
