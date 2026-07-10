@@ -63,6 +63,7 @@ var level1Commands = []completionItem{
 	// Settings
 	{"settings", "⚙️", "Settings & preferences"},
 	// Shell
+	{"skill", "🤖", "Agent skill…"},
 	{"help", "❓", "Show help"},
 	{"exit", "👋", "Exit the shell"},
 	{"quit", "👋", "Exit the shell"},
@@ -91,6 +92,10 @@ var level2Subcommands = map[string][]completionItem{
 	"settings": {
 		{"banner", "🎨", "Banner style"},
 		{"restore-mode", "🔧", "Restore mode"},
+	},
+	"skill": {
+		{"install", "🤖", "Install agent skill (Claude Code)"},
+		{"show", "📄", "Print the agent skill"},
 	},
 	"watch": {
 		{"start", "▶️", "Start daemon"},

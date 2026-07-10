@@ -38,7 +38,7 @@ func parseCommand(input string) (cmd string, args []string) {
 	}
 
 	// Handle two-word commands: "bp add", "settings banner", etc.
-	twoWord := map[string]bool{"bp": true, "settings": true, "template": true}
+	twoWord := map[string]bool{"bp": true, "settings": true, "template": true, "skill": true}
 	if twoWord[parts[0]] && len(parts) >= 2 {
 		cmd = parts[0] + " " + parts[1]
 		if len(parts) > 2 {

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.24.0] — 2026-07-10
+
+### Added
+- **`crex skill` — agent skill for AI coding assistants.** `crex skill install` installs a skill that teaches Claude Code (or Codex-compatible agents with `--codex`) how to drive crex: non-interactive restore scripting (`--mode`, `--dry-run`), the snapshot-before-risk pattern, AI-session resume semantics, and programmatic layout queries — including the traps agents hit without it (interactive-prompt hangs, absolute paths in TOML, substring-matching false positives). `crex skill show` prints it; also available inside the TUI (`skill install`). Re-run install after upgrading crex to refresh it
+
+---
+
 ## [v1.23.0] — 2026-07-10
 
 ### Added
@@ -542,3 +549,4 @@ Initial public release.
 [v1.22.1]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.22.1
 [v1.22.2]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.22.2
 [v1.23.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.23.0
+[v1.24.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.24.0

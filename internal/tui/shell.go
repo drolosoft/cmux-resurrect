@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/drolosoft/cmux-resurrect/internal/agentskill"
 	"github.com/drolosoft/cmux-resurrect/internal/client"
 	"github.com/drolosoft/cmux-resurrect/internal/orchestrate"
 	"github.com/drolosoft/cmux-resurrect/internal/persist"
@@ -573,6 +574,17 @@ func (m *ShellModel) dispatch(input string) (tea.Model, tea.Cmd) {
 
 	case "now":
 		m.execNow()
+
+	case "skill show":
+		m.output.WriteString(agentskill.Content())
+		m.output.WriteString("\n")
+
+	case "skill install":
+		codex := len(args) > 0 && args[0] == "codex"
+		m.execSkillInstall(codex)
+
+	case "skill":
+		m.writeError("Usage: skill install [codex] | skill show")
 
 	case "save":
 		name := "default"

@@ -129,6 +129,8 @@ crex❯ save my-day
 
 15 tools supported: Claude Code, OpenCode, Codex, Amp, Gemini CLI, Copilot, Grok, Cursor, Aider, and more. Any foreground process (npm, nvim, htop) is also detected and restored.
 
+And it works both ways — `crex skill install` teaches Claude Code and Codex to drive crex themselves: snapshot before risky changes, restore layouts non-interactively, resume sessions. See [crex skill](docs/commands.md#crex-skill--teach-your-ai-agents-to-drive-crex).
+
 Configure [auto-accept](docs/configuration.md#auto-accept-for-ai-agents) to skip permission prompts on restore — agents start in autonomous mode automatically.
 
 ---

@@ -1,6 +1,9 @@
 package tui
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -234,5 +237,45 @@ func TestResolveNumberRef_EmptyItems(t *testing.T) {
 	_, err := resolveNumberRef("1", nil)
 	if err == nil {
 		t.Error("expected error for empty items, got nil")
+	}
+}
+
+func TestParseCommand_Skill(t *testing.T) {
+	tests := []struct {
+		input    string
+		wantCmd  string
+		wantArgs []string
+	}{
+		{"skill install", "skill install", nil},
+		{"skill show", "skill show", nil},
+		{"skill install codex", "skill install", []string{"codex"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			cmd, args := parseCommand(tt.input)
+			if cmd != tt.wantCmd {
+				t.Errorf("parseCommand(%q) cmd = %q, want %q", tt.input, cmd, tt.wantCmd)
+			}
+			if len(args) != len(tt.wantArgs) {
+				t.Errorf("parseCommand(%q) args = %v, want %v", tt.input, args, tt.wantArgs)
+			}
+		})
+	}
+}
+
+func TestExecSkillInstall_WritesSkill(t *testing.T) {
+	dir := t.TempDir()
+	orig := skillsBaseDir
+	skillsBaseDir = func(codex bool) string { return dir }
+	defer func() { skillsBaseDir = orig }()
+
+	m := &ShellModel{output: &strings.Builder{}}
+	m.execSkillInstall(false)
+	out := m.output.String()
+	if !strings.Contains(out, dir) {
+		t.Errorf("output should report installed path, got %q", out)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "crex", "SKILL.md")); err != nil {
+		t.Errorf("skill not written: %v", err)
 	}
 }

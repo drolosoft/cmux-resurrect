@@ -26,6 +26,8 @@
 | `crex template show <name>` | `tpl show` | 🔍 Preview a template with ASCII diagram |
 | `crex template use <template> [path]` | `tpl use` | 🚀 Create a workspace from a gallery template |
 | `crex template customize <name>` | `tpl customize` | ✏️ Copy a gallery template into your Blueprint |
+| `crex skill install` | | 🤖 Install the agent skill for Claude Code (`--codex` for Codex) |
+| `crex skill show` | | 📄 Print the agent skill to stdout |
 | `crex completion` | | 🔤 Generate shell completion scripts (bash, zsh, fish) |
 
 ## Key Flags
@@ -143,6 +145,8 @@ An inline REPL with a `crex →` prompt. Type commands, browse listings with arr
 | `settings banner get` | Show current banner style |
 | `settings banner list` | List all available banner styles |
 | `watch start\|stop\|status` | Daemon controls |
+| `skill install [codex]` | Install the agent skill |
+| `skill show` | Print the agent skill |
 | `exit` | Quit |
 
 Listings show numbered items (`[1]`, `[2]`, …) — use the number instead of the name in any command.
@@ -173,6 +177,18 @@ crex watch --shell-hook >> ~/.zshrc # install the hook
 | `--status` | Check if the daemon is alive |
 | `--shell-hook` | Print a shell snippet that auto-starts the daemon |
 | `-i, --interval` | Save interval (default: 5m) |
+
+## `crex skill` — teach your AI agents to drive crex
+
+crex ships an agent skill: a reference document that teaches AI coding agents (Claude Code, Codex, and compatible tools) how to drive crex safely — non-interactive restore flags, snapshot-before-risk, AI-session resume semantics, and programmatic layout queries.
+
+```sh
+crex skill install           # → ~/.claude/skills/crex/SKILL.md (Claude Code)
+crex skill install --codex   # → ~/.agents/skills/crex/SKILL.md
+crex skill show              # print it (pipe anywhere you like)
+```
+
+Agents pick it up on their next session. Re-run `install` after upgrading crex to refresh it. Also available inside the TUI (`skill install`).
 
 ## Backend Differences
 

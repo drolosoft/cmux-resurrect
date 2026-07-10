@@ -41,6 +41,7 @@ var helpEntries = []helpEntry{
 	{"🔧", "settings restore-mode set", "<ask|replace|add>", func(b client.DetectedBackend) string { return "Set restore mode" }, "Settings"},
 	{"🔍", "settings restore-mode get", "", func(b client.DetectedBackend) string { return "Show current mode" }, "Settings"},
 	{"📋", "settings restore-mode list", "", func(b client.DetectedBackend) string { return "List available modes" }, "Settings"},
+	{"🤖", "skill install", "[codex]", func(b client.DetectedBackend) string { return "Install the agent skill (Claude Code / Codex)" }, "Shell"},
 	{"⬆️", "update", "", func(b client.DetectedBackend) string { return "Update crex to latest version" }, "Shell"},
 	{"❓", "help", "", func(b client.DetectedBackend) string { return "Show this help" }, "Shell"},
 	{"👋", "exit", "", func(b client.DetectedBackend) string { return "Exit the shell" }, "Shell"},
