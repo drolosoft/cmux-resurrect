@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.25.0] — 2026-07-10
+
+### Added
+- **Bundled demo layout** — `crex setup` now installs a portable example layout named `demo` (two workspaces, a split, per-pane folders — all home-relative paths, no commands). Try it with `crex restore demo --mode add`; setup never overwrites an existing copy
+- **`~` expansion in layout paths** — `cwd` fields in layout TOMLs now expand a leading `~`/`~/` at restore time (workspace, pane, and sub-tab level), making hand-written layouts portable across machines
+
+---
+
 ## [v1.24.0] — 2026-07-10
 
 ### Added
@@ -550,3 +558,4 @@ Initial public release.
 [v1.22.2]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.22.2
 [v1.23.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.23.0
 [v1.24.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.24.0
+[v1.25.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.25.0

@@ -8,6 +8,7 @@ import (
 
 	"github.com/drolosoft/cmux-resurrect/internal/client"
 	"github.com/drolosoft/cmux-resurrect/internal/config"
+	"github.com/drolosoft/cmux-resurrect/internal/demo"
 	"github.com/drolosoft/cmux-resurrect/internal/orchestrate"
 	"github.com/drolosoft/cmux-resurrect/internal/setup"
 	"github.com/spf13/cobra"
@@ -66,6 +67,9 @@ func runSetup(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("create layouts dir: %w", err)
 	}
 	o.f("  %s  Layouts directory ready: %s\n", greenStyle.Render("✓"), dimStyle.Render(layoutsDir))
+	if created, err := demo.Install(layoutsDir); err == nil && created {
+		o.f("  %s  Example layout installed — try: %s\n", greenStyle.Render("✓"), greenStyle.Render("crex restore demo --mode add"))
+	}
 	o.ln()
 
 	// Step 4: First Save

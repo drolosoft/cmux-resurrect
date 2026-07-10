@@ -56,7 +56,8 @@ Skip permission prompts on restore for Claude, Codex, OpenCode, and 10 more.
 
 ```sh
 brew install drolosoft/tap/crex       # install
-crex setup                            # first-run wizard
+crex setup                            # first-run wizard (ships a demo layout)
+crex restore demo                     # try the bundled example — safe anywhere
 crex save my-day                      # snapshot your layout
 crex restore my-day                   # bring it all back
 crex pop                              # instant workspace picker (Ctrl+G)

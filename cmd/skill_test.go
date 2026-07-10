@@ -46,3 +46,17 @@ func TestSkillInstall_CustomDir(t *testing.T) {
 		t.Errorf("output should report the installed path, got: %s", out)
 	}
 }
+
+func TestSetup_InstallsDemoLayout(t *testing.T) {
+	// The wizard must ship the portable example layout on first run.
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	out, err := executeCmd(t, "setup", "--defaults")
+	if err != nil {
+		t.Fatalf("setup --defaults: %v\n%s", err, out)
+	}
+	demoPath := filepath.Join(home, ".config", "crex", "layouts", "demo.toml")
+	if _, err := os.Stat(demoPath); err != nil {
+		t.Errorf("demo layout not installed at %s: %v", demoPath, err)
+	}
+}

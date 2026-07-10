@@ -48,6 +48,19 @@ crex watch --stop                                       # ⏱️ stop the daemon
 crex watch --shell-hook                                 # ⏱️ print auto-start snippet for your shell
 ```
 
+## Try It: the Demo Layout
+
+`crex setup` installs a portable example layout named `demo` — two workspaces (🏠 home, 📁 files with a split), every path home-relative (`~`, `~/Documents`, `~/Downloads`), no commands. It restores safely on any machine:
+
+```sh
+crex show demo                  # inspect it first
+crex restore demo --mode add    # try it without touching your open workspaces
+```
+
+It's a real layout file (`~/.config/crex/layouts/demo.toml`) — edit it, re-save over it, or `crex delete demo` when done. Setup never overwrites your copy.
+
+> Layout `cwd` fields support `~` — expanded at restore time, so layouts written with home-relative paths are portable across machines.
+
 ## Template Commands
 
 The `template` command group (alias: `tpl`) lets you browse and use the built-in gallery.

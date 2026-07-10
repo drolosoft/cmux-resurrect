@@ -1,6 +1,8 @@
 package orchestrate
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -83,5 +85,42 @@ func TestRestore_DryRun_PerPaneCWD(t *testing.T) {
 	// The no-CWD pane must NOT get a spurious cd before its command.
 	if strings.Contains(plan, "cd '/tmp/project'") {
 		t.Errorf("did not expect a cd into the workspace CWD\n--- plan ---\n%s", plan)
+	}
+}
+
+func TestExpandHome(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("no home dir")
+	}
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{"~", home},
+		{"~/Documents", filepath.Join(home, "Documents")},
+		{"/absolute/path", "/absolute/path"},
+		{"", ""},
+		{"~otheruser/dir", "~otheruser/dir"}, // not ours to expand
+		{"relative/path", "relative/path"},
+	}
+	for _, tt := range tests {
+		if got := expandHome(tt.in); got != tt.want {
+			t.Errorf("expandHome(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
+func TestCwdCommand_ExpandsTilde(t *testing.T) {
+	// Portable layouts store '~/Documents'; a quoted `cd '~/Documents'`
+	// would NOT expand in the shell, so crex must expand before quoting.
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("no home dir")
+	}
+	got := cwdCommand("~/Documents", "")
+	want := "cd '" + filepath.Join(home, "Documents") + "'"
+	if got != want {
+		t.Errorf("cwdCommand(~/Documents) = %q, want %q", got, want)
 	}
 }

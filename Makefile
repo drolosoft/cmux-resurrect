@@ -30,7 +30,7 @@ install: build install-demo
 install-demo:
 	@mkdir -p $(LAYOUTS_DIR)
 	@if [ ! -f $(LAYOUTS_DIR)/demo.toml ]; then \
-		cp testdata/layouts/demo.toml $(LAYOUTS_DIR)/demo.toml; \
+		cp internal/demo/demo.toml $(LAYOUTS_DIR)/demo.toml; \
 		echo "✓ Demo layout installed — try: crex restore demo"; \
 	fi
 

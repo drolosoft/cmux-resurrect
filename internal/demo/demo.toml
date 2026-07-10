@@ -1,0 +1,34 @@
+# crex demo layout — a portable example that works on any machine.
+# Try it:   crex restore demo --mode add
+# Inspect:  crex show demo
+name = 'demo'
+description = 'Portable example — two workspaces, a split, per-pane folders. Safe to restore.'
+version = 1
+saved_at = 2026-07-10T12:00:00Z
+
+[[workspace]]
+title = '🏠 home'
+cwd = '~'
+index = 0
+
+[[workspace.pane]]
+type = 'terminal'
+focus = true
+focus_target = -1
+
+[[workspace]]
+title = '📁 files'
+cwd = '~/Documents'
+index = 1
+
+[[workspace.pane]]
+type = 'terminal'
+focus = true
+focus_target = -1
+
+[[workspace.pane]]
+type = 'terminal'
+split = 'right'
+cwd = '~/Downloads'
+index = 1
+focus_target = 0

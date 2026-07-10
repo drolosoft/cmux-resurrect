@@ -2,6 +2,7 @@ package orchestrate
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -78,6 +79,7 @@ func (r *Restorer) verifyCWD(workspaceRef, surfaceRef, wantCWD string) {
 	if wantCWD == "" || surfaceRef == "" {
 		return
 	}
+	wantCWD = expandHome(wantCWD) // live cwd reports absolute paths
 	ss, ok := r.Client.(client.SurfaceStater)
 	if !ok {
 		return
@@ -107,15 +109,30 @@ func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
+// expandHome expands a leading "~" or "~/" to the user's home directory, so
+// portable layouts (like the shipped demo) can use machine-independent paths.
+// "~user" forms and non-tilde paths pass through unchanged.
+func expandHome(path string) string {
+	if path != "~" && !strings.HasPrefix(path, "~/") {
+		return path
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return path
+	}
+	return home + path[1:]
+}
+
 // cwdCommand builds the shell input for a pane/surface, prepending a `cd` into
 // the saved per-pane directory when one was captured (GitHub #8). With no saved
 // CWD it returns the command unchanged, so panes inherit the workspace path as
-// before. A CWD with no command becomes a bare `cd`.
+// before. A CWD with no command becomes a bare `cd`. Tilde paths are expanded
+// here — a quoted `cd '~/x'` would NOT expand in the shell.
 func cwdCommand(cwd, command string) string {
 	if cwd == "" {
 		return command
 	}
-	cd := "cd " + shellQuote(cwd)
+	cd := "cd " + shellQuote(expandHome(cwd))
 	if command == "" {
 		return cd
 	}
@@ -281,7 +298,7 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 	}
 
 	// 1. Create workspace.
-	ref, err := r.Client.NewWorkspace(client.NewWorkspaceOpts{CWD: ws.CWD})
+	ref, err := r.Client.NewWorkspace(client.NewWorkspaceOpts{CWD: expandHome(ws.CWD)})
 	if err != nil {
 		return "", fmt.Errorf("new-workspace: %w", err)
 	}
