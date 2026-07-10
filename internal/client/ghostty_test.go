@@ -1,6 +1,9 @@
 package client
 
-import "testing"
+import (
+	"os"
+	"testing"
+)
 
 func TestParseTabIndex(t *testing.T) {
 	tests := []struct {
@@ -55,4 +58,38 @@ func TestParseTerminalIndex(t *testing.T) {
 			t.Errorf("parseTerminalIndex(%q) = %d, want %d", tt.ref, got, tt.want)
 		}
 	}
+}
+
+func TestCwdFromTitle(t *testing.T) {
+	tmp := t.TempDir() // a real, existing directory
+
+	tests := []struct {
+		name  string
+		title string
+		want  string
+	}{
+		{"user@host prefix with absolute path", "txeo@Mac: " + tmp, tmp},
+		{"bare absolute path", tmp, tmp},
+		{"home tilde alone", "txeo@Mac: ~", homeDirOrEmpty()},
+		{"nonexistent path rejected", "txeo@Mac: /no/such/dir-xyz", ""},
+		{"file (not dir) rejected", "vim: /etc/hosts", ""},
+		{"arbitrary title rejected", "make watch", ""},
+		{"empty title", "", ""},
+		{"tilde-user form rejected", "x: ~otheruser/dir", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := cwdFromTitle(tt.title); got != tt.want {
+				t.Errorf("cwdFromTitle(%q) = %q, want %q", tt.title, got, tt.want)
+			}
+		})
+	}
+}
+
+func homeDirOrEmpty() string {
+	h, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return h
 }

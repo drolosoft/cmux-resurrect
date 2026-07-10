@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.23.0] — 2026-07-10
+
+### Added
+- **Per-pane working directories on Ghostty** — save now captures each split's working directory on Ghostty too. Primary source is the `working directory` AppleScript property (fed by OSC 7 shell integration); when a shell doesn't emit OSC 7, crex falls back to the terminal title (e.g. `user@host: ~/path`), accepting it only if it names a real directory. Applies to both the per-tab CWD and each split within a tab (#8)
+
+### Fixed
+- **Per-pane `cd` no longer skipped on Ghostty** — when the shell-readiness probe can't confirm readiness (no OSC 7), restore now sends the pane's `cd` after the timeout instead of skipping it. On shells where CWD reporting simply never fills, the old behavior silently left every split in the wrong directory
+- **AI session titles on Ghostty** — the tree now reports each terminal's real title (previously the title field carried the working directory), so title-confirmed AI session detection works on Ghostty
+
+### Changed
+- **features.yaml** updated to the current support matrix: per-pane CWD supported on both backends; split arrangement exact on cmux, right-chain fallback on Ghostty (no pixel-frame API until libghostty)
+
+---
+
 ## [v1.22.2] — 2026-07-08
 
 ### Fixed
@@ -527,3 +541,4 @@ Initial public release.
 [v1.22.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.22.0
 [v1.22.1]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.22.1
 [v1.22.2]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.22.2
+[v1.23.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.23.0

@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -115,6 +116,33 @@ func parseTabIndex(ref string) (int, error) {
 // parseTerminalIndex extracts the 1-based terminal index from refs.
 // "terminal:N" refs are already 1-based (pass through).
 // "pane:N" refs are 0-based (cmux convention) — adds 1 for AppleScript.
+// cwdFromTitle extracts a working directory from a terminal title, for shells
+// that don't emit OSC 7 (Ghostty's `working directory` AppleScript property
+// stays empty then, but shell titles conventionally carry the cwd: bare paths
+// or "user@host: ~/path"). The candidate is accepted only when it names an
+// existing directory, so arbitrary titles can't fake a cwd.
+func cwdFromTitle(title string) string {
+	cand := strings.TrimSpace(title)
+	if i := strings.LastIndex(cand, ": "); i >= 0 {
+		cand = cand[i+2:]
+	}
+	cand = strings.TrimSpace(cand)
+	if cand == "~" || strings.HasPrefix(cand, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return ""
+		}
+		cand = home + cand[1:]
+	}
+	if !strings.HasPrefix(cand, "/") {
+		return ""
+	}
+	if st, err := os.Stat(cand); err == nil && st.IsDir() {
+		return cand
+	}
+	return ""
+}
+
 func parseTerminalIndex(ref string) (int, error) {
 	parts := strings.SplitN(ref, ":", 2)
 	if len(parts) != 2 || parts[1] == "" {
@@ -156,7 +184,8 @@ func (g *GhosttyClient) Tree() (*TreeResponse, error) {
 		`      set output to output & "TAB|" & t & "|" & tabName & "|" & isSel & "|" & termCount & linefeed`,
 		`      repeat with term from 1 to termCount`,
 		`        set termCWD to working directory of terminal term of tab t of window w`,
-		`        set output to output & "TERM|" & term & "|" & termCWD & linefeed`,
+		`        set termName to name of terminal term of tab t of window w`,
+		`        set output to output & "TERM|" & term & "|" & termCWD & "|" & termName & linefeed`,
 		`      end repeat`,
 		`    end repeat`,
 		`  end repeat`,
@@ -230,6 +259,17 @@ func (g *GhosttyClient) Tree() (*TreeResponse, error) {
 			if len(parts) > 2 {
 				termCWD = parts[2]
 			}
+			termName := ""
+			if len(parts) > 3 {
+				// The name is the last field and may itself contain pipes.
+				termName = strings.Join(parts[3:], "|")
+			}
+			if termCWD == "" {
+				// No OSC 7 from this shell — Ghostty's `working directory`
+				// property stays empty. Shell titles conventionally carry
+				// the cwd; use it when it names a real directory.
+				termCWD = cwdFromTitle(termName)
+			}
 			paneRef := fmt.Sprintf("pane:%d", termIdx-1)
 			surfaceRef := fmt.Sprintf("terminal:%d", termIdx)
 			pane := TreePane{
@@ -245,7 +285,8 @@ func (g *GhosttyClient) Tree() (*TreeResponse, error) {
 						Ref:            surfaceRef,
 						PaneRef:        paneRef,
 						Type:           "terminal",
-						Title:          termCWD,
+						Title:          termName,
+						CWD:            termCWD,
 						Index:          termIdx - 1,
 						IndexInPane:    0,
 						Active:         termIdx == 1,
@@ -293,14 +334,20 @@ func (g *GhosttyClient) SidebarState(workspaceRef string) (*SidebarState, error)
 		return nil, err
 	}
 
-	cwd, err := g.runScriptLines(
+	out, err := g.runScriptLines(
 		g.tell(),
 		fmt.Sprintf(`  set focTerm to focused terminal of tab %d of front window`, tabIdx),
-		`  return working directory of focTerm`,
+		`  return (working directory of focTerm) & "|" & (name of focTerm)`,
 		`end tell`,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("sidebar state: %w", err)
+	}
+	cwd, name, _ := strings.Cut(out, "|")
+	if cwd == "" {
+		// The `working directory` property fills only from OSC 7; when the
+		// shell doesn't emit it, fall back to the title (validated on disk).
+		cwd = cwdFromTitle(name)
 	}
 
 	state := &SidebarState{

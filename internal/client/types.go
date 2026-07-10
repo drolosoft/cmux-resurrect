@@ -66,6 +66,10 @@ type TreeSurface struct {
 	SelectedInPane bool    `json:"selected_in_pane"`
 	Here           bool    `json:"here"`
 	TTY            string  `json:"tty"`
+	// CWD is the surface's live working directory when the backend reports it
+	// in the tree itself (Ghostty via AppleScript). Empty on cmux, which
+	// reports it separately through debug.terminals.
+	CWD string `json:"cwd"`
 }
 
 // SidebarState holds parsed sidebar-state for a workspace.

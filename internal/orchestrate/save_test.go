@@ -822,6 +822,56 @@ func TestSave_PerPaneCWD_SurfaceStateEqualToWorkspaceCWDOmitted(t *testing.T) {
 	}
 }
 
+func TestSave_PerPaneCWD_FromTreeSurface(t *testing.T) {
+	// Ghostty's Tree() reports each terminal's working directory directly on
+	// the surface (no tty, no SurfaceStater RPC). Save must use it so
+	// per-split CWDs are captured on Ghostty too (GitHub #8 parity).
+	tree := &client.TreeResponse{
+		Windows: []client.TreeWindow{{
+			Workspaces: []client.TreeWorkspace{{
+				Ref:   "workspace:1",
+				Title: "ghostty-tab",
+				Panes: []client.TreePane{
+					{
+						Index:   0,
+						Focused: true,
+						Surfaces: []client.TreeSurface{
+							{Ref: "terminal:1", Type: "terminal", CWD: "/home/user"},
+						},
+					},
+					{
+						Index: 1,
+						Surfaces: []client.TreeSurface{
+							{Ref: "terminal:2", Type: "terminal", CWD: "/home/user/project"},
+						},
+					},
+				},
+			}},
+		}},
+	}
+
+	mc := &mockClient{
+		treeResp:    tree,
+		sidebarCWDs: map[string]string{"workspace:1": "/home/user"},
+	}
+
+	dir := t.TempDir()
+	store, _ := persist.NewFileStore(dir)
+	saver := &Saver{Client: mc, Store: store}
+
+	layout, err := saver.Save("tree-cwd", "")
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	ws := layout.Workspaces[0]
+	if got := ws.Panes[0].CWD; got != "" {
+		t.Errorf("pane 0 CWD = %q, want empty (matches workspace cwd)", got)
+	}
+	if got := ws.Panes[1].CWD; got != "/home/user/project" {
+		t.Errorf("pane 1 CWD = %q, want /home/user/project (from tree surface)", got)
+	}
+}
+
 // asideMock builds a standard aside layout (P0 full-height left, P1 top-right,
 // P2 bottom-right) with geometry and live surface state, like real cmux.
 func asideMock() *geometrySurfaceMock {

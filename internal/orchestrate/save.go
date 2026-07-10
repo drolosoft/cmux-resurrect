@@ -108,13 +108,17 @@ func (s *Saver) Save(name, description string) (*model.Layout, error) {
 
 // surfaceCWD returns the live working directory of a surface's shell. It
 // prefers the TTY foreground process (most precise when a foreground command
-// cd'd deeper), but current cmux builds report no tty in `tree --json`, so it
-// falls back to the backend's live surface state (`cmux rpc debug.terminals`).
+// cd'd deeper); then a CWD the backend reported in the tree itself (Ghostty);
+// then the backend's live surface state (`cmux rpc debug.terminals`, since
+// current cmux builds report no tty in `tree --json`).
 func (s *Saver) surfaceCWD(surf client.TreeSurface) string {
 	if surf.TTY != "" {
 		if cwd := detect.ForegroundCWD(surf.TTY); cwd != "" {
 			return cwd
 		}
+	}
+	if surf.CWD != "" {
+		return surf.CWD
 	}
 	ss, ok := s.Client.(client.SurfaceStater)
 	if !ok || surf.Ref == "" {

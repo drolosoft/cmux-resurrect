@@ -1,7 +1,6 @@
 package orchestrate
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/drolosoft/cmux-resurrect/internal/client"
@@ -67,7 +66,12 @@ func waitForShellReady(c client.Backend, workspaceRef, surfaceRef string) error 
 	}
 
 	if lastCWD == "" {
-		return fmt.Errorf("shell not ready after %v", ShellReadyTimeout)
+		// CWD never appeared. On backends whose CWD reporting can be
+		// permanently unavailable (Ghostty when the shell doesn't emit
+		// OSC 7), that is not evidence the shell isn't ready — after the
+		// full timeout it almost certainly is. Return best-effort so the
+		// caller still sends its cd/command instead of skipping it.
+		return nil
 	}
 
 	// Phase 2: Wait for stability — N consecutive identical reads.

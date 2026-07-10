@@ -3,7 +3,7 @@
 # Status: supported, unsupported, inferred, planned, experimental
 
 version: 1
-updated: "2026-05-21"
+updated: "2026-07-10"
 
 backends:
   cmux:
@@ -42,16 +42,16 @@ features:
     notes: "Ghostty opens URL in default browser instead"
 
   - name: split-direction
-    description: Preserve pane split direction
-    cmux: inferred
+    description: Preserve pane split direction and arrangement
+    cmux: supported
     ghostty: inferred
-    notes: "Neither backend exposes split direction; defaults to right"
+    notes: "cmux: exact arrangement via pixel-frame BSP inference (v1.22.x). Ghostty: AppleScript exposes no frames; saves default to a right-chain until libghostty"
 
   - name: per-pane-cwd
     description: Individual pane working directories
-    cmux: unsupported
-    ghostty: unsupported
-    notes: "Both backends return workspace-level CWD only"
+    cmux: supported
+    ghostty: supported
+    notes: "cmux: debug.terminals (v1.21.1+). Ghostty: OSC 7 working directory, with a title-derived fallback validated on disk (v1.23.0); restore sends per-pane cd on both"
 
   - name: ai-session-detection
     description: Detect and restore AI CLI sessions

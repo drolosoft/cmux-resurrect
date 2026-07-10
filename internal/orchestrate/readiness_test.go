@@ -87,14 +87,23 @@ func TestWaitForShellReady_ChangingCWDStillCompletes(t *testing.T) {
 	}
 }
 
-func TestWaitForShellReady_TimeoutOnNoCWD(t *testing.T) {
+func TestWaitForShellReady_TimeoutOnNoCWD_BestEffort(t *testing.T) {
+	// Backends whose CWD reporting never fills (Ghostty without OSC 7 shell
+	// integration) would otherwise block every per-pane cd forever: the old
+	// contract returned an error on timeout and the caller SKIPPED the cd.
+	// New contract: after the full timeout the shell is almost certainly
+	// interactive, so return nil (best effort) and let the cd be sent.
 	mc := &readinessMockClient{cwdSeq: []string{}, fallback: ""}
 	origTimeout := ShellReadyTimeout
 	ShellReadyTimeout = 500 * time.Millisecond
 	defer func() { ShellReadyTimeout = origTimeout }()
 
+	start := time.Now()
 	err := waitForShellReady(mc, "workspace:1", "")
-	if err == nil {
-		t.Fatal("expected timeout error when CWD never appears")
+	if err != nil {
+		t.Fatalf("timeout must be best-effort (nil), got error: %v", err)
+	}
+	if elapsed := time.Since(start); elapsed < 400*time.Millisecond {
+		t.Errorf("returned in %v — must still wait out the timeout before giving up", elapsed)
 	}
 }
