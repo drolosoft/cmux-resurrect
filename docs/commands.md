@@ -174,6 +174,23 @@ crex watch --shell-hook >> ~/.zshrc # install the hook
 | `--shell-hook` | Print a shell snippet that auto-starts the daemon |
 | `-i, --interval` | Save interval (default: 5m) |
 
+## Backend Differences
+
+crex targets full parity between cmux and Ghostty; where the platform APIs differ, this is the honest map:
+
+| Capability | cmux | Ghostty |
+|---|---|---|
+| Per-tab working directory | ✅ | ✅ |
+| Per-pane (split) working directory | ✅ save + restore | ✅ save + restore¹ |
+| Exact split arrangement (positions, sizes) | ✅ pixel-exact | ⚠️ splits recreated in order, geometry not captured² |
+| Sub-tabs within a pane (multi-surface) | ✅ | — (Ghostty has no sub-tabs) |
+| Browser panes | ✅ | opens URL in default browser |
+| AI session resume | ✅ | ✅ |
+
+¹ Ghostty reports each terminal's directory via OSC 7 (shell integration). When a shell doesn't emit OSC 7, crex falls back to the terminal title (`user@host: ~/path`), accepted only if the directory exists. Restore always sends each pane's `cd`.
+
+² Ghostty's AppleScript API exposes no pane frames, so saved layouts restore their splits as a right-chain. Edit the layout's `split =` directions by hand (`crex edit <name>`) to customize — re-saves preserve your edits. Exact geometry lands with libghostty.
+
 ## Common Recipes
 
 ### Save before a reboot
