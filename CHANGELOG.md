@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Ghostty: splits are placed by terminal id, not focus** — the sequential restore focused a pane by live index and split "whatever is focused"; Ghostty re-indexes terminals as splits are inserted, so a pane could land in the wrong corner (field report: quad came back with the top row swapped). Each split now targets the resolved pane's own id — placement no longer depends on focus state or index stability, and a placement-order assertion joined the live audit matrix
 - **Ghostty: no more duplicate `cd`** — the cd verifier re-sent the `cd` on its first poll if the pane's reported directory was still stale; Ghostty's cwd report lags the prompt, so every split showed the cd twice. The verifier now gives the original cd a grace period (and paces genuine retries) instead of re-typing on the first stale reading
 - Browser-pane readiness and pane focusing on Ghostty accept id-based refs (previously id refs were silently ignored there)
+- **Ghostty cold start: no leftover default tab** — when crex creates the anchor window itself, its default/session-restored tabs are now counted and purged after the workspace tab is added (previously a `~` tab leaked alongside the restored one). crex still leaves pre-existing tabs untouched under `--mode add`
+
+### Added
+- `scripts/tui-dialog-e2e.js` — asserting end-to-end check of the TUI browse→restore dialog against a live backend (verifies the workspace/tab is actually created, not just that the dialog renders)
 
 ---
 

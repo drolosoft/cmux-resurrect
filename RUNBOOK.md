@@ -75,6 +75,13 @@ make audit-ghostty    # Ghostty matrix only
 
 No release ships without `make audit` green. The manual tests below remain for the flows the harness doesn't cover (TUI visuals, templates, Alfred).
 
+**TUI restore dialog (asserting E2E):** the browse→dialog→restore flow is driven by `scripts/tui-dialog-e2e.js`, which checks the workspace/tab is actually created in the backend — not just that the dialog renders. Run it per backend:
+
+```sh
+CREX_BACKEND=cmux ttyd -W -p 7683 ./bin/crex --layouts-dir <dir-with-one-layout> tui &
+OUTDIR=/tmp/crex-tui node scripts/tui-dialog-e2e.js   # exit 0 = workspace created
+```
+
 ## Test 1: import-from-md (minimal)
 
 ```sh

@@ -88,6 +88,9 @@ func (g *GhosttyClient) windowClause() (string, bool, error) {
 		if id == "" {
 			return "", false, fmt.Errorf("%s: no window available", g.appName())
 		}
+		// Let window-save-state finish materializing any restored tabs before
+		// the caller snapshots the default-tab count to purge.
+		time.Sleep(WindowSettleDelay)
 	}
 	g.anchorWin = id
 	return fmt.Sprintf(`window id "%s"`, escapeAppleScript(id)), created, nil
@@ -498,14 +501,14 @@ func (g *GhosttyClient) NewWorkspace(opts NewWorkspaceOpts) (string, error) {
 		return "", err
 	}
 
-	beforeCount := 0
-	if !createdWindow {
-		beforeOut, err := g.runScript(fmt.Sprintf(`tell application "%s" to count of tabs of %s`, g.appName(), win))
-		if err != nil {
-			return "", fmt.Errorf("count tabs: %w", err)
-		}
-		beforeCount, _ = strconv.Atoi(beforeOut)
+	// Count the tabs already in the window BEFORE we add ours. When we just
+	// created the window, these are default/session-restored tabs (a window
+	// always has ≥1) that get purged after our tab is added.
+	beforeOut, err := g.runScript(fmt.Sprintf(`tell application "%s" to count of tabs of %s`, g.appName(), win))
+	if err != nil {
+		return "", fmt.Errorf("count tabs: %w", err)
 	}
+	beforeCount, _ := strconv.Atoi(beforeOut)
 
 	if opts.CWD != "" && g.appName() == "Ghostty" {
 		// Ghostty supports surface configuration for setting initial CWD.
@@ -542,15 +545,18 @@ func (g *GhosttyClient) NewWorkspace(opts NewWorkspaceOpts) (string, error) {
 		return "", fmt.Errorf("new tab created but could not determine ref")
 	}
 
-	// A freshly created anchor window spawns a default tab (tab 1) alongside
-	// our configured one — close it so the workspace tab is tab 1.
-	if createdWindow {
-		out, _ := g.runScript(fmt.Sprintf(`tell application "%s" to count of tabs of %s`, g.appName(), win))
-		if n, _ := strconv.Atoi(out); n > 1 {
+	// A freshly created anchor window carries default/session-restored tabs
+	// (beforeCount of them) alongside our configured one. Our tab was appended
+	// last, so purge the leading beforeCount tabs — repeatedly closing tab 1,
+	// which shifts the rest down — leaving our tab as the only one. With
+	// window-save-state=always this reliably removes a restored session tab
+	// that would otherwise leak (assuming "tab 1 is the default" did not).
+	if createdWindow && beforeCount > 0 {
+		for i := 0; i < beforeCount; i++ {
 			_, _ = g.runScript(fmt.Sprintf(`tell application "%s" to close tab (a reference to tab 1 of %s)`, g.appName(), win))
 			time.Sleep(PollInterval)
-			ref = "tab:1"
 		}
+		ref = "tab:1"
 	}
 
 	// For non-Ghostty apps (cmux), cd to CWD since surface configuration isn't supported.

@@ -15,6 +15,11 @@ const (
 	// after cmux new-workspace succeeds.
 	NewWorkspaceDeadline = 5 * time.Second
 
+	// WindowSettleDelay lets a freshly created Ghostty window finish
+	// materializing window-save-state-restored tabs before their count is
+	// snapshotted for purging.
+	WindowSettleDelay = 300 * time.Millisecond
+
 	// NewSplitDeadline is how long to poll for a new surface ref
 	// after cmux new-split succeeds.
 	NewSplitDeadline = 3 * time.Second
