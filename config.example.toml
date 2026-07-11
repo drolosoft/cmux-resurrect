@@ -22,3 +22,8 @@ max_autosaves = 10   # reserved — rotation not implemented yet
 #   plain   — monochrome gray, minimal and quiet
 # Can also be set via CREX_BANNER env var (takes precedence over this).
 # banner_style = "flame"
+
+# Default terminal backend when auto-detection is ambiguous (cmux AND Ghostty
+# both running). Leave unset for auto-detect. Values: cmux, ghostty.
+# CREX_BACKEND overrides this; inside a live cmux session cmux always wins.
+# backend = "ghostty"

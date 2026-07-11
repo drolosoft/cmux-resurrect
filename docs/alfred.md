@@ -120,6 +120,39 @@ osascript -e "tell application \"Ghostty\"" -e "activate" \
   -e "end tell" 2>/dev/null
 ```
 
+## Which backend does Alfred restore to?
+
+Alfred runs outside any terminal, so it can't tell whether you're "in" cmux or Ghostty — and if **both** are running, auto-detection is ambiguous. Two ways to make it deterministic:
+
+1. **Pin a default backend in config** (recommended if you use one backend most of the time). Then use the *combined* Run Script below — it sets no `CREX_BACKEND`, so crex honors your config default:
+
+   ```sh
+   crex settings backend set ghostty   # or cmux
+   ```
+
+   ```bash
+   export PATH="/opt/homebrew/bin:/Applications/cmux.app/Contents/Resources/bin:$PATH"
+   # Discover the cmux socket so crex can reach cmux when that's the chosen backend.
+   for sock in "$HOME/.local/state/cmux/cmux.sock" \
+               "$HOME/Library/Application Support/cmux/cmux-501.sock" \
+               "$HOME/Library/Application Support/cmux/cmux.sock"; do
+     [ -S "$sock" ] && export CMUX_SOCKET_PATH="$sock" && break
+   done
+
+   action="${1%%:*}"; rest="${1#*:}"
+   case "$action" in
+     restore)   crex restore "$rest" --mode add ;;
+     show)      crex show "$rest" ;;
+     delete)    crex delete "$rest" -f ;;
+     open)      open "${HOME}/.config/crex/layouts/${rest}.toml" ;;
+     workspace) layout="${rest%%:*}"; ws="${rest#*:}"; crex restore "$layout" "$ws" --mode add ;;
+   esac
+   ```
+
+2. **Two keywords** — a second workflow (keyword e.g. `crexg`) whose Run Script sets `export CREX_BACKEND=ghostty`, keeping `crex` for cmux. Pick the target per invocation.
+
+Note: running crex from *inside a live cmux session* always targets cmux, so the config default only affects external launchers like Alfred.
+
 ## Usage
 
 Alfred shows two types of items:

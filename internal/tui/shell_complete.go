@@ -108,6 +108,7 @@ var level2Subcommands = map[string][]completionItem{
 var nestedGroupPrefixes = map[string]bool{
 	"settings banner":       true,
 	"settings restore-mode": true,
+	"settings backend":      true,
 }
 
 // level3Subcommands are the subcommands for three-word command groups.
@@ -121,6 +122,11 @@ var level3Subcommands = map[string][]completionItem{
 		{"set", "🔧", "Set restore mode"},
 		{"get", "🔍", "Show current mode"},
 		{"list", "📋", "List available modes"},
+	},
+	"settings backend": {
+		{"set", "🔧", "Set default backend"},
+		{"get", "🔍", "Show default backend"},
+		{"list", "📋", "List available backends"},
 	},
 }
 

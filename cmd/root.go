@@ -145,14 +145,49 @@ func newClient() client.Backend {
 // is parsed once here (needed for Alfred/external apps where the cmux socket is
 // restricted and osascript detection may fail).
 func clientFor(detect func() client.DetectedBackend) client.Backend {
-	if override := os.Getenv("CREX_BACKEND"); override != "" {
-		if cl, ok := client.NewForOverride(override); ok {
+	configBackend := ""
+	if cfg != nil {
+		configBackend = cfg.Backend
+	}
+	// Being literally inside a cmux session (not just having a discoverable
+	// socket) is a strong context signal: CMUX_WORKSPACE_ID / CMUX_SURFACE_ID
+	// are set by cmux for its own shells but NOT by Alfred's socket discovery.
+	insideCmux := os.Getenv("CMUX_WORKSPACE_ID") != "" || os.Getenv("CMUX_SURFACE_ID") != ""
+	return resolveBackendChoice(os.Getenv("CREX_BACKEND"), configBackend, insideCmux, detect)
+}
+
+// resolveBackendChoice picks the backend by precedence:
+//  1. CREX_BACKEND env override (explicit, needed for external callers)
+//  2. the current cmux session — when insideCmux, cmux wins so the config
+//     default never hijacks `crex save`/`restore` run from inside a cmux tab
+//  3. the config's default backend (applies to external/ambiguous contexts
+//     like Alfred, where cmux and Ghostty may both be running)
+//  4. liveness-aware auto-detection
+//
+// Unrecognized override/config values warn and fall through. detect is the
+// detection function; nil uses client.Detect.
+func resolveBackendChoice(envOverride, configBackend string, insideCmux bool, detect func() client.DetectedBackend) client.Backend {
+	if envOverride != "" {
+		if cl, ok := client.NewForOverride(envOverride); ok {
 			return cl
 		}
-		fmt.Fprintf(os.Stderr, "warning: unknown CREX_BACKEND=%q, falling back to auto-detection\n", override)
+		fmt.Fprintf(os.Stderr, "warning: unknown CREX_BACKEND=%q, ignoring\n", envOverride)
 	}
 	if detect == nil {
 		detect = client.Detect
+	}
+	// Inside a cmux session, cmux is authoritative — but only if it's actually
+	// reachable; a leaked-but-dead env still falls through to detection.
+	if insideCmux {
+		if detect() == client.BackendCmux {
+			return client.NewForDetected(client.BackendCmux)
+		}
+	}
+	if configBackend != "" {
+		if cl, ok := client.NewForOverride(configBackend); ok {
+			return cl
+		}
+		fmt.Fprintf(os.Stderr, "warning: unknown backend=%q in config, ignoring\n", configBackend)
 	}
 	return client.NewForDetected(detect())
 }

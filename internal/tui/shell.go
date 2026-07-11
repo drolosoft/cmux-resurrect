@@ -53,6 +53,7 @@ type ShellModel struct {
 	OnSettingChanged func(key, value string)
 	bannerStyle      string   // current banner style for "banner get"
 	restoreMode      string   // current restore mode for "settings restore-mode get"
+	defaultBackend   string   // default backend for "settings backend get" ("" = auto)
 	autoAccept       []string // auto-accept list injected on restore/import (parity with CLI)
 
 	// Version string (injected by cmd layer for update command).
@@ -128,6 +129,10 @@ func (m *ShellModel) SetRestoreMode(mode string) { m.restoreMode = mode }
 // SetAutoAccept configures the AI-agent auto-accept list applied on restores
 // and imports — identical to the CLI's cfg.AutoAccept plumbing (parity).
 func (m *ShellModel) SetAutoAccept(tools []string) { m.autoAccept = tools }
+
+// SetBackend sets the default backend shown/edited by "settings backend"
+// ("" = auto-detect). Mirrors the CLI cfg.Backend plumbing (parity).
+func (m *ShellModel) SetBackend(b string) { m.defaultBackend = b }
 
 // ByeMsg returns the farewell message to print after the TUI exits.
 func (m *ShellModel) ByeMsg() string { return m.byeMsg }
@@ -747,6 +752,42 @@ func (m *ShellModel) dispatch(input string) (tea.Model, tea.Cmd) {
 		fmt.Fprintf(m.output, "    %s  prompt for replace/add each time (default)\n", shellSuccessStyle.Render("ask    "))
 		fmt.Fprintf(m.output, "    %s  always replace existing workspaces\n", shellSuccessStyle.Render("replace"))
 		fmt.Fprintf(m.output, "    %s  always add alongside existing workspaces\n", shellSuccessStyle.Render("add    "))
+		m.output.WriteString("\n")
+
+	case "settings backend set":
+		if len(args) == 0 {
+			m.writeError("Usage: settings backend set <auto|cmux|ghostty>")
+			break
+		}
+		choice := strings.ToLower(args[0])
+		switch choice {
+		case "auto", "cmux", "ghostty", "cmux-applescript":
+			value := choice
+			if choice == "auto" {
+				value = ""
+			}
+			m.defaultBackend = value
+			if m.OnSettingChanged != nil {
+				m.OnSettingChanged("backend", value)
+			}
+			m.output.WriteString(shellSuccessStyle.Render(fmt.Sprintf("  ✓ Default backend set to %q", choice)))
+			m.output.WriteString("\n\n")
+		default:
+			m.writeError(fmt.Sprintf("Invalid backend %q — use auto, cmux, or ghostty", choice))
+		}
+
+	case "settings backend get":
+		b := m.defaultBackend
+		if b == "" {
+			b = "auto (detect at runtime)"
+		}
+		fmt.Fprintf(m.output, "  Default backend: %s\n\n", shellSuccessStyle.Render(b))
+
+	case "settings backend list":
+		m.output.WriteString("  Available backends:\n")
+		fmt.Fprintf(m.output, "    %s     detect at runtime (default)\n", shellSuccessStyle.Render("auto   "))
+		fmt.Fprintf(m.output, "    %s     always use cmux\n", shellSuccessStyle.Render("cmux   "))
+		fmt.Fprintf(m.output, "    %s  always use Ghostty\n", shellSuccessStyle.Render("ghostty"))
 		m.output.WriteString("\n")
 
 	case "update":

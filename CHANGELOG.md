@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [v1.26.1] — 2026-07-11
 
+### Added
+- **Default backend setting** — `crex settings backend set <auto|cmux|ghostty>` pins which backend crex uses when auto-detection is ambiguous (cmux AND Ghostty both running). Precedence: `CREX_BACKEND` env → config default → auto-detect. Running crex from *inside a live cmux session* always targets cmux, so the default only affects external launchers (Alfred) and plain shells. Available in the CLI and the TUI (`settings backend`); documented for the Alfred workflow
+
 ### Fixed
 - **Ghostty: a restore never opens extra windows** — tab creation (and every tab-scoped operation) was addressed at the "front window", whose resolution shifts with focus and Spaces; a multi-workspace restore could open one WINDOW per workspace (field report: three workspaces came back as three windows). The client now anchors the whole run to a single window id — resolved once, created if none exists — and the live matrix asserts the window count never changes across a restore
 - **Ghostty: splits are placed by terminal id, not focus** — the sequential restore focused a pane by live index and split "whatever is focused"; Ghostty re-indexes terminals as splits are inserted, so a pane could land in the wrong corner (field report: quad came back with the top row swapped). Each split now targets the resolved pane's own id — placement no longer depends on focus state or index stability, and a placement-order assertion joined the live audit matrix

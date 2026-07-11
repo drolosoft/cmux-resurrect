@@ -19,6 +19,13 @@ max_autosaves = 10   # reserved — rotation not implemented yet
 
 # Banner style: "flame", "classic", or "plain"
 banner_style = "flame"
+
+# Default restore behavior: "ask" (default), "replace", or "add"
+restore_mode = "ask"
+
+# Default backend when auto-detection is ambiguous (cmux AND Ghostty both
+# running). Unset = auto-detect. Values: "cmux", "ghostty".
+backend = "ghostty"
 ```
 
 ## Defaults
@@ -31,6 +38,19 @@ banner_style = "flame"
 | ⏱️ Watch interval | `5m` |
 | 🔄 Max autosaves | `10` |
 | 🎨 Banner style | `flame` |
+| 🔀 Restore mode | `ask` |
+| 🖥️ Backend | auto-detect |
+
+## Default Backend
+
+By default crex auto-detects the backend at runtime. When **both** cmux and Ghostty are running, detection is ambiguous — pin a default so every surface (CLI, TUI, and the Alfred workflow, which runs outside any terminal) agrees:
+
+```sh
+crex settings backend set ghostty   # or cmux, or auto to clear
+crex settings backend get
+```
+
+Precedence: `CREX_BACKEND` (env) → this config default → auto-detection. Running `crex` from **inside a live cmux session** always uses cmux regardless of the config default, so `crex save`/`restore` in a cmux tab is never hijacked.
 
 ## Banner Styles
 

@@ -20,6 +20,10 @@ type Config struct {
 	StableDuration    time.Duration `toml:"-"`
 	StableDurationStr string        `toml:"stable_duration"`
 	AutoAccept        []string      `toml:"auto_accept"`
+	// Backend pins the default terminal backend when auto-detection is
+	// ambiguous (cmux AND Ghostty both running). Empty means auto-detect.
+	// Values: "cmux", "ghostty", "cmux-applescript". CREX_BACKEND overrides it.
+	Backend string `toml:"backend,omitempty"`
 }
 
 // DefaultConfig returns the default configuration.
