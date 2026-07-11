@@ -7,9 +7,9 @@
 //
 // Requires:
 //   - ttyd running on the specified port with crex tui
-//   - Playwright (uses the MCP server's bundled installation)
+//   - Playwright (npm install playwright, or point PLAYWRIGHT_PATH at an install)
 
-const PLAYWRIGHT_PATH = '/Users/txeo/.nvm/versions/node/v23.11.0/lib/node_modules/@automatalabs/mcp-server-playwright/node_modules/playwright';
+const PLAYWRIGHT_PATH = process.env.PLAYWRIGHT_PATH || 'playwright';
 const { chromium } = require(PLAYWRIGHT_PATH);
 const fs = require('fs');
 const path = require('path');

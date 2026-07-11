@@ -5,7 +5,7 @@ COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS := -ldflags "-s -w -X github.com/drolosoft/cmux-resurrect/cmd.Version=$(VERSION) -X github.com/drolosoft/cmux-resurrect/cmd.Commit=$(COMMIT) -X github.com/drolosoft/cmux-resurrect/cmd.Date=$(DATE)"
 
-.PHONY: build build-all test test-integration validate install install-long install-both clean lint fmt completions
+.PHONY: build build-all test test-integration validate install install-long install-both clean lint fmt completions audit audit-live audit-cmux audit-ghostty
 
 build:
 	go build $(LDFLAGS) -o bin/$(BINARY) ./cmd/crex
@@ -63,6 +63,21 @@ validate:
 test-integration:
 	go test ./... -v -count=1 -tags integration
 
+# Full audit: static checks + unit suite + the LIVE dual-backend E2E matrix.
+# The live matrix drives the real cmux and Ghostty apps (adds workspaces/tabs,
+# cleans them up) and FAILS if either backend is missing — both are required.
+# Set CREX_AUDIT_SKIP_MISSING=1 to downgrade a missing backend to a skip.
+audit: lint test audit-live
+
+audit-live:
+	go test -tags live -v -count=1 -timeout 30m ./test/live
+
+audit-cmux:
+	go test -tags live -v -count=1 -timeout 20m -run 'TestCmux' ./test/live
+
+audit-ghostty:
+	go test -tags live -v -count=1 -timeout 20m -run 'TestGhostty' ./test/live
+
 lint:
 	go vet ./...
 	golangci-lint run
@@ -106,6 +121,7 @@ help:
 	@echo "  make install-both   Install both names (crex + cmux-resurrect)"
 	@echo ""
 	@echo "  make test           Run unit tests"
+	@echo "  make audit          Lint + unit suite + LIVE dual-backend E2E (cmux + Ghostty)"
 	@echo "  make validate       Run v1.3.x feature validation (shortcut, theme, branding)"
 	@echo "  make lint           Run go vet"
 	@echo "  make clean          Remove build artifacts"

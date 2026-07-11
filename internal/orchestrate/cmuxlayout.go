@@ -160,10 +160,17 @@ func buildCmuxLayout(ws model.Workspace) (string, []int, bool) {
 		if typ == "" {
 			typ = "terminal"
 		}
+		// Terminal leaves always get an explicit cwd: layouts saved by older
+		// versions elide a pane's cwd when it equals the workspace cwd, and
+		// an empty leaf cwd would leave the pane wherever cmux spawns it.
+		cwd := p.CWD
+		if cwd == "" && typ == "terminal" {
+			cwd = ws.CWD
+		}
 		out := []surfaceJSON{{
 			Type:  typ,
 			Name:  p.Name,
-			CWD:   expandHomeNonEmpty(p.CWD),
+			CWD:   expandHomeNonEmpty(cwd),
 			URL:   p.URL,
 			Focus: p.Focus,
 		}}
@@ -172,10 +179,14 @@ func buildCmuxLayout(ws model.Workspace) (string, []int, bool) {
 			if st == "" {
 				st = "terminal"
 			}
+			scwd := s.CWD
+			if scwd == "" && st == "terminal" {
+				scwd = ws.CWD
+			}
 			out = append(out, surfaceJSON{
 				Type: st,
 				Name: s.Name,
-				CWD:  expandHomeNonEmpty(s.CWD),
+				CWD:  expandHomeNonEmpty(scwd),
 				URL:  s.URL,
 			})
 		}

@@ -1,6 +1,7 @@
 package mdfile
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -24,8 +25,14 @@ func Write(path string, wf *model.WorkspaceFile) error {
 		if p.Pin {
 			pin = "yes"
 		}
+		// An empty icon field would make the parser drop the whole line on
+		// the next read (fields < 5) — the project would silently vanish.
+		icon := p.Icon
+		if icon == "" {
+			icon = "📁"
+		}
 		fmt.Fprintf(&b, "- [%s] | %s | %s | %s | %s | %s |\n",
-			check, p.Icon, p.Name, p.Template, pin, p.Path)
+			check, icon, p.Name, p.Template, pin, p.Path)
 	}
 
 	// Write templates.
@@ -99,7 +106,8 @@ func sortedTemplateNames(m map[string]*model.Template) []string {
 func AddProject(path string, p model.Project) error {
 	wf, err := Parse(path)
 	if err != nil {
-		if os.IsNotExist(err) {
+		// Parse wraps the open error — unwrap-aware matching required.
+		if errors.Is(err, os.ErrNotExist) {
 			wf = &model.WorkspaceFile{
 				Templates: DefaultTemplates(),
 			}

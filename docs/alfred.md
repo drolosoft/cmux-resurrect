@@ -57,7 +57,7 @@ Adjust the path if crex is installed elsewhere (`which crex`).
 - **Script:**
 
 ```bash
-export PATH="/opt/homebrew/bin:/Applications/Apps/utils/terminal/cmux.app/Contents/Resources/bin:$PATH"
+export PATH="/opt/homebrew/bin:/Applications/cmux.app/Contents/Resources/bin:$PATH"
 
 # Auto-discover cmux socket
 for sock in "$HOME/.local/state/cmux/cmux.sock" \

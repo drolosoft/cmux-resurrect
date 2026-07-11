@@ -14,7 +14,7 @@
 watch_interval = "5m"
 
 # Maximum number of rotated autosave files to keep
-max_autosaves = 10
+max_autosaves = 10   # reserved — rotation not implemented yet
 
 # Banner style: "flame" (default), "classic", or "plain"
 #   flame   — ember→gold→green gradient on the startup banner

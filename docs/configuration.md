@@ -15,7 +15,7 @@ layouts_dir = "~/.config/crex/layouts"
 watch_interval = "5m"
 
 # Max rotated autosave files
-max_autosaves = 10
+max_autosaves = 10   # reserved — rotation not implemented yet
 
 # Banner style: "flame", "classic", or "plain"
 banner_style = "flame"

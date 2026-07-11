@@ -12,6 +12,7 @@ Test every command end-to-end against a running terminal backend (cmux or Ghostt
 |--------------|----------|--------------------------------------------------------------------------------------------------|
 | 0.62.1       | Verified | Fixture `testdata/responses/sidebar-state-api.txt` matches live output shape.                    |
 | 0.63.2       | Verified | Full test suite passes (8 packages, all areas green). Upgraded 2026-04-18.                       |
+| 0.64.17      | Verified | `runtime_surface_ready` now flips at render, not shell-ready — crex additionally gates on the terminal's `tty` (2026-07-11). Legacy CLI forms print alias notices on stderr; crex separates streams and sets `CMUX_QUIET=1`. |
 
 When bumping the local cmux install, run these spot checks:
 
@@ -61,6 +62,18 @@ Three Workspace Blueprints in `testdata/workspaces/`:
 | `full.md` | 3 enabled + 1 disabled | dev (3 panes), go, single | Multi-split, numbering |
 
 ---
+
+## Test 0: `make audit` — live dual-backend gate (run FIRST)
+
+One command runs lint, the unit suite, and the live E2E matrix against the real cmux **and** Ghostty apps (demo quad, aside save/re-save/restore with pixel-exact geometry, per-tab/per-split cwd round-trips via lsof, dead-`CMUX_*`-env detection). It builds crex from the working tree, adds `crex-audit-*` workspaces/tabs while it works, and cleans them up.
+
+```sh
+make audit            # both backends — fails if either is missing
+make audit-cmux       # cmux matrix only
+make audit-ghostty    # Ghostty matrix only
+```
+
+No release ships without `make audit` green. The manual tests below remain for the flows the harness doesn't cover (TUI visuals, templates, Alfred).
 
 ## Test 1: import-from-md (minimal)
 
@@ -370,14 +383,9 @@ crex import-from-md
 
 Run the full 27-case TUI visual regression suite after every release to catch rendering bugs that unit tests miss.
 
-**In Claude Code:**
-```
-/e2e-tui
-```
+The runner builds crex, drives 27 test cases via Playwright, and captures a screenshot per step for review. See `docs/tui-testing.md` for the full test matrix.
 
-This builds crex, starts ttyd, drives 27 test cases via Playwright, inspects every screenshot, and fixes issues found. See `docs/tui-testing.md` for the full test matrix.
-
-**Manual runner (if needed):**
+**Runner:**
 ```sh
 mkdir -p /tmp/crex-e2e
 go build -o /tmp/crex-e2e/crex-test ./cmd/crex

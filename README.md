@@ -148,7 +148,7 @@ Configure [auto-accept](docs/configuration.md#auto-accept-for-ai-agents) to skip
 
 | Backend | Status | Detection |
 |---------|--------|-----------|
-| [cmux](https://github.com/manaflow-ai/cmux) | Full support | Auto-detected via `CMUX_SOCKET_PATH` |
+| [cmux](https://github.com/manaflow-ai/cmux) | Full support | Auto-detected via `CMUX_SOCKET_PATH`, verified alive (falls back to a running Ghostty if the socket is dead) |
 | [Ghostty](https://ghostty.org/) | Full support | Auto-detected when running |
 
 macOS only. Both backends auto-detected — same commands, same templates, same Blueprints. Per-pane working directories work on both; exact split geometry is cmux-only for now ([backend differences](docs/commands.md#backend-differences)).

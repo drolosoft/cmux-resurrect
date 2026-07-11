@@ -37,6 +37,7 @@ func runTUI(cmd *cobra.Command, args []string) error {
 	}
 	m.SetBannerStyle(style)
 	m.SetRestoreMode(cfg.RestoreMode)
+	m.SetAutoAccept(cfg.AutoAccept)
 	m.OnSettingChanged = func(key, value string) {
 		if key == "restore_mode" {
 			cfg.RestoreMode = value

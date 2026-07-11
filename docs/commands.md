@@ -8,7 +8,10 @@
 |---------|-------|-------------|
 | `crex setup` | | 🧙 First-run wizard — detect backend, create config |
 | `crex save [name]` | | 💾 Capture current layout to TOML |
-| `crex restore [name]` | | 🔄 Recreate tabs, pane arrangements, and commands |
+| `crex restore [name] [workspace]` | | 🔄 Recreate tabs, pane arrangements, and commands (optionally a single workspace) |
+| `crex pop [name]` | | ⚡ Quick-launch a layout (Ctrl+G picker, `--last`) |
+| `crex now` | | 👀 Show current live workspaces |
+| `crex rename <old> <new>` | `mv` | 🏷️ Rename a saved layout |
 | `crex list` | `ls` | 📋 List saved layouts (`--json`, `--alfred`) |
 | `crex show <name>` | | 🔍 Display layout details (`--raw` for TOML) |
 | `crex edit <name>` | | ✏️ Open layout in `$EDITOR` |
@@ -21,14 +24,16 @@
 | `crex blueprint remove` | `bp rm` | ➖ Remove entry from the Blueprint |
 | `crex blueprint list` | `bp ls` | 📋 List entries in the Blueprint |
 | `crex blueprint toggle` | `bp toggle` | 🔘 Enable/disable a Blueprint entry |
-| `crex version` | | ℹ️ Print version, commit, build date |
+| `crex settings <cmd>` | | ⚙️ Settings (`restore-mode get\|set\|list`) |
+| `crex update` | | ⬆️ Check for and install the latest release |
+| `crex version` | | ℹ️ Print version, commit, build date (also `--version`, `-v`) |
 | `crex template list` | `tpl ls` | 📦 List available templates from the gallery |
 | `crex template show <name>` | `tpl show` | 🔍 Preview a template with ASCII diagram |
 | `crex template use <template> [path]` | `tpl use` | 🚀 Create a workspace from a gallery template |
 | `crex template customize <name>` | `tpl customize` | ✏️ Copy a gallery template into your Blueprint |
 | `crex skill install` | | 🤖 Install the agent skill for Claude Code (`--codex` for Codex) |
 | `crex skill show` | | 📄 Print the agent skill to stdout |
-| `crex completion` | | 🔤 Generate shell completion scripts (bash, zsh, fish) |
+| `crex completion` | | 🔤 Generate shell completion scripts (bash, zsh, fish, powershell) |
 
 ## Key Flags
 

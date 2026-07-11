@@ -234,6 +234,7 @@ func styledHelp() string {
 	helpCmd(&b, "export-to-md", "", "Export to Blueprint")
 	helpCmd(&b, "blueprint", "<cmd>", "Manage Blueprint (add|remove|list|toggle)")
 	helpCmd(&b, "template", "<cmd>", "Template gallery (list|show|use|customize)")
+	helpCmd(&b, "skill", "<cmd>", "Agent skill for AI CLIs (install|show)")
 	helpCmd(&b, "update", "", "Check for and install updates")
 	helpCmd(&b, "version", "", "Version info")
 	helpCmd(&b, "completion", "<shell>", "Shell completions (bash|zsh|fish)")

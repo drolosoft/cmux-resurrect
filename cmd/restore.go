@@ -29,7 +29,7 @@ var restoreDryRun bool
 var restoreMode string
 
 var restoreCmd = &cobra.Command{
-	Use:   "restore [name]",
+	Use:   "restore [name] [workspace]",
 	Short: "Restore a saved layout",
 	Long:  "Recreates tabs, pane arrangements, and sends commands from a saved layout.\n\nYou will be asked whether to replace your current tabs or add to them.\nUse --mode to skip the interactive prompt (useful for scripts).\n\nIf no layout name is given, an interactive picker is shown.",
 	Args:  cobra.MaximumNArgs(2),

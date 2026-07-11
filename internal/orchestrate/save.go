@@ -184,10 +184,13 @@ func (s *Saver) buildWorkspace(tw client.TreeWorkspace) (*model.Workspace, bool,
 						pane.Command = cmd
 					}
 				}
-				// Capture a per-pane CWD only when it differs from the workspace
-				// CWD, so restore can recreate this pane in its own directory
-				// (GitHub #8) without cluttering the layout with redundant paths.
-				if cwd := s.surfaceCWD(tw.Ref, surf); cwd != "" && cwd != ws.CWD {
+				// Always capture the per-pane CWD (GitHub #8). Eliding it when
+				// it equals the workspace CWD loses the path on restore: only
+				// the creation-first pane inherits the workspace CWD — a split
+				// with no cwd gets no cd and lands wherever the backend spawns
+				// it (2026-07-11 audit: Ghostty save-back lost the focused
+				// split's folder because the sidebar CWD matched it).
+				if cwd := s.surfaceCWD(tw.Ref, surf); cwd != "" {
 					pane.CWD = cwd
 				}
 			}
@@ -206,7 +209,7 @@ func (s *Saver) buildWorkspace(tw client.TreeWorkspace) (*model.Workspace, bool,
 							es.Command = cmd
 						}
 					}
-					if cwd := s.surfaceCWD(tw.Ref, extra); cwd != "" && cwd != ws.CWD {
+					if cwd := s.surfaceCWD(tw.Ref, extra); cwd != "" {
 						es.CWD = cwd
 					}
 				}
@@ -445,7 +448,9 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces []client.TreeWor
 			if ws.Panes[j].Type != "terminal" {
 				continue
 			}
-			title := surfaceTitles[paneKey{ws.Title, j}]
+			// Key by the pane's stable Index, not its array position:
+			// applySplitGeometry reorders panes into creation order.
+			title := surfaceTitles[paneKey{ws.Title, ws.Panes[j].Index}]
 			for tool, patterns := range aiTitlePatterns {
 				if !titleMatchesAI(title, patterns) {
 					continue
@@ -471,7 +476,7 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces []client.TreeWor
 			if ws.Panes[j].Command != "" && !aiProcessNames[ws.Panes[j].Command] {
 				continue
 			}
-			title := surfaceTitles[paneKey{ws.Title, j}]
+			title := surfaceTitles[paneKey{ws.Title, ws.Panes[j].Index}]
 			for tool, patterns := range aiTitlePatterns {
 				if !titleMatchesAI(title, patterns) {
 					continue

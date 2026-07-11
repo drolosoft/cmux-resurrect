@@ -7,13 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.26.0] — 2026-07-11
+
+### Added
+- **`make audit` — live dual-backend E2E gate.** A new harness under `test/live/` (build tag `live`) builds crex from the working tree and drives the real cmux and Ghostty apps through the full matrix: demo-quad restore with exact per-pane folder assertions, hand-built aside → save → re-save → restore with pixel-exact geometry comparison, the original issue-#8 tabs/splits round-trips verified via `lsof` ground truth, and the leaked-dead-`CMUX_*`-env detection edge. `make audit` chains lint + unit suite + the live matrix and fails if either backend is missing (`make audit-cmux` / `make audit-ghostty` for one side)
+
+### Fixed
+- **Per-pane cwd lost when it matched the workspace cwd** — save elided a pane's working directory whenever it equaled the workspace-level cwd (which follows the *focused* pane), so a save → restore round trip dropped that pane's folder: only the first pane inherits the workspace cwd; splits got no `cd` at all. Save now always records per-pane cwds, the atomic cmux layout embeds an explicit cwd in every terminal leaf, and the sequential path falls back to the workspace cwd for splits saved by older versions — existing layouts heal on their next restore
+- **cmux 0.64 compatibility** — cmux 0.64 flips `runtime_surface_ready` at first *render* (before the shell accepts input) and lazily spawns background surfaces, which made restore type `cd`s and commands into shells that silently dropped them. crex now also requires the terminal's `tty` (newly reported by 0.64) before typing; on 0.63 and older, the ready flag alone keeps its proven meaning. Additionally, cmux 0.64 prints alias notices on stderr for legacy command forms — crex now keeps stdout and stderr separate (no more parser corruption) and sets `CMUX_QUIET=1`
+- **A failed pre-operation snapshot no longer misroutes into live panes** — workspace/split/pane creation identifies the new ref by diffing against a snapshot; when the snapshot itself failed (e.g. a transient timeout), the diff could return a *pre-existing* pane and restore would type `cd`s and commands into it. Creation now aborts on a failed snapshot
+- **Commands are never typed into an unresolved pane** — if the post-create tree lookup fails, restore used to fall back to the *focused* surface, typing every pane's command into the same shell (e.g. one AI session's resume command into another's prompt). It now skips the send and reports the error
+- **AI session resume attached to the wrong pane after geometry reorder** — pane titles were looked up by array position, but geometry-aware save reorders panes into creation order; a session's resume command could land on a different split. Lookups now use the pane's stable index
+- **TUI `restore <layout> <workspace>` restores just that workspace** — the TUI accepted (and tab-completed) the single-workspace form but silently ignored it and restored the whole layout; CLI/TUI parity restored
+- **Auto-accept now applies on every restore surface** — restores started from the TUI, `crex pop`, and TUI Blueprint imports ignored the configured AI auto-accept list; only the CLI `restore` honored it
+- **`crex blueprint add` bootstraps a missing Blueprint file** — on a fresh machine it failed with "no such file" instead of creating the file with default templates
+- **Blueprint entries without an icon no longer vanish** — an empty icon field made the parser drop the whole line on the next read; a default 📁 is written instead
+- **`crex update` exits non-zero on failure** — previously it printed the error and exited 0, so scripted `crex update && …` chains carried on
+- **Layout names with control characters are rejected** — a newline in a name produced a file that saved fine but could never be loaded or listed
+- **`crex pop <layout> <workspace>` shows skipped workspaces as SKIP** — the single-workspace path printed them as FAIL
+
+### Changed
+- Docs refreshed against v1.26.0 behavior: SECURITY.md (update's network access, stored fields, 0600 layout files), ARCHITECTURE.md known limitations (per-pane cwd and exact cmux geometry have long shipped), command reference (pop/now/rename/settings/update rows, `restore [name] [workspace]`), root `--help` lists `skill`
+- **Note for layouts saved before v1.26.0**: re-save each layout once (`crex save <name>`) to record per-pane cwds explicitly; until then, restore fills the gap with the workspace cwd
+
+---
+
 ## [v1.25.0] — 2026-07-10
 
 ### Added
 - **Bundled demo layout** — `crex setup` now installs a portable example layout named `demo`: a 🏠 home tab plus a 📁 files workspace with a 2x2 grid of standard folders (`~/Documents`, `~/Downloads`, `~`, `~/Desktop`) — all home-relative paths, no commands. Try it with `crex restore demo --mode add`; setup never overwrites an existing copy
 - **`~` expansion in layout paths** — `cwd` fields in layout TOMLs now expand a leading `~`/`~/` at restore time (workspace, pane, and sub-tab level), making hand-written layouts portable across machines
-
-### Added
 - **Atomic workspace creation on cmux** — restore now builds each multi-pane workspace in a single `workspace create --layout` call: the exact split tree (directions and ratios), per-pane and per-tab working directories, names, browser URLs, and focus all land natively. No `cd` is ever typed into a pane (clean scrollback, zero readiness races), and a multi-workspace restore completes in ~2s instead of ~30s. Commands (AI session resumes) are still typed after creation so the shell persists when they exit. Older cmux versions and Ghostty fall back to the sequential path automatically
 
 ### Fixed
@@ -568,4 +591,5 @@ Initial public release.
 [v1.22.2]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.22.2
 [v1.23.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.23.0
 [v1.24.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.24.0
+[v1.26.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.26.0
 [v1.25.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.25.0

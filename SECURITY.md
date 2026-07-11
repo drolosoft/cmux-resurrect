@@ -4,7 +4,7 @@
 
 | Version | Supported |
 |---------|-----------|
-| 1.0.x   | Yes       |
+| Latest release | Yes |
 
 ## Reporting a Vulnerability
 
@@ -24,6 +24,6 @@ We will acknowledge receipt within 48 hours and provide a timeline for a fix.
 
 ## Security Considerations
 
-- **Local only**: crex operates entirely on the local filesystem. It does not make network requests or transmit data.
-- **No credentials stored**: Layout files contain only workspace names, directory paths, and split configurations. No passwords, API keys, or tokens.
-- **File permissions**: Saved layouts inherit the user's default file permissions under `~/.config/crex/`.
+- **Local by default**: crex operates on the local filesystem. Network access is limited to `crex update`, which queries the GitHub API and downloads releases (honoring `GITHUB_TOKEN` if set); every other command is local-only.
+- **No credentials stored**: Layout files contain workspace names, directory paths, split configurations, pane commands, and AI-session resume IDs. No passwords, API keys, or tokens.
+- **File permissions**: Saved layouts are written with mode `0600` under `~/.config/crex/`.

@@ -51,8 +51,9 @@ type ShellModel struct {
 	// Banner style cycling (injected by cmd layer).
 	BannerCycle      BannerCycleFn
 	OnSettingChanged func(key, value string)
-	bannerStyle      string // current banner style for "banner get"
-	restoreMode      string // current restore mode for "settings restore-mode get"
+	bannerStyle      string   // current banner style for "banner get"
+	restoreMode      string   // current restore mode for "settings restore-mode get"
+	autoAccept       []string // auto-accept list injected on restore/import (parity with CLI)
 
 	// Version string (injected by cmd layer for update command).
 	version string
@@ -123,6 +124,10 @@ func (m *ShellModel) SetBannerStyle(s string) { m.bannerStyle = s }
 
 // SetRestoreMode sets the current restore mode (for "settings restore-mode get").
 func (m *ShellModel) SetRestoreMode(mode string) { m.restoreMode = mode }
+
+// SetAutoAccept configures the AI-agent auto-accept list applied on restores
+// and imports — identical to the CLI's cfg.AutoAccept plumbing (parity).
+func (m *ShellModel) SetAutoAccept(tools []string) { m.autoAccept = tools }
 
 // ByeMsg returns the farewell message to print after the TUI exits.
 func (m *ShellModel) ByeMsg() string { return m.byeMsg }
@@ -594,8 +599,11 @@ func (m *ShellModel) dispatch(input string) (tea.Model, tea.Cmd) {
 		m.execSave(name)
 
 	case "restore":
-		if resolved, ok := m.requireResolved(args, "restore <name|#>"); ok {
-			return m, m.execRestore(resolved, "")
+		if resolved, ok := m.requireResolved(args, "restore <name|#> [workspace]"); ok {
+			// Extra words form the single-workspace filter — same contract
+			// as `crex restore <layout> <workspace>` (CLI/TUI parity).
+			filter := strings.Join(args[1:], " ")
+			return m, m.execRestore(resolved, filter)
 		}
 
 	case "delete":

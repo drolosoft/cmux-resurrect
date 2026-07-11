@@ -17,7 +17,7 @@ func TestMatchAIToolArgs(t *testing.T) {
 		wantOK   bool
 	}{
 		// argv[0] basename is the tool — alias expansion, nvm/brew bin shim, wrapper named after the tool.
-		{"nvm bin shim", "/Users/txeo/.nvm/versions/node/v23.11.0/bin/claude --dangerously-skip-permissions", "claude", true},
+		{"nvm bin shim", "/Users/dev/.nvm/versions/node/v23.11.0/bin/claude --dangerously-skip-permissions", "claude", true},
 		{"plain binary", "claude -c", "claude", true},
 		{"alias expanded", "claude --resume abc123", "claude", true},
 		{"dashed process name", "/opt/homebrew/bin/cursor-agent chat", "cursor-agent", true},

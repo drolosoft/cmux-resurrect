@@ -85,6 +85,14 @@ func (r *Restorer) typeCommands(ws model.Workspace, ref string, visualIdx []int,
 		if command == "" {
 			return
 		}
+		// Never fall back to the focused surface: with an empty surfaceRef the
+		// backend sends to whatever pane is active, so a failed resolution
+		// would type every command into the SAME shell — e.g. pane 1's
+		// `codex resume` typed into pane 0's just-started claude session.
+		if surfaceRef == "" {
+			result.Errors = append(result.Errors, fmt.Sprintf("  %s: surface not resolved, command skipped", label))
+			return
+		}
 		if err := waitForShellReady(r.Client, ref, surfaceRef); err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("  %s shell not ready: %v", label, err))
 			return
@@ -434,13 +442,19 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 				} else if err := r.Client.Send(ref, "", noHistoryCmd(fmt.Sprintf("open %q", pane.URL))); err != nil {
 					result.Errors = append(result.Errors, fmt.Sprintf("  pane %d open url: %v", i, err))
 				}
-			} else if pane.Command != "" || pane.CWD != "" {
-				// pane.CWD is only set when it differs from the workspace CWD, so a
-				// non-empty value here means this pane needs its own `cd` (GitHub #8).
-				if err := waitForShellReady(r.Client, ref, ""); err != nil {
-					result.Errors = append(result.Errors, fmt.Sprintf("  pane %d shell not ready: %v", i, err))
-				} else if err := r.Client.Send(ref, "", noHistoryCmd(cwdCommand(pane.CWD, r.applyAutoAccept(pane.Command)))); err != nil {
-					result.Errors = append(result.Errors, fmt.Sprintf("  pane %d send command: %v", i, err))
+			} else {
+				// The first pane already starts at the workspace CWD, so it
+				// only needs a cd when its own cwd differs (GitHub #8).
+				cd := pane.CWD
+				if cd != "" && expandHome(cd) == expandHome(ws.CWD) {
+					cd = ""
+				}
+				if pane.Command != "" || cd != "" {
+					if err := waitForShellReady(r.Client, ref, ""); err != nil {
+						result.Errors = append(result.Errors, fmt.Sprintf("  pane %d shell not ready: %v", i, err))
+					} else if err := r.Client.Send(ref, "", noHistoryCmd(cwdCommand(cd, r.applyAutoAccept(pane.Command)))); err != nil {
+						result.Errors = append(result.Errors, fmt.Sprintf("  pane %d send command: %v", i, err))
+					}
 				}
 			}
 			// Name the first surface if the Blueprint labeled it (#7).
@@ -513,15 +527,22 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 				resizeAfterSplit(r, surfaceRef, ref, direction, pane.SplitRatio)
 			}
 
-			if pane.Command != "" || pane.CWD != "" {
+			// Splits do NOT inherit the workspace cwd — they spawn wherever
+			// the backend decides. A split without its own cwd (layouts saved
+			// before per-pane cwds were always recorded) gets the workspace
+			// cwd instead of no cd at all (GitHub #8, 2026-07-11 audit).
+			cd := pane.CWD
+			if cd == "" {
+				cd = ws.CWD
+			}
+			if pane.Command != "" || cd != "" {
 				// Wait for the shell in the new pane to become interactive before sending.
-				// A non-empty pane.CWD means this split needs its own `cd` (GitHub #8).
 				if err := waitForShellReady(r.Client, ref, surfaceRef); err != nil {
 					result.Errors = append(result.Errors, fmt.Sprintf("  pane %d shell not ready: %v", i, err))
-				} else if err := r.Client.Send(ref, surfaceRef, noHistoryCmd(cwdCommand(pane.CWD, r.applyAutoAccept(pane.Command)))); err != nil {
+				} else if err := r.Client.Send(ref, surfaceRef, noHistoryCmd(cwdCommand(cd, r.applyAutoAccept(pane.Command)))); err != nil {
 					result.Errors = append(result.Errors, fmt.Sprintf("  pane %d send command: %v", i, err))
 				} else {
-					r.verifyCWD(ref, surfaceRef, pane.CWD)
+					r.verifyCWD(ref, surfaceRef, cd)
 				}
 			}
 			// Create extra surfaces (tabs) in this pane.

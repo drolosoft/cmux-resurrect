@@ -696,3 +696,52 @@ func TestRestore_Replace_UnpinsBeforeClose(t *testing.T) {
 		t.Errorf("WorkspacesClosed = %d, want 1", result.WorkspacesClosed)
 	}
 }
+
+// sendRecorderMock records every Send so tests can assert which surface got
+// which text on the sequential (non-atomic) restore path.
+type sendRecorderMock struct {
+	mockClient
+	sends []string // "surfaceRef|text"
+}
+
+func (m *sendRecorderMock) Send(ws, surf, text string) error {
+	m.sends = append(m.sends, surf+"|"+text)
+	return nil
+}
+
+func TestRestore_SequentialSplitWithoutCWDFallsBackToWorkspaceCWD(t *testing.T) {
+	// Old layouts elide a split's cwd when it equals the workspace cwd. On
+	// the sequential path (Ghostty, older cmux) a split gets no cd at all in
+	// that case and lands wherever the backend spawns it — the workspace cwd
+	// must be typed instead (audit 2026-07-11).
+	origHeur, origSurf := ShellReadyTimeout, SurfaceReadyTimeout
+	ShellReadyTimeout, SurfaceReadyTimeout = 100*time.Millisecond, 100*time.Millisecond
+	defer func() { ShellReadyTimeout, SurfaceReadyTimeout = origHeur, origSurf }()
+
+	mc := &sendRecorderMock{}
+	r := &Restorer{Client: mc}
+	ws := model.Workspace{
+		Title: "resave",
+		CWD:   "/home/u/downloads",
+		Panes: []model.Pane{
+			{Type: "terminal", Focus: true, FocusTarget: -1},
+			{Type: "terminal", Split: "right", FocusTarget: 0}, // cwd elided by an older save
+		},
+	}
+	result := &RestoreResult{}
+	if _, err := r.restoreWorkspace(ws, false, result); err != nil {
+		t.Fatalf("restoreWorkspace: %v", err)
+	}
+	var splitCd bool
+	for _, s := range mc.sends {
+		if strings.HasPrefix(s, "surface:mock|") && strings.Contains(s, "cd '/home/u/downloads'") {
+			splitCd = true
+		}
+		if strings.HasPrefix(s, "|") {
+			t.Errorf("pane 0 must not receive a cd (it inherits the workspace cwd), got send: %q", s)
+		}
+	}
+	if !splitCd {
+		t.Errorf("split pane never received cd to the workspace cwd; sends: %v", mc.sends)
+	}
+}

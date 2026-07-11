@@ -2,18 +2,18 @@
 
 # TUI Shell Testing via ttyd + Playwright
 
-Internal guide for systematically testing the interactive shell (`crex tui`) using ttyd and Playwright MCP. This is the only reliable way to test the TUI end-to-end — unit tests verify logic, but rendering bugs (like the tea.Println fix in v1.5.0) only surface in a real terminal.
+Internal guide for systematically testing the interactive shell (`crex tui`) using ttyd and Playwright. This is the only reliable way to test the TUI end-to-end — unit tests verify logic, but rendering bugs (like the tea.Println fix in v1.5.0) only surface in a real terminal.
 
 ## Automated Testing (Recommended)
 
-Run `/e2e-tui` in Claude Code to execute the full 27-case test matrix automatically. This builds crex, starts ttyd, drives all test cases via `scripts/e2e-tui-runner.js`, inspects every screenshot visually, and fixes issues found.
+Run the bundled runner to execute the full 27-case test matrix. It drives all test cases via Playwright and captures a screenshot per step for visual review.
 
 ```sh
-# Or run the runner script directly (requires ttyd running on port 7682):
+# Requires ttyd running on port 7682 (see Manual Setup below):
 node scripts/e2e-tui-runner.js [--port 7682] [--cases 1,2,5]
 ```
 
-The runner outputs screenshots to `/tmp/crex-e2e/screenshots/` and a structured report to `/tmp/crex-e2e/report.json`. The `/e2e-tui` slash command handles the full lifecycle (build, ttyd start/stop, visual inspection, fix cycle).
+The runner outputs screenshots to `/tmp/crex-e2e/screenshots/` and a structured report to `/tmp/crex-e2e/report.json`. Review the screenshots after each run — the runner captures state; pass/fail is a visual judgment.
 
 ## Why This Exists
 
@@ -40,16 +40,14 @@ ttyd -W -p 7682 /tmp/crex-test tui
 ### 3. Navigate Playwright to ttyd
 
 ```js
-// Via mcp__playwright__browser_navigate
-"http://localhost:7682"
+await page.goto('http://localhost:7682');
 ```
 
 ### 4. Wait for terminal ready
 
 ```js
-// Via mcp__playwright__browser_evaluate
 // Wait for xterm.js to initialize
-new Promise(r => setTimeout(r, 2000)).then(() => 'ready')
+await page.waitForTimeout(2000);
 ```
 
 ## Sending Input
@@ -100,8 +98,7 @@ window.term.scrollToBottom()        // return to live view
 ## Capturing Results
 
 ```js
-// Via mcp__playwright__browser_screenshot
-{ name: "test-01-help" }            // descriptive name for each test step
+await page.screenshot({ path: 'test-01-help.png' });  // descriptive name per step
 ```
 
 Always screenshot after each command. For commands with delayed output (osascript calls), wait before capturing:

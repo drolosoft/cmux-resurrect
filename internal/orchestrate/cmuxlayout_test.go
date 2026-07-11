@@ -75,10 +75,11 @@ func TestBuildCmuxLayout_Aside(t *testing.T) {
 	if root["direction"] != "horizontal" {
 		t.Errorf("root direction = %v, want horizontal (crex right)", root["direction"])
 	}
-	// left child: pane0 (no cwd — inherits workspace cwd)
+	// left child: pane0 gets the workspace cwd explicitly (empty leaf cwds
+	// would depend on cmux spawn defaults).
 	left := child(t, root, 0)
-	if s0 := firstSurface(t, left); s0["cwd"] != nil {
-		t.Errorf("pane0 cwd should be omitted (inherits), got %v", s0["cwd"])
+	if s0 := firstSurface(t, left); s0["cwd"] != "/home/u" {
+		t.Errorf("pane0 cwd = %v, want explicit workspace cwd /home/u", s0["cwd"])
 	}
 	// right child: vertical split of pane1 (top) and pane2 (bottom)
 	right := child(t, root, 1)
@@ -242,8 +243,23 @@ func (m *layoutMock) NewSplit(dir, ref, surfRef string) (string, error) {
 	return "surface:9", nil
 }
 func (m *layoutMock) Send(ws, surf, text string) error {
-	m.sends = append(m.sends, text)
+	m.sends = append(m.sends, surf+"|"+text)
 	return nil
+}
+
+// Tree resolves the atomically created workspace like a real backend would:
+// typeCommands refuses to send when it can't resolve a pane's surface (a
+// blank target would go to the focused pane), so the mock must expose them.
+func (m *layoutMock) Tree() (*model2.TreeResponse, error) {
+	return &model2.TreeResponse{Windows: []model2.TreeWindow{{
+		Workspaces: []model2.TreeWorkspace{{
+			Ref: "workspace:9",
+			Panes: []model2.TreePane{
+				{Index: 0, Surfaces: []model2.TreeSurface{{Ref: "surface:90", Type: "terminal"}}},
+				{Index: 1, Surfaces: []model2.TreeSurface{{Ref: "surface:91", Type: "terminal"}}},
+			},
+		}},
+	}}}, nil
 }
 func (m *layoutMock) SurfaceState(_, ref string) (*model2.SurfaceState, error) {
 	return &model2.SurfaceState{Ref: ref, CWD: "/anything", Ready: true}, nil
@@ -314,6 +330,9 @@ func TestRestoreWorkspace_AtomicStillTypesCommands(t *testing.T) {
 			if strings.Contains(s, "cd ") {
 				t.Errorf("command send must not carry a cd (cwd is native): %q", s)
 			}
+			if !strings.HasPrefix(s, "surface:90|") {
+				t.Errorf("command must target pane 0's resolved surface, got %q", s)
+			}
 		}
 	}
 	if !found {
@@ -338,5 +357,36 @@ func TestRestoreWorkspace_FallsBackWhenLayoutUnsupported(t *testing.T) {
 	}
 	if m.splitCalls != 1 {
 		t.Errorf("NewSplit calls = %d, want 1 (sequential fallback)", m.splitCalls)
+	}
+}
+
+func TestBuildCmuxLayout_EmptyLeafCWDFallsBackToWorkspaceCWD(t *testing.T) {
+	// Layouts saved before the audit fix elide a pane's cwd when it equals
+	// the workspace cwd. The atomic layout must not emit empty leaf cwds for
+	// those panes — every terminal leaf gets an explicit cwd so the result
+	// never depends on cmux's spawn defaults.
+	ws := model.Workspace{
+		Title: "resave",
+		CWD:   "/home/u/downloads",
+		Panes: []model.Pane{
+			{Type: "terminal", Focus: true, FocusTarget: -1, CWD: "/home/u"},
+			{Type: "terminal", Split: "right", CWD: "/home/u/docs", FocusTarget: 0},
+			{Type: "terminal", Split: "down", FocusTarget: 1}, // cwd elided by an older save
+		},
+	}
+	s, _, ok := buildCmuxLayout(ws)
+	if !ok {
+		t.Fatal("expected a layout")
+	}
+	root := mustDecode(t, s)
+	if got := firstSurface(t, child(t, root, 0))["cwd"]; got != "/home/u" {
+		t.Errorf("pane0 cwd = %v, want explicit /home/u", got)
+	}
+	right := child(t, root, 1)
+	if got := firstSurface(t, child(t, right, 0))["cwd"]; got != "/home/u/docs" {
+		t.Errorf("pane1 cwd = %v, want /home/u/docs", got)
+	}
+	if got := firstSurface(t, child(t, right, 1))["cwd"]; got != "/home/u/downloads" {
+		t.Errorf("pane2 cwd = %v, want workspace fallback /home/u/downloads", got)
 	}
 }

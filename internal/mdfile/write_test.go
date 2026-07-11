@@ -162,3 +162,41 @@ func TestWrite_NewFile(t *testing.T) {
 		t.Error("missing Templates header")
 	}
 }
+
+func TestAddProject_BootstrapsMissingFile(t *testing.T) {
+	// Parse wraps the open error, so a plain os.IsNotExist never matches and
+	// the bootstrap branch was dead: on a fresh machine `blueprint add`
+	// failed instead of creating the file (2026-07-11 audit, H1).
+	path := filepath.Join(t.TempDir(), "does-not-exist-yet.md")
+	err := AddProject(path, model.Project{Enabled: true, Icon: "📁", Name: "demo", Template: "dev", Path: "~/demo"})
+	if err != nil {
+		t.Fatalf("AddProject on missing file should bootstrap it, got: %v", err)
+	}
+	wf, err := Parse(path)
+	if err != nil {
+		t.Fatalf("parse bootstrapped file: %v", err)
+	}
+	if len(wf.Projects) != 1 || wf.Projects[0].Name != "demo" {
+		t.Fatalf("bootstrapped file projects = %+v, want the added project", wf.Projects)
+	}
+	if len(wf.Templates) == 0 {
+		t.Fatal("bootstrapped file should include the default templates")
+	}
+}
+
+func TestAddProject_EmptyIconSurvivesRoundTrip(t *testing.T) {
+	// An empty icon serialized as an empty field makes the parser drop the
+	// whole line on the next read — the project silently vanishes after a
+	// "✓ Added" (2026-07-11 audit, H3). Write must default the icon.
+	path := filepath.Join(t.TempDir(), "Workspace Blueprint.md")
+	if err := AddProject(path, model.Project{Enabled: true, Name: "noicon", Template: "dev", Path: "~/x"}); err != nil {
+		t.Fatalf("AddProject: %v", err)
+	}
+	wf, err := Parse(path)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(wf.Projects) != 1 || wf.Projects[0].Name != "noicon" {
+		t.Fatalf("project without icon vanished on round-trip: %+v", wf.Projects)
+	}
+}

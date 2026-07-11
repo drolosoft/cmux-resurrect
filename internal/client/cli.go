@@ -27,11 +27,20 @@ func (c *CLIClient) run(args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, c.Binary, args...)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("cmux %s: %w\n%s", strings.Join(args, " "), err, string(out))
+	// cmux ≥0.64 prints alias/deprecation notices to stderr on legacy command
+	// forms. Keep stdout clean for the JSON/text parsers: capture stderr
+	// separately (surfaced only in errors) and silence the notices.
+	cmd.Env = append(cmd.Environ(), "CMUX_QUIET=1")
+	var stdout, stderr strings.Builder
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return "", fmt.Errorf("cmux %s: timed out after %s", strings.Join(args, " "), c.Timeout)
+		}
+		return "", fmt.Errorf("cmux %s: %w\n%s%s", strings.Join(args, " "), err, stdout.String(), stderr.String())
 	}
-	return strings.TrimSpace(string(out)), nil
+	return strings.TrimSpace(stdout.String()), nil
 }
 
 func (c *CLIClient) Ping() error {
@@ -78,12 +87,17 @@ func (c *CLIClient) NewWorkspaceLayout(opts NewWorkspaceOpts, layoutJSON string)
 }
 
 func (c *CLIClient) createWorkspace(opts NewWorkspaceOpts, layoutJSON string) (string, error) {
-	// Snapshot existing workspace refs before creation.
+	// Snapshot existing workspace refs before creation. A failed snapshot
+	// must abort: diffing against an empty set would make a pre-existing
+	// workspace look like the new one, and the caller would then apply the
+	// whole layout (rename, splits, commands) to the user's live workspace.
 	before := make(map[string]bool)
-	if wsList, err := c.ListWorkspaces(); err == nil {
-		for _, w := range wsList {
-			before[w.Ref] = true
-		}
+	wsList, err := c.ListWorkspaces()
+	if err != nil {
+		return "", fmt.Errorf("pre-create workspace snapshot: %w", err)
+	}
+	for _, w := range wsList {
+		before[w.Ref] = true
 	}
 
 	args := []string{"new-workspace"}
@@ -96,8 +110,7 @@ func (c *CLIClient) createWorkspace(opts NewWorkspaceOpts, layoutJSON string) (s
 	if layoutJSON != "" {
 		args = append(args, "--layout", layoutJSON)
 	}
-	_, err := c.run(args...)
-	if err != nil {
+	if _, err := c.run(args...); err != nil {
 		return "", err
 	}
 
@@ -154,20 +167,39 @@ func (c *CLIClient) SurfaceState(_ /* workspaceRef */, surfaceRef string) (*Surf
 
 // parseSurfaceState extracts a surface's live state from `cmux rpc
 // debug.terminals` JSON. Returns nil if the surface isn't present.
+//
+// Readiness is version-adaptive: cmux ≥0.64 flips runtime_surface_ready at
+// first RENDER (before the shell accepts input — typing then loses the text)
+// but reports each live shell's tty, so when any terminal in the response
+// carries a tty, a surface without one is still spawning and not ready.
+// cmux ≤0.63 never reports ttys and its ready flag already meant
+// shell-input-ready, so the flag alone stays sufficient there.
 func parseSurfaceState(jsonOut, surfaceRef string) (*SurfaceState, error) {
 	var resp struct {
 		Terminals []struct {
-			SurfaceRef string `json:"surface_ref"`
-			CWD        string `json:"current_directory"`
-			Ready      bool   `json:"runtime_surface_ready"`
+			SurfaceRef string  `json:"surface_ref"`
+			CWD        string  `json:"current_directory"`
+			Ready      bool    `json:"runtime_surface_ready"`
+			TTY        *string `json:"tty"`
 		} `json:"terminals"`
 	}
 	if err := json.Unmarshal([]byte(jsonOut), &resp); err != nil {
 		return nil, fmt.Errorf("parse debug.terminals: %w", err)
 	}
+	ttysReported := false
+	for _, t := range resp.Terminals {
+		if t.TTY != nil && *t.TTY != "" {
+			ttysReported = true
+			break
+		}
+	}
 	for _, t := range resp.Terminals {
 		if t.SurfaceRef == surfaceRef {
-			return &SurfaceState{Ref: t.SurfaceRef, CWD: t.CWD, Ready: t.Ready}, nil
+			ready := t.Ready
+			if ttysReported && (t.TTY == nil || *t.TTY == "") {
+				ready = false
+			}
+			return &SurfaceState{Ref: t.SurfaceRef, CWD: t.CWD, Ready: ready}, nil
 		}
 	}
 	return nil, nil
@@ -219,6 +251,31 @@ func (c *CLIClient) CloseWorkspace(ref string) error {
 	return err
 }
 
+// surfaceSnapshot returns the set of surface refs currently in a workspace.
+// New-ref discovery diffs against it; a failed snapshot must abort the caller
+// — an empty set would make any pre-existing surface look "new" and route
+// cd/commands into the user's live pane.
+func (c *CLIClient) surfaceSnapshot(workspaceRef string) (map[string]bool, error) {
+	before := make(map[string]bool)
+	tree, err := c.Tree()
+	if err != nil {
+		return nil, fmt.Errorf("pre-op surface snapshot: %w", err)
+	}
+	for _, w := range tree.Windows {
+		for _, ws := range w.Workspaces {
+			if ws.Ref != workspaceRef {
+				continue
+			}
+			for _, p := range ws.Panes {
+				for _, s := range p.Surfaces {
+					before[s.Ref] = true
+				}
+			}
+		}
+	}
+	return before, nil
+}
+
 func (c *CLIClient) NewSplit(direction, workspaceRef, surfaceRef string) (string, error) {
 	direction, err := validateSplitDirection(direction)
 	if err != nil {
@@ -226,21 +283,12 @@ func (c *CLIClient) NewSplit(direction, workspaceRef, surfaceRef string) (string
 	}
 
 	// Snapshot surface refs before split so we can detect the new one.
-	before := make(map[string]bool)
+	var before map[string]bool
 	if workspaceRef != "" {
-		if tree, err := c.Tree(); err == nil {
-			for _, w := range tree.Windows {
-				for _, ws := range w.Workspaces {
-					if ws.Ref != workspaceRef {
-						continue
-					}
-					for _, p := range ws.Panes {
-						for _, s := range p.Surfaces {
-							before[s.Ref] = true
-						}
-					}
-				}
-			}
+		var err error
+		before, err = c.surfaceSnapshot(workspaceRef)
+		if err != nil {
+			return "", err
 		}
 	}
 
@@ -286,21 +334,12 @@ func (c *CLIClient) NewSplit(direction, workspaceRef, surfaceRef string) (string
 
 func (c *CLIClient) NewPane(opts NewPaneOpts) (string, error) {
 	// Snapshot surface refs before creation so we can detect the new one.
-	before := make(map[string]bool)
+	var before map[string]bool
 	if opts.WorkspaceRef != "" {
-		if tree, err := c.Tree(); err == nil {
-			for _, w := range tree.Windows {
-				for _, ws := range w.Workspaces {
-					if ws.Ref != opts.WorkspaceRef {
-						continue
-					}
-					for _, p := range ws.Panes {
-						for _, s := range p.Surfaces {
-							before[s.Ref] = true
-						}
-					}
-				}
-			}
+		var err error
+		before, err = c.surfaceSnapshot(opts.WorkspaceRef)
+		if err != nil {
+			return "", err
 		}
 	}
 
@@ -352,21 +391,12 @@ func (c *CLIClient) NewPane(opts NewPaneOpts) (string, error) {
 
 func (c *CLIClient) NewSurface(paneRef, workspaceRef string) (string, error) {
 	// Snapshot surface refs before creation so we can detect the new one.
-	before := make(map[string]bool)
+	var before map[string]bool
 	if workspaceRef != "" {
-		if tree, err := c.Tree(); err == nil {
-			for _, w := range tree.Windows {
-				for _, ws := range w.Workspaces {
-					if ws.Ref != workspaceRef {
-						continue
-					}
-					for _, p := range ws.Panes {
-						for _, s := range p.Surfaces {
-							before[s.Ref] = true
-						}
-					}
-				}
-			}
+		var err error
+		before, err = c.surfaceSnapshot(workspaceRef)
+		if err != nil {
+			return "", err
 		}
 	}
 

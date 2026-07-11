@@ -446,3 +446,18 @@ func TestFileStore_LoadWithSplits(t *testing.T) {
 		t.Errorf("Command = %q", ws.Panes[1].Command)
 	}
 }
+
+func TestValidateName_RejectsControlCharacters(t *testing.T) {
+	// A newline in the name splits the TOML header comment, producing a
+	// layout that saves fine but can never be loaded (write-only) and is
+	// silently hidden by List (2026-07-11 audit, M3).
+	store, err := NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"a\nb", "a\rb", "a\x00b", "a\tb"} {
+		if err := store.Save(name, &model.Layout{Name: name, Version: 1}); err == nil {
+			t.Errorf("Save(%q) should reject control characters", name)
+		}
+	}
+}

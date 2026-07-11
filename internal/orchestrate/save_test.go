@@ -564,8 +564,8 @@ func TestSave_GeometryReordersPanesToCreationOrder(t *testing.T) {
 	// explicit focus target (cmux keeps focus on the split pane, not the new
 	// one), so both later panes split P0 at its live index 0.
 	p0, p1, p2 := ws.Panes[0], ws.Panes[1], ws.Panes[2]
-	if p0.Index != 0 || p0.Split != "" || p0.CWD != "" {
-		t.Errorf("pane[0] = index %d split %q cwd %q, want index 0, no split, no cwd", p0.Index, p0.Split, p0.CWD)
+	if p0.Index != 0 || p0.Split != "" || p0.CWD != "/home/user" {
+		t.Errorf("pane[0] = index %d split %q cwd %q, want index 0, no split, cwd /home/user", p0.Index, p0.Split, p0.CWD)
 	}
 	if p1.Index != 2 || p1.Split != "right" || p1.FocusTarget != 0 {
 		t.Errorf("pane[1] = index %d split %q focus %d, want index 2, right, 0", p1.Index, p1.Split, p1.FocusTarget)
@@ -782,9 +782,11 @@ func TestSave_PerPaneCWD_FallsBackToSurfaceState(t *testing.T) {
 	}
 }
 
-func TestSave_PerPaneCWD_SurfaceStateEqualToWorkspaceCWDOmitted(t *testing.T) {
-	// A surface whose live CWD matches the workspace CWD must not clutter
-	// the layout with a redundant per-pane cwd.
+func TestSave_PerPaneCWD_SurfaceStateEqualToWorkspaceCWDRecorded(t *testing.T) {
+	// A surface whose live CWD matches the workspace CWD is still recorded:
+	// eliding it loses the path on restore for any pane that isn't the
+	// creation-first one (2026-07-11 audit). Restore skips the redundant cd
+	// for the first pane, so explicit is free.
 	tree := &client.TreeResponse{
 		Windows: []client.TreeWindow{{
 			Workspaces: []client.TreeWorkspace{{
@@ -817,8 +819,8 @@ func TestSave_PerPaneCWD_SurfaceStateEqualToWorkspaceCWDOmitted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
-	if got := layout.Workspaces[0].Panes[0].CWD; got != "" {
-		t.Errorf("pane 0 CWD = %q, want empty (matches workspace cwd)", got)
+	if got := layout.Workspaces[0].Panes[0].CWD; got != "/home/user" {
+		t.Errorf("pane 0 CWD = %q, want /home/user (always recorded)", got)
 	}
 }
 
@@ -864,8 +866,8 @@ func TestSave_PerPaneCWD_FromTreeSurface(t *testing.T) {
 		t.Fatalf("save: %v", err)
 	}
 	ws := layout.Workspaces[0]
-	if got := ws.Panes[0].CWD; got != "" {
-		t.Errorf("pane 0 CWD = %q, want empty (matches workspace cwd)", got)
+	if got := ws.Panes[0].CWD; got != "/home/user" {
+		t.Errorf("pane 0 CWD = %q, want /home/user (always recorded)", got)
 	}
 	if got := ws.Panes[1].CWD; got != "/home/user/project" {
 		t.Errorf("pane 1 CWD = %q, want /home/user/project (from tree surface)", got)
@@ -1013,5 +1015,67 @@ func TestSave_ReSaveOverStaleLayoutKeepsGeometry(t *testing.T) {
 	}
 	if got := byIndex[2].Split; got != "down" {
 		t.Errorf("pane index 2: split = %q, want down (live geometry)", got)
+	}
+}
+
+func TestSave_SplitPaneCWDEqualToWorkspaceCWDIsRecorded(t *testing.T) {
+	// The workspace CWD comes from the sidebar (focused pane). A split pane
+	// whose cwd happens to equal it must STILL be recorded: only pane 0
+	// inherits the workspace cwd on restore — a split with no cwd gets no cd
+	// and lands wherever the backend spawns it (audit 2026-07-11, found by
+	// the Ghostty live matrix: save-back lost the focused split's folder).
+	treeResp := &client.TreeResponse{
+		Windows: []client.TreeWindow{{
+			Ref: "window:1",
+			Workspaces: []client.TreeWorkspace{{
+				Ref:   "workspace:1",
+				Title: "resave",
+				Index: 0,
+				Panes: []client.TreePane{
+					{Index: 0, Focused: true, Surfaces: []client.TreeSurface{{Ref: "surface:1", Type: "terminal"}}},
+					{Index: 1, Surfaces: []client.TreeSurface{{Ref: "surface:2", Type: "terminal"}}},
+				},
+			}},
+		}},
+	}
+	mc := &geometrySurfaceMock{
+		geometryMockClient: geometryMockClient{
+			mockClient: mockClient{
+				treeResp: treeResp,
+				// Sidebar reflects the focused/last-active pane: the split's dir.
+				sidebarCWDs: map[string]string{"workspace:1": "/home/user/downloads"},
+			},
+			paneListByRef: map[string]*client.PaneListResponse{
+				"workspace:1": {
+					WorkspaceRef:   "workspace:1",
+					ContainerFrame: client.ContainerFrame{Width: 1000, Height: 800},
+					Panes: []client.PaneListPane{
+						{Index: 0, PixelFrame: client.PixelFrame{X: 0, Y: 0, Width: 500, Height: 800}},
+						{Index: 1, PixelFrame: client.PixelFrame{X: 500, Y: 0, Width: 500, Height: 800}},
+					},
+				},
+			},
+		},
+		surfaceCWDs: map[string]string{
+			"surface:1": "/home/user",
+			"surface:2": "/home/user/downloads",
+		},
+	}
+
+	store, _ := persist.NewFileStore(t.TempDir())
+	saver := &Saver{Client: mc, Store: store}
+	layout, err := saver.Save("resave-cwd", "")
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	ws := layout.Workspaces[0]
+	if len(ws.Panes) != 2 {
+		t.Fatalf("panes = %d, want 2", len(ws.Panes))
+	}
+	if ws.Panes[0].CWD != "/home/user" {
+		t.Errorf("pane[0] cwd = %q, want /home/user", ws.Panes[0].CWD)
+	}
+	if ws.Panes[1].CWD != "/home/user/downloads" {
+		t.Errorf("pane[1] cwd = %q, want /home/user/downloads even though it equals the workspace cwd", ws.Panes[1].CWD)
 	}
 }

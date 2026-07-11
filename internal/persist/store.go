@@ -26,6 +26,13 @@ func validateName(name string) error {
 		strings.Contains(name, string(filepath.Separator)) {
 		return fmt.Errorf("%w: %q contains path separator or '..'", ErrInvalidName, name)
 	}
+	// Control characters (a newline especially) break the TOML header comment,
+	// producing a file that saves but can never be loaded.
+	for _, r := range name {
+		if r < 0x20 || r == 0x7f {
+			return fmt.Errorf("%w: %q contains a control character", ErrInvalidName, name)
+		}
+	}
 	return nil
 }
 

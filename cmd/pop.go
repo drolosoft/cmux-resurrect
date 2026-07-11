@@ -155,8 +155,9 @@ func doRestore(name string) error {
 	}
 
 	restorer := &orchestrate.Restorer{
-		Client: cl,
-		Store:  store,
+		Client:     cl,
+		Store:      store,
+		AutoAccept: cfg.AutoAccept,
 		OnProgress: func(title string, panes int, err error) {
 			t := padTitle(title)
 			if err != nil {
@@ -205,11 +206,16 @@ func doRestoreWorkspace(layoutName, workspaceTitle string) error {
 	}
 
 	restorer := &orchestrate.Restorer{
-		Client: cl,
-		Store:  store,
+		Client:     cl,
+		Store:      store,
+		AutoAccept: cfg.AutoAccept,
 		OnProgress: func(title string, panes int, err error) {
 			t := padTitle(title)
 			if err != nil {
+				if strings.Contains(err.Error(), "skipped") {
+					fmt.Fprintf(os.Stderr, "  %s  %s %s\n", dimStyle.Render("SKIP"), t, dimStyle.Render("("+err.Error()+")"))
+					return
+				}
 				fmt.Fprintf(os.Stderr, "  %s  %s: %v\n", yellowStyle.Render("FAIL"), t, err)
 			} else {
 				fmt.Fprintf(os.Stderr, "  %s  %s (%d panes)\n", greenStyle.Render("OK"), t, panes)

@@ -68,10 +68,10 @@ func TestCwdFromTitle(t *testing.T) {
 		title string
 		want  string
 	}{
-		{"user@host prefix with absolute path", "txeo@Mac: " + tmp, tmp},
+		{"user@host prefix with absolute path", "user@host: " + tmp, tmp},
 		{"bare absolute path", tmp, tmp},
-		{"home tilde alone", "txeo@Mac: ~", homeDirOrEmpty()},
-		{"nonexistent path rejected", "txeo@Mac: /no/such/dir-xyz", ""},
+		{"home tilde alone", "user@host: ~", homeDirOrEmpty()},
+		{"nonexistent path rejected", "user@host: /no/such/dir-xyz", ""},
 		{"file (not dir) rejected", "vim: /etc/hosts", ""},
 		{"arbitrary title rejected", "make watch", ""},
 		{"empty title", "", ""},
@@ -104,7 +104,7 @@ func TestSurfaceStateFromProbe(t *testing.T) {
 		wantRdy bool
 	}{
 		{"osc7 present", tmp, "whatever", tmp, true},
-		{"no osc7, path title", "", "txeo@Mac: " + tmp, tmp, true},
+		{"no osc7, path title", "", "user@host: " + tmp, tmp, true},
 		{"no osc7, junk title", "", "Ghostty", "", false},
 		{"nothing", "", "", "", false},
 	}

@@ -192,7 +192,6 @@ The Markdown parser preserves everything after the Templates section as opaque t
 
 | Limitation | Backends | Reason |
 |-----------|----------|--------|
-| Split direction not captured from live state | Both | Neither backend exposes split direction; defaults to "right", editable in TOML |
-| Pane CWD not per-pane | Both | Both backends return one CWD per workspace, not per pane |
-| Autosave rotation not implemented | Both | `max_autosaves` config field exists but rotation logic is pending |
+| Split geometry inferred as a right-chain | Ghostty | Ghostty's AppleScript API exposes no pane pixel frames; cmux captures exact geometry from `pane.list` |
+| Autosave rotation not implemented | Both | `max_autosaves` config field is reserved but rotation logic is pending |
 | launchd auto-save uses cmux socket | cmux only | Ghostty users run `crex watch` directly (no socket activation) |

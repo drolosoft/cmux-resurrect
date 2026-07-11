@@ -235,8 +235,9 @@ func (m *ShellModel) startRestore(name, workspaceFilter string, mode orchestrate
 	skip := skipMatching
 	return func() tea.Msg {
 		restorer := &orchestrate.Restorer{
-			Client: cl,
-			Store:  store,
+			Client:     cl,
+			Store:      store,
+			AutoAccept: m.autoAccept,
 		}
 		result, err := restorer.Restore(name, false, restoreMode, filter, skip)
 		return restoreResultMsg{result: result, err: err}
@@ -739,7 +740,8 @@ func (m *ShellModel) execImport() {
 	m.output.WriteString("\n\n")
 
 	importer := &orchestrate.Importer{
-		Client: m.client,
+		Client:     m.client,
+		AutoAccept: m.autoAccept,
 		OnProgress: func(event orchestrate.ImportEvent) {
 			switch event.Status {
 			case orchestrate.ImportCreated:
