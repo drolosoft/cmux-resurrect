@@ -166,6 +166,19 @@ func TestGhostty_DetectionSurvivesDeadCmuxEnv(t *testing.T) {
 // folder (verified via lsof, not the OSC7-fed AppleScript property).
 func TestGhostty_DemoQuad(t *testing.T) {
 	requireGhostty(t)
+	// `--mode add` skips workspaces whose titles are already open.
+	tabNames := osa(t, `tell application "Ghostty"
+  set outp to ""
+  repeat with tt in tabs of front window
+    set outp to outp & (name of tt) & linefeed
+  end repeat
+  return outp
+end tell`)
+	for _, title := range []string{"🏠 home", "📁 files"} {
+		if strings.Contains(tabNames, title) {
+			t.Fatalf("a tab titled %q is already open in Ghostty — close it and rerun the audit", title)
+		}
+	}
 	layouts := t.TempDir()
 	installDemo(t, layouts)
 
@@ -190,6 +203,57 @@ func TestGhostty_DemoQuad(t *testing.T) {
 	if !multisetEqual(got, want) {
 		t.Fatalf("per-shell cwds wrong.\nwant %v\ngot  %v", want, got)
 	}
+
+	// Placement: Ghostty enumerates a tab's terminals in split-tree (DFS)
+	// order, so a correctly built demo quad — H(V(Documents,~),
+	// V(Downloads,Desktop)) — reports exactly this sequence. Catches splits
+	// landing on the wrong pane (panes in the wrong corner) which the cwd
+	// multiset can't see. Needs OSC 7 (`working directory`); skipped when
+	// the shells don't report it.
+	order := tabWorkingDirs(t, baseTabs+2)
+	allReported := len(order) == 4
+	for _, c := range order {
+		if c == "" {
+			allReported = false
+		}
+	}
+	if allReported {
+		wantOrder := []string{
+			filepath.Join(homeDir, "Documents"),
+			homeDir,
+			filepath.Join(homeDir, "Downloads"),
+			filepath.Join(homeDir, "Desktop"),
+		}
+		for i := range wantOrder {
+			if canonPath(order[i]) != wantOrder[i] {
+				t.Fatalf("quad placement wrong (split landed on the wrong pane).\nwant DFS order %v\ngot            %v", wantOrder, order)
+			}
+		}
+	} else {
+		t.Logf("OSC 7 not reported by shells; skipping placement-order assertion (got %v)", order)
+	}
+}
+
+// tabWorkingDirs returns each terminal's `working directory` (OSC 7-fed) in
+// Ghostty's enumeration order for the given tab.
+func tabWorkingDirs(t *testing.T, tab int) []string {
+	t.Helper()
+	out := osa(t, fmt.Sprintf(`tell application "Ghostty"
+  set outp to ""
+  repeat with tt in terminals of tab %d of front window
+    set outp to outp & (working directory of tt) & linefeed
+  end repeat
+  return outp
+end tell`, tab))
+	var dirs []string
+	for _, line := range strings.Split(out, "\n") {
+		dirs = append(dirs, strings.TrimSpace(line))
+	}
+	// osascript's trailing linefeed produces one empty tail entry — drop it.
+	if n := len(dirs); n > 0 && dirs[n-1] == "" {
+		dirs = dirs[:n-1]
+	}
+	return dirs
 }
 
 // TestGhostty_TabsPerTabCWDRoundtrip is the original issue-8 scenario on

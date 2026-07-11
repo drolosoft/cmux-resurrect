@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.26.1] — 2026-07-11
+
+### Fixed
+- **Ghostty: splits are placed by terminal id, not focus** — the sequential restore focused a pane by live index and split "whatever is focused"; Ghostty re-indexes terminals as splits are inserted, so a pane could land in the wrong corner (field report: quad came back with the top row swapped). Each split now targets the resolved pane's own id — placement no longer depends on focus state or index stability, and a placement-order assertion joined the live audit matrix
+- **Ghostty: no more duplicate `cd`** — the cd verifier re-sent the `cd` on its first poll if the pane's reported directory was still stale; Ghostty's cwd report lags the prompt, so every split showed the cd twice. The verifier now gives the original cd a grace period (and paces genuine retries) instead of re-typing on the first stale reading
+- Browser-pane readiness and pane focusing on Ghostty accept id-based refs (previously id refs were silently ignored there)
+
+---
+
 ## [v1.26.0] — 2026-07-11
 
 ### Added
@@ -591,5 +600,6 @@ Initial public release.
 [v1.22.2]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.22.2
 [v1.23.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.23.0
 [v1.24.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.24.0
+[v1.26.1]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.26.1
 [v1.26.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.26.0
 [v1.25.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.25.0

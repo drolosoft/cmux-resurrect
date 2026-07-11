@@ -627,9 +627,22 @@ func (g *GhosttyClient) NewSplit(direction, workspaceRef, surfaceRef string) (st
 		return "", fmt.Errorf("list terminals: %w", err)
 	}
 
+	// Split an EXPLICIT terminal when the caller names one — splitting "the
+	// focused terminal" depends on mutable focus state, and terminal indexes
+	// drift as splits are inserted, so placement could land on the wrong
+	// pane. Fall back to the focused terminal only without a target.
+	splitTarget := fmt.Sprintf(`focused terminal of tab %d of front window`, tabIdx)
+	if surfaceRef != "" {
+		target, terr := ghosttyTerminalSpecifier(surfaceRef, tabIdx)
+		if terr != nil {
+			return "", fmt.Errorf("resolve split target: %w", terr)
+		}
+		splitTarget = target
+	}
+
 	_, err = g.runScriptLines(
 		g.tell(),
-		fmt.Sprintf(`  set focTerm to focused terminal of tab %d of front window`, tabIdx),
+		`  set focTerm to `+splitTarget,
 		fmt.Sprintf(`  split focTerm direction %s`, direction),
 		`end tell`,
 	)
@@ -678,20 +691,20 @@ func (g *GhosttyClient) NewPane(opts NewPaneOpts) (string, error) {
 }
 
 // waitForTerminalReady waits until a specific terminal in a tab has a CWD.
+// Accepts both index refs ("terminal:N"/"pane:N") and id refs ("tid:UUID").
 func (g *GhosttyClient) waitForTerminalReady(workspaceRef, terminalRef string) {
 	tabIdx, err := parseTabIndex(workspaceRef)
 	if err != nil {
 		return
 	}
-	termIdx, err := parseTerminalIndex(terminalRef)
+	target, err := ghosttyTerminalSpecifier(terminalRef, tabIdx)
 	if err != nil {
 		return
 	}
 	deadline := time.Now().Add(NewWorkspaceDeadline)
 	for time.Now().Before(deadline) {
 		cwd, err := g.runScript(fmt.Sprintf(
-			`tell application "%s" to working directory of terminal %d of tab %d of front window`, g.appName(),
-			termIdx, tabIdx,
+			`tell application "%s" to working directory of %s`, g.appName(), target,
 		))
 		if err == nil && cwd != "" {
 			return
@@ -700,20 +713,39 @@ func (g *GhosttyClient) waitForTerminalReady(workspaceRef, terminalRef string) {
 	}
 }
 
+// FocusPane focuses a terminal. Accepts both index refs ("pane:N") and id
+// refs ("tid:UUID") — ids are immune to the re-indexing Ghostty performs
+// when splits are inserted.
 func (g *GhosttyClient) FocusPane(paneRef, workspaceRef string) error {
 	tabIdx, err := parseTabIndex(workspaceRef)
 	if err != nil {
 		return err
 	}
-	termIdx, err := parseTerminalIndex(paneRef)
+	target, err := ghosttyTerminalSpecifier(paneRef, tabIdx)
 	if err != nil {
 		return err
 	}
 	_, err = g.runScript(fmt.Sprintf(
-		`tell application "%s" to focus terminal %d of tab %d of front window`, g.appName(),
-		termIdx, tabIdx,
+		`tell application "%s" to focus %s`, g.appName(), target,
 	))
 	return err
+}
+
+// FirstSurfaceRef resolves the id of the tab's first (and, right after tab
+// creation, only) terminal as a stable "tid:" ref. Implements
+// FirstSurfaceResolver so restore can address splits at explicit targets.
+func (g *GhosttyClient) FirstSurfaceRef(workspaceRef string) string {
+	tabIdx, err := parseTabIndex(workspaceRef)
+	if err != nil {
+		return ""
+	}
+	id, err := g.runScript(fmt.Sprintf(
+		`tell application "%s" to id of terminal 1 of tab %d of front window`, g.appName(), tabIdx,
+	))
+	if err != nil || id == "" {
+		return ""
+	}
+	return "tid:" + id
 }
 
 func (g *GhosttyClient) Send(workspaceRef, surfaceRef, text string) error {

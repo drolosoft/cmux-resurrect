@@ -160,10 +160,11 @@ func TestWaitForShellReady_WaitsPastHeuristicTimeoutForReadiness(t *testing.T) {
 func TestVerifyCWD_NeverSendsIntoNotReadyShell(t *testing.T) {
 	// Typing into a shell that isn't at its prompt is lost AND leaves
 	// visible junk. verifyCWD must poll silently until Ready, then send.
-	origVerify, origSurf := CWDVerifyTimeout, SurfaceReadyTimeout
+	origVerify, origSurf, origGrace := CWDVerifyTimeout, SurfaceReadyTimeout, CWDResendGrace
 	CWDVerifyTimeout = 500 * time.Millisecond
 	SurfaceReadyTimeout = 2 * time.Second
-	defer func() { CWDVerifyTimeout, SurfaceReadyTimeout = origVerify, origSurf }()
+	CWDResendGrace = 100 * time.Millisecond // scaled with the shrunk window
+	defer func() { CWDVerifyTimeout, SurfaceReadyTimeout, CWDResendGrace = origVerify, origSurf, origGrace }()
 
 	m := &readyStateMock{
 		readyAt: time.Now().Add(300 * time.Millisecond),
@@ -185,5 +186,69 @@ func TestVerifyCWD_NeverSendsIntoNotReadyShell(t *testing.T) {
 	}
 	if m.cwd != "/tmp/target" {
 		t.Errorf("cd never landed: cwd = %q", m.cwd)
+	}
+}
+
+// lagStateMock simulates a shell whose FIRST cd already landed but whose cwd
+// REPORT lags behind (Ghostty: the AppleScript-visible cwd/title refreshes
+// noticeably after the prompt). Records re-sends.
+type lagStateMock struct {
+	readinessMockClient
+	mu       sync.Mutex
+	reportAt time.Time // when the (already-correct) cwd becomes visible
+	wantCWD  string
+	sends    int
+}
+
+func (m *lagStateMock) SurfaceState(_, ref string) (*client.SurfaceState, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	cwd := "/somewhere/stale"
+	if time.Now().After(m.reportAt) {
+		cwd = m.wantCWD
+	}
+	return &client.SurfaceState{Ref: ref, CWD: cwd, Ready: true}, nil
+}
+
+func (m *lagStateMock) Send(ws, surf, text string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.sends++
+	return nil
+}
+
+func TestVerifyCWD_NoDuplicateCdOnLaggingReport(t *testing.T) {
+	// The cd landed; only the report is late. Re-sending on the first stale
+	// reading typed a visible duplicate `cd` in every Ghostty pane
+	// (2026-07-11, user report). verifyCWD must give the original cd a grace
+	// period before concluding it was lost.
+	origVerify, origSurf, origGrace := CWDVerifyTimeout, SurfaceReadyTimeout, CWDResendGrace
+	CWDVerifyTimeout = 2 * time.Second
+	SurfaceReadyTimeout = 3 * time.Second
+	CWDResendGrace = 800 * time.Millisecond
+	defer func() { CWDVerifyTimeout, SurfaceReadyTimeout, CWDResendGrace = origVerify, origSurf, origGrace }()
+
+	m := &lagStateMock{reportAt: time.Now().Add(400 * time.Millisecond), wantCWD: "/tmp/target"}
+	r := &Restorer{Client: m}
+	r.verifyCWD("workspace:1", "surface:1", "/tmp/target")
+	if m.sends != 0 {
+		t.Errorf("verifyCWD re-sent the cd %d times while the report was merely lagging; want 0", m.sends)
+	}
+}
+
+func TestVerifyCWD_ResendsArePacedByGrace(t *testing.T) {
+	// When the cd genuinely never sticks, re-sends must be paced by the
+	// grace interval — not fired on every 150ms poll.
+	origVerify, origSurf, origGrace := CWDVerifyTimeout, SurfaceReadyTimeout, CWDResendGrace
+	CWDVerifyTimeout = 1 * time.Second
+	SurfaceReadyTimeout = 2 * time.Second
+	CWDResendGrace = 400 * time.Millisecond
+	defer func() { CWDVerifyTimeout, SurfaceReadyTimeout, CWDResendGrace = origVerify, origSurf, origGrace }()
+
+	m := &lagStateMock{reportAt: time.Now().Add(time.Hour), wantCWD: "/tmp/never"}
+	r := &Restorer{Client: m}
+	r.verifyCWD("workspace:1", "surface:1", "/tmp/never")
+	if m.sends == 0 || m.sends > 2 {
+		t.Errorf("re-sends = %d, want 1-2 (paced by grace within the verify window)", m.sends)
 	}
 }

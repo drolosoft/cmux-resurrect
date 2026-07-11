@@ -274,6 +274,13 @@ func requireCmux(t *testing.T) {
 // workspace comes back as a true 2×2 grid with each pane in its own folder.
 func TestCmux_DemoQuad(t *testing.T) {
 	requireCmux(t)
+	// `--mode add` skips workspaces whose titles are already open — a demo
+	// left open from manual testing would make this test measure nothing.
+	for _, title := range []string{"🏠 home", "📁 files"} {
+		if wsByTitle(t, title) != nil {
+			t.Fatalf("a workspace titled %q is already open in cmux — close it and rerun the audit", title)
+		}
+	}
 	layouts := t.TempDir()
 	installDemo(t, layouts)
 

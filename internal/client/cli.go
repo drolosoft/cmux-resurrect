@@ -205,6 +205,13 @@ func parseSurfaceState(jsonOut, surfaceRef string) (*SurfaceState, error) {
 	return nil, nil
 }
 
+// FirstSurfaceRef resolves the workspace's first surface ref ("" when it
+// can't). Implements FirstSurfaceResolver: restore uses it to address splits
+// at explicit targets.
+func (c *CLIClient) FirstSurfaceRef(workspaceRef string) string {
+	return c.firstSurfaceRef(workspaceRef)
+}
+
 // firstSurfaceRef returns the ref of the first surface in a workspace, or "".
 func (c *CLIClient) firstSurfaceRef(workspaceRef string) string {
 	tree, err := c.Tree()

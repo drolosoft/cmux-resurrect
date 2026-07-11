@@ -1,6 +1,7 @@
 package orchestrate
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -743,5 +744,71 @@ func TestRestore_SequentialSplitWithoutCWDFallsBackToWorkspaceCWD(t *testing.T) 
 	}
 	if !splitCd {
 		t.Errorf("split pane never received cd to the workspace cwd; sends: %v", mc.sends)
+	}
+}
+
+// splitTargetRecorderMock records every NewSplit target ref and FocusPane
+// call, returning unique refs per split, and resolves the first surface —
+// like a backend with stable per-surface addressing (cmux refs, Ghostty tids).
+type splitTargetRecorderMock struct {
+	mockClient
+	splitTargets []string
+	focusCalls   []string
+	seq          int
+}
+
+func (m *splitTargetRecorderMock) FirstSurfaceRef(workspaceRef string) string {
+	return "surface:first"
+}
+
+func (m *splitTargetRecorderMock) NewSplit(dir, ref, surfRef string) (string, error) {
+	m.splitTargets = append(m.splitTargets, surfRef)
+	m.seq++
+	return fmt.Sprintf("surface:split%d", m.seq), nil
+}
+
+func (m *splitTargetRecorderMock) FocusPane(pane, ws string) error {
+	m.focusCalls = append(m.focusCalls, pane)
+	return nil
+}
+
+func TestRestore_SplitsAddressExplicitTargetRefs(t *testing.T) {
+	// Splitting "the focused pane" located via live indexes drifts on
+	// Ghostty (terminals re-index on insertion) — the user's quad came back
+	// with panes in the wrong corner. Each split must target the resolved
+	// pane's own ref; no focus dance needed.
+	origHeur, origSurf := ShellReadyTimeout, SurfaceReadyTimeout
+	ShellReadyTimeout, SurfaceReadyTimeout = 100*time.Millisecond, 100*time.Millisecond
+	defer func() { ShellReadyTimeout, SurfaceReadyTimeout = origHeur, origSurf }()
+
+	mc := &splitTargetRecorderMock{}
+	r := &Restorer{Client: mc}
+	// The user's quad: p1 right of visual 0, p2 down from visual 0, p3 down
+	// from visual 2 (= p1 at that point).
+	ws := model.Workspace{
+		Title: "quad",
+		CWD:   "/home/u",
+		Panes: []model.Pane{
+			{Type: "terminal", Focus: true, FocusTarget: -1},
+			{Type: "terminal", Split: "right", FocusTarget: 0},
+			{Type: "terminal", Split: "down", FocusTarget: 0},
+			{Type: "terminal", Split: "down", FocusTarget: 2},
+		},
+	}
+	result := &RestoreResult{}
+	if _, err := r.restoreWorkspace(ws, false, result); err != nil {
+		t.Fatalf("restoreWorkspace: %v", err)
+	}
+	want := []string{"surface:first", "surface:first", "surface:split1"}
+	if len(mc.splitTargets) != len(want) {
+		t.Fatalf("split targets = %v, want %v", mc.splitTargets, want)
+	}
+	for i := range want {
+		if mc.splitTargets[i] != want[i] {
+			t.Fatalf("split targets = %v, want %v", mc.splitTargets, want)
+		}
+	}
+	if len(mc.focusCalls) != 0 {
+		t.Errorf("focus dance still used despite explicit targets: %v", mc.focusCalls)
 	}
 }

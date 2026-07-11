@@ -21,6 +21,12 @@ var (
 	// ShellReadyPoll is the interval between readiness checks (phase 1: CWD detection).
 	ShellReadyPoll = 150 * time.Millisecond
 
+	// CWDResendGrace is how long verifyCWD lets a sent `cd` take effect (and
+	// its cwd report refresh) before re-sending it. Ghostty's cwd report can
+	// lag the prompt by noticeably more than one poll interval — re-sending on
+	// the first stale reading typed a visible duplicate `cd` in every pane.
+	CWDResendGrace = 1500 * time.Millisecond
+
 	// StableCheckInterval is the poll rate during the stability phase.
 	StableCheckInterval = 200 * time.Millisecond
 

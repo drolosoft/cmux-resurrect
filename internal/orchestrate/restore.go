@@ -161,19 +161,28 @@ func (r *Restorer) verifyCWD(workspaceRef, surfaceRef, wantCWD string) {
 	// the shell is READY — typing into a pre-prompt shell is lost (the input
 	// gets flushed at init) and leaves visible junk in the pane.
 	hardDeadline := time.Now().Add(SurfaceReadyTimeout)
-	var verifyDeadline time.Time
+	var verifyDeadline, resendAllowedAt time.Time
 	for time.Now().Before(hardDeadline) {
 		st, err := ss.SurfaceState(workspaceRef, surfaceRef)
 		if err == nil && st != nil && st.CWD == wantCWD {
 			return // cd landed
 		}
 		if err == nil && st != nil && st.Ready {
+			now := time.Now()
 			if verifyDeadline.IsZero() {
-				verifyDeadline = time.Now().Add(CWDVerifyTimeout)
-			} else if time.Now().After(verifyDeadline) {
+				verifyDeadline = now.Add(CWDVerifyTimeout)
+				// The original cd was just sent — give it (and the backend's
+				// cwd report, which lags the prompt on Ghostty) time to
+				// reflect before concluding it was lost. Re-sending on the
+				// first stale reading typed a visible duplicate cd.
+				resendAllowedAt = now.Add(CWDResendGrace)
+			} else if now.After(verifyDeadline) {
 				return // the ready shell had its fair chance; stop retrying
 			}
-			_ = r.Client.Send(workspaceRef, surfaceRef, noHistoryCmd(cwdCommand(wantCWD, "")))
+			if now.After(resendAllowedAt) {
+				_ = r.Client.Send(workspaceRef, surfaceRef, noHistoryCmd(cwdCommand(wantCWD, "")))
+				resendAllowedAt = now.Add(CWDResendGrace)
+			}
 		}
 		time.Sleep(CWDVerifyPoll)
 	}
@@ -430,6 +439,15 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 	time.Sleep(DelayAfterSelect)
 
 	// 3. Create additional panes (splits) and send commands.
+	// Resolve which earlier pane each split targets so splits can be
+	// addressed at an EXPLICIT surface ref: splitting "the focused pane"
+	// found via live indexes drifts on Ghostty, which re-indexes terminals
+	// when splits are inserted (panes then land in the wrong corner).
+	splitTargets, _, targetsResolved := resolveSplitTargets(ws)
+	paneRefs := make([]string, len(ws.Panes))
+	if fr, ok := r.Client.(client.FirstSurfaceResolver); ok {
+		paneRefs[0] = fr.FirstSurfaceRef(ref)
+	}
 	lastPane := len(ws.Panes) - 1
 	for i, pane := range ws.Panes {
 		if i == 0 {
@@ -470,8 +488,16 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 			continue
 		}
 
-		// Focus a specific pane before splitting (for quad, etc.)
-		if pane.FocusTarget >= 0 {
+		// Explicit split target by creation-order ref when resolvable.
+		splitRef := ""
+		if targetsResolved && splitTargets[i] >= 0 && pane.Type != "browser" {
+			splitRef = paneRefs[splitTargets[i]]
+		}
+
+		// Focus a specific pane before splitting — fallback for backends
+		// that can't resolve refs, and for browser panes (NewPane splits
+		// whatever is focused).
+		if splitRef == "" && pane.FocusTarget >= 0 {
 			targetRef := fmt.Sprintf("pane:%d", pane.FocusTarget)
 			if err := r.Client.FocusPane(targetRef, ref); err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("  pane %d focus target: %v", i, err))
@@ -486,7 +512,7 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 
 		if pane.Type == "browser" {
 			// Browser panes use NewPane instead of NewSplit.
-			_, err := r.Client.NewPane(client.NewPaneOpts{
+			bref, err := r.Client.NewPane(client.NewPaneOpts{
 				Type:         "browser",
 				Direction:    direction,
 				WorkspaceRef: ref,
@@ -496,6 +522,7 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 				result.Errors = append(result.Errors, fmt.Sprintf("  pane %d new-pane browser: %v", i, err))
 				continue
 			}
+			paneRefs[i] = bref
 			// NewPane (browser) may not transfer focus like NewSplit.
 			// Focus the new pane so subsequent splits target it, not pane 0.
 			// Uses pane:N format (workspace-local index) — CLIClient converts
@@ -513,11 +540,12 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 			}
 			// Browser panes don't have a shell — skip command sending.
 		} else {
-			surfaceRef, err := r.Client.NewSplit(direction, ref, "")
+			surfaceRef, err := r.Client.NewSplit(direction, ref, splitRef)
 			if err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("  pane %d split: %v", i, err))
 				continue
 			}
+			paneRefs[i] = surfaceRef
 
 			// Name the split's surface if the Blueprint labeled it (#7).
 			r.applyName(ref, surfaceRef, pane.Name)

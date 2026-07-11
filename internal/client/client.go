@@ -116,6 +116,15 @@ type LayoutWorkspaceCreator interface {
 	NewWorkspaceLayout(opts NewWorkspaceOpts, layoutJSON string) (string, error)
 }
 
+// FirstSurfaceResolver is optionally implemented by backends that can resolve
+// the ref of a workspace's initial surface right after creation. Restore uses
+// it to address later splits at an EXPLICIT target ref instead of relying on
+// focus + live indexes, which drift on Ghostty (terminals re-index when splits
+// are inserted). Returns "" when the ref can't be resolved.
+type FirstSurfaceResolver interface {
+	FirstSurfaceRef(workspaceRef string) string
+}
+
 // SurfaceStater is optionally implemented by backends that can report live
 // per-surface state. Used during restore to gate on the real readiness/cwd of
 // the specific pane being created (not a workspace-level heuristic), which makes

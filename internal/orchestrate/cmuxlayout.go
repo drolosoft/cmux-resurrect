@@ -2,7 +2,6 @@ package orchestrate
 
 import (
 	"encoding/json"
-	"sort"
 
 	"github.com/drolosoft/cmux-resurrect/internal/model"
 )
@@ -31,8 +30,6 @@ func buildCmuxLayout(ws model.Workspace) (string, []int, bool) {
 		return "", nil, false
 	}
 
-	type rect struct{ x, y, w, h float64 }
-
 	// Mutable tree: a node is either a leaf (surfaces set) or a split.
 	type lnode struct {
 		dir      string // "horizontal" | "vertical" for splits
@@ -41,52 +38,20 @@ func buildCmuxLayout(ws model.Workspace) (string, []int, bool) {
 		paneIdx  int // creation-array index for leaves, -1 for splits
 	}
 
+	// The rect-replay (which pane does each split target, and where does every
+	// pane end up visually) lives in resolveSplitTargets, shared with the
+	// sequential restore path.
+	targets, finalVisual, ok := resolveSplitTargets(ws)
+	if !ok {
+		return "", nil, false
+	}
+
 	root := &lnode{paneIdx: 0}
 	leafOf := map[int]*lnode{0: root}
-	rects := map[int]rect{0: {0, 0, 1, 1}}
-
-	// visualIndexOf ranks created panes by (x, y) — cmux's live pane order.
-	visualIndexOf := func(target int) int {
-		type pr struct {
-			idx int
-			r   rect
-		}
-		all := make([]pr, 0, len(rects))
-		for i, r := range rects {
-			all = append(all, pr{i, r})
-		}
-		sort.Slice(all, func(a, b int) bool {
-			if all[a].r.x != all[b].r.x {
-				return all[a].r.x < all[b].r.x
-			}
-			return all[a].r.y < all[b].r.y
-		})
-		for rank, p := range all {
-			if p.idx == target {
-				return rank
-			}
-		}
-		return -1
-	}
 
 	for i := 1; i < len(ws.Panes); i++ {
 		p := ws.Panes[i]
-
-		// Resolve which existing pane this split targets: an explicit live
-		// visual index, or the previously created pane (focus follows).
-		target := i - 1
-		if p.FocusTarget >= 0 {
-			target = -1
-			for idx := range rects {
-				if visualIndexOf(idx) == p.FocusTarget {
-					target = idx
-					break
-				}
-			}
-			if target < 0 {
-				return "", nil, false // dangling focus target — not representable
-			}
-		}
+		target := targets[i]
 
 		dir := p.Split
 		if dir == "" {
@@ -97,28 +62,18 @@ func buildCmuxLayout(ws model.Workspace) (string, []int, bool) {
 			newFrac = 0.5
 		}
 
-		tr := rects[target]
 		var cmuxDir string
 		var first, second int // pane order within the split
 		var firstFrac float64
-		var trNew, rNew rect
 		switch dir {
 		case "right":
 			cmuxDir, first, second, firstFrac = "horizontal", target, i, 1-newFrac
-			trNew = rect{tr.x, tr.y, tr.w * (1 - newFrac), tr.h}
-			rNew = rect{tr.x + tr.w*(1-newFrac), tr.y, tr.w * newFrac, tr.h}
 		case "left":
 			cmuxDir, first, second, firstFrac = "horizontal", i, target, newFrac
-			rNew = rect{tr.x, tr.y, tr.w * newFrac, tr.h}
-			trNew = rect{tr.x + tr.w*newFrac, tr.y, tr.w * (1 - newFrac), tr.h}
 		case "down":
 			cmuxDir, first, second, firstFrac = "vertical", target, i, 1-newFrac
-			trNew = rect{tr.x, tr.y, tr.w, tr.h * (1 - newFrac)}
-			rNew = rect{tr.x, tr.y + tr.h*(1-newFrac), tr.w, tr.h * newFrac}
 		case "up":
 			cmuxDir, first, second, firstFrac = "vertical", i, target, newFrac
-			rNew = rect{tr.x, tr.y, tr.w, tr.h * newFrac}
-			trNew = rect{tr.x, tr.y + tr.h*newFrac, tr.w, tr.h * (1 - newFrac)}
 		default:
 			return "", nil, false
 		}
@@ -133,8 +88,6 @@ func buildCmuxLayout(ws model.Workspace) (string, []int, bool) {
 		leaf.children = [2]*lnode{a, b}
 		leafOf[first] = a
 		leafOf[second] = b
-		rects[target] = trNew
-		rects[i] = rNew
 	}
 
 	// Serialize the tree.
@@ -213,11 +166,7 @@ func buildCmuxLayout(ws model.Workspace) (string, []int, bool) {
 	if err != nil {
 		return "", nil, false
 	}
-	visual := make([]int, len(ws.Panes))
-	for i := range ws.Panes {
-		visual[i] = visualIndexOf(i)
-	}
-	return string(data), visual, true
+	return string(data), finalVisual, true
 }
 
 // expandHomeNonEmpty expands ~ but keeps "" as "" (omitted in JSON → the
