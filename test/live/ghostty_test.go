@@ -256,6 +256,49 @@ end tell`, tab))
 	return dirs
 }
 
+func ghosttyWindowCount(t *testing.T) int {
+	n, _ := strconv.Atoi(osa(t, `tell application "Ghostty" to count of windows`))
+	return n
+}
+
+// TestGhostty_RestoreAddsTabsNotWindows: a multi-workspace restore must
+// produce TABS in one window — never one window per workspace (field report
+// 2026-07-11: three workspaces came back as three separate windows because
+// tab creation was addressed at the focus/Space-dependent "front window").
+func TestGhostty_RestoreAddsTabsNotWindows(t *testing.T) {
+	requireGhostty(t)
+	layouts := t.TempDir()
+	dirs := []string{
+		filepath.Join(homeDir, "Documents"),
+		filepath.Join(homeDir, "Downloads"),
+		filepath.Join(homeDir, "Desktop"),
+	}
+	layout := &model.Layout{Name: "audit-onewin", Version: 1, SavedAt: time.Now()}
+	for i, d := range dirs {
+		layout.Workspaces = append(layout.Workspaces, singlePaneWorkspace(fmt.Sprintf("audit-onewin-%d", i), d, i))
+	}
+	writeLayout(t, layouts, layout)
+
+	winsBefore := ghosttyWindowCount(t)
+	baseTabs := tabCount(t)
+	before := zshPids(t)
+	if _, err := runCrex(t, layouts, crexEnv("CREX_BACKEND=ghostty"), "restore", "audit-onewin", "--mode", "add"); err != nil {
+		t.Fatalf("restore: %v", err)
+	}
+	t.Cleanup(func() { closeTabsFrom(t, baseTabs+1) })
+
+	if got := ghosttyWindowCount(t); got != winsBefore {
+		t.Fatalf("restore changed the WINDOW count %d → %d — workspaces must open as tabs in one window", winsBefore, got)
+	}
+	if !waitFor(30*time.Second, time.Second, func() bool { return tabCount(t) == baseTabs+3 }) {
+		t.Fatalf("expected %d tabs in the anchor window, got %d", baseTabs+3, tabCount(t))
+	}
+	got := waitShellCWDs(t, before, dirs)
+	if !multisetEqual(got, dirs) {
+		t.Fatalf("per-tab cwds wrong: want %v, got %v", dirs, got)
+	}
+}
+
 // TestGhostty_TabsPerTabCWDRoundtrip is the original issue-8 scenario on
 // Ghostty: tabs at different paths must restore to their own cwds AND a
 // save-back must capture each tab's cwd again.

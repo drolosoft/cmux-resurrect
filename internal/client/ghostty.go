@@ -22,6 +22,13 @@ import (
 type GhosttyClient struct {
 	Timeout time.Duration
 	AppName string // macOS application name for AppleScript (default: "Ghostty")
+
+	// anchorWin memoizes the id of THE window this client operates on. All
+	// tab-scoped operations address it explicitly ("window id ..."), never
+	// "front window": front-window resolution shifts with focus/Spaces, and
+	// a multi-workspace restore could end up creating one WINDOW per
+	// workspace instead of tabs in one window (field report, 2026-07-11).
+	anchorWin string
 }
 
 // NewGhosttyClient creates a GhosttyClient with sensible defaults.
@@ -52,6 +59,48 @@ func (g *GhosttyClient) appName() string {
 // tell returns the AppleScript fragment: tell application "AppName"
 func (g *GhosttyClient) tell() string {
 	return fmt.Sprintf(`tell application "%s"`, g.appName())
+}
+
+// windowClause returns the AppleScript specifier for the client's anchor
+// window ("window id \"...\""), resolving it once: the front window at first
+// use, or a freshly created window when none exists (the app auto-launches).
+// The second return reports whether this call CREATED the window (its default
+// tab may need closing after the first workspace tab is added).
+func (g *GhosttyClient) windowClause() (string, bool, error) {
+	if g.anchorWin != "" {
+		return fmt.Sprintf(`window id "%s"`, escapeAppleScript(g.anchorWin)), false, nil
+	}
+	id, err := g.runScript(fmt.Sprintf(`tell application "%s" to id of front window`, g.appName()))
+	created := false
+	if err != nil || id == "" {
+		// No window — create one and adopt it. Result is discarded: the
+		// returned reference isn't coercible, but the window is created.
+		_, _ = g.runScriptLines(g.tell(), `  make new window`, `end tell`)
+		created = true
+		deadline := time.Now().Add(NewWorkspaceDeadline)
+		for time.Now().Before(deadline) {
+			id, err = g.runScript(fmt.Sprintf(`tell application "%s" to id of front window`, g.appName()))
+			if err == nil && id != "" {
+				break
+			}
+			time.Sleep(PollInterval)
+		}
+		if id == "" {
+			return "", false, fmt.Errorf("%s: no window available", g.appName())
+		}
+	}
+	g.anchorWin = id
+	return fmt.Sprintf(`window id "%s"`, escapeAppleScript(id)), created, nil
+}
+
+// mustWindowClause is windowClause for read paths that previously assumed a
+// front window; on failure it falls back to "front window" (old behavior).
+func (g *GhosttyClient) mustWindowClause() string {
+	w, _, err := g.windowClause()
+	if err != nil {
+		return "front window"
+	}
+	return w
 }
 
 // runScript executes a single-line AppleScript via osascript.
@@ -121,15 +170,15 @@ func parseTabIndex(ref string) (int, error) {
 // immune to Ghostty re-indexing terminals when later splits are inserted
 // (index-based sends could land in the WRONG pane). Index refs
 // ("terminal:N" / "pane:N") remain supported for layout-derived targeting.
-func ghosttyTerminalSpecifier(surfaceRef string, tabIdx int) (string, error) {
+func ghosttyTerminalSpecifier(surfaceRef string, tabIdx int, win string) (string, error) {
 	if id, ok := strings.CutPrefix(surfaceRef, "tid:"); ok && id != "" {
-		return fmt.Sprintf(`terminal id "%s" of tab %d of front window`, escapeAppleScript(id), tabIdx), nil
+		return fmt.Sprintf(`terminal id "%s" of tab %d of %s`, escapeAppleScript(id), tabIdx, win), nil
 	}
 	termIdx, err := parseTerminalIndex(surfaceRef)
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf(`terminal %d of tab %d of front window`, termIdx, tabIdx), nil
+	return fmt.Sprintf(`terminal %d of tab %d of %s`, termIdx, tabIdx, win), nil
 }
 
 // cwdFromTitle extracts a working directory from a terminal title, for shells
@@ -352,7 +401,7 @@ func (g *GhosttyClient) SidebarState(workspaceRef string) (*SidebarState, error)
 
 	out, err := g.runScriptLines(
 		g.tell(),
-		fmt.Sprintf(`  set focTerm to focused terminal of tab %d of front window`, tabIdx),
+		fmt.Sprintf(`  set focTerm to focused terminal of tab %d of %s`, tabIdx, g.mustWindowClause()),
 		`  return (working directory of focTerm) & "|" & (name of focTerm)`,
 		`end tell`,
 	)
@@ -406,11 +455,11 @@ func (g *GhosttyClient) gitDirty(cwd string) bool {
 func (g *GhosttyClient) ListWorkspaces() ([]WorkspaceInfo, error) {
 	out, err := g.runScriptLines(
 		g.tell(),
-		`  set tabCount to count of tabs of front window`,
+		fmt.Sprintf(`  set tabCount to count of tabs of %s`, g.mustWindowClause()),
 		`  set output to ""`,
 		`  repeat with t from 1 to tabCount`,
-		`    set tabName to name of tab t of front window`,
-		`    set isSel to selected of tab t of front window`,
+		fmt.Sprintf(`    set tabName to name of tab t of %s`, g.mustWindowClause()),
+		fmt.Sprintf(`    set isSel to selected of tab t of %s`, g.mustWindowClause()),
 		`    set output to output & "tab:" & t & "|" & tabName & "|" & isSel & linefeed`,
 		`  end repeat`,
 		`  return output`,
@@ -440,65 +489,35 @@ func (g *GhosttyClient) ListWorkspaces() ([]WorkspaceInfo, error) {
 }
 
 func (g *GhosttyClient) NewWorkspace(opts NewWorkspaceOpts) (string, error) {
-	// Check if the app is running BEFORE talking to it via AppleScript.
-	// Using pgrep avoids auto-launching the app (which creates a default tab).
-	appRunning := exec.Command("pgrep", "-xi", g.appName()).Run() == nil
-
-	// Also check if a window exists (app may be running with no windows).
-	hasWindow := appRunning
-	if appRunning {
-		out, err := g.runScript(fmt.Sprintf(`tell application "%s" to count of tabs of front window`, g.appName()))
-		if err != nil {
-			hasWindow = false
-		} else if n, _ := strconv.Atoi(out); n == 0 {
-			hasWindow = false
-		}
-	}
-
-	if !hasWindow && opts.CWD != "" {
-		// App not running — create a new window with the right CWD directly.
-		_, _ = g.runScriptLines(
-			g.tell(),
-			fmt.Sprintf(`  set cfg to new surface configuration from {initial working directory:"%s"}`, escapeAppleScript(opts.CWD)),
-			`  make new window with configuration cfg`,
-			`end tell`,
-		)
-		// Wait for our tab to appear (might be tab 2 if window-save-state restored a default).
-		deadline := time.Now().Add(NewWorkspaceDeadline)
-		for time.Now().Before(deadline) {
-			out, _ := g.runScript(fmt.Sprintf(`tell application "%s" to count of tabs of front window`, g.appName()))
-			if n, _ := strconv.Atoi(out); n >= 1 {
-				break
-			}
-			time.Sleep(PollInterval)
-		}
-		// If window-save-state restored a default tab alongside ours, close it.
-		// Our tab (with the CWD) is the last tab; the restored default is tab 1.
-		out, _ := g.runScript(fmt.Sprintf(`tell application "%s" to count of tabs of front window`, g.appName()))
-		if n, _ := strconv.Atoi(out); n > 1 {
-			_, _ = g.runScript(fmt.Sprintf(`tell application "%s" to close tab (a reference to tab 1 of front window)`, g.appName()))
-			time.Sleep(PollInterval)
-		}
-		return "tab:1", nil
-	}
-
-	beforeOut, err := g.runScript(fmt.Sprintf(`tell application "%s" to count of tabs of front window`, g.appName()))
+	// Resolve THE window every workspace of this run goes into. Never "front
+	// window": its resolution shifts with focus/Spaces, and a multi-workspace
+	// restore could open one WINDOW per workspace instead of tabs in one
+	// window. When no window exists (cold start) this creates and adopts one.
+	win, createdWindow, err := g.windowClause()
 	if err != nil {
-		return "", fmt.Errorf("count tabs: %w", err)
+		return "", err
 	}
-	beforeCount, _ := strconv.Atoi(beforeOut)
+
+	beforeCount := 0
+	if !createdWindow {
+		beforeOut, err := g.runScript(fmt.Sprintf(`tell application "%s" to count of tabs of %s`, g.appName(), win))
+		if err != nil {
+			return "", fmt.Errorf("count tabs: %w", err)
+		}
+		beforeCount, _ = strconv.Atoi(beforeOut)
+	}
 
 	if opts.CWD != "" && g.appName() == "Ghostty" {
 		// Ghostty supports surface configuration for setting initial CWD.
 		_, err = g.runScriptLines(
 			g.tell(),
 			fmt.Sprintf(`  set cfg to new surface configuration from {initial working directory:"%s"}`, escapeAppleScript(opts.CWD)),
-			`  new tab in front window with configuration cfg`,
+			fmt.Sprintf(`  new tab in %s with configuration cfg`, win),
 			`end tell`,
 		)
 	} else {
 		// cmux and fallback: create plain tab, cd to CWD after shell is ready.
-		_, err = g.runScript(fmt.Sprintf(`tell application "%s" to new tab in front window`, g.appName()))
+		_, err = g.runScript(fmt.Sprintf(`tell application "%s" to new tab in %s`, g.appName(), win))
 	}
 	if err != nil {
 		return "", fmt.Errorf("new tab: %w", err)
@@ -507,7 +526,7 @@ func (g *GhosttyClient) NewWorkspace(opts NewWorkspaceOpts) (string, error) {
 	var ref string
 	deadline := time.Now().Add(NewWorkspaceDeadline)
 	for time.Now().Before(deadline) {
-		afterOut, err := g.runScript(fmt.Sprintf(`tell application "%s" to count of tabs of front window`, g.appName()))
+		afterOut, err := g.runScript(fmt.Sprintf(`tell application "%s" to count of tabs of %s`, g.appName(), win))
 		if err != nil {
 			time.Sleep(PollInterval)
 			continue
@@ -521,6 +540,17 @@ func (g *GhosttyClient) NewWorkspace(opts NewWorkspaceOpts) (string, error) {
 	}
 	if ref == "" {
 		return "", fmt.Errorf("new tab created but could not determine ref")
+	}
+
+	// A freshly created anchor window spawns a default tab (tab 1) alongside
+	// our configured one — close it so the workspace tab is tab 1.
+	if createdWindow {
+		out, _ := g.runScript(fmt.Sprintf(`tell application "%s" to count of tabs of %s`, g.appName(), win))
+		if n, _ := strconv.Atoi(out); n > 1 {
+			_, _ = g.runScript(fmt.Sprintf(`tell application "%s" to close tab (a reference to tab 1 of %s)`, g.appName(), win))
+			time.Sleep(PollInterval)
+			ref = "tab:1"
+		}
 	}
 
 	// For non-Ghostty apps (cmux), cd to CWD since surface configuration isn't supported.
@@ -546,8 +576,8 @@ func (g *GhosttyClient) waitForShellReady(workspaceRef string) {
 	deadline := time.Now().Add(NewWorkspaceDeadline)
 	for time.Now().Before(deadline) {
 		cwd, err := g.runScript(fmt.Sprintf(
-			`tell application "%s" to working directory of terminal 1 of tab %d of front window`, g.appName(),
-			tabIdx,
+			`tell application "%s" to working directory of terminal 1 of tab %d of %s`, g.appName(),
+			tabIdx, g.mustWindowClause(),
 		))
 		if err == nil && cwd != "" {
 			return
@@ -562,8 +592,8 @@ func (g *GhosttyClient) RenameWorkspace(ref, title string) error {
 		return err
 	}
 	_, err = g.runScript(fmt.Sprintf(
-		`tell application "%s" to perform action "set_tab_title:%s" on terminal 1 of tab %d of front window`, g.appName(),
-		escapeAppleScript(title), tabIdx,
+		`tell application "%s" to perform action "set_tab_title:%s" on terminal 1 of tab %d of %s`, g.appName(),
+		escapeAppleScript(title), tabIdx, g.mustWindowClause(),
 	))
 	return err
 }
@@ -583,8 +613,8 @@ func (g *GhosttyClient) SelectWorkspace(ref string) error {
 		return err
 	}
 	_, err = g.runScript(fmt.Sprintf(
-		`tell application "%s" to select tab (a reference to tab %d of front window)`, g.appName(),
-		tabIdx,
+		`tell application "%s" to select tab (a reference to tab %d of %s)`, g.appName(),
+		tabIdx, g.mustWindowClause(),
 	))
 	return err
 }
@@ -604,7 +634,7 @@ func (g *GhosttyClient) NewSplit(direction, workspaceRef, surfaceRef string) (st
 		out, err := g.runScriptLines(
 			g.tell(),
 			`  set ids to ""`,
-			fmt.Sprintf(`  repeat with t in terminals of tab %d of front window`, tabIdx),
+			fmt.Sprintf(`  repeat with t in terminals of tab %d of %s`, tabIdx, g.mustWindowClause()),
 			`    set ids to ids & (id of t) & linefeed`,
 			`  end repeat`,
 			`  return ids`,
@@ -631,9 +661,9 @@ func (g *GhosttyClient) NewSplit(direction, workspaceRef, surfaceRef string) (st
 	// focused terminal" depends on mutable focus state, and terminal indexes
 	// drift as splits are inserted, so placement could land on the wrong
 	// pane. Fall back to the focused terminal only without a target.
-	splitTarget := fmt.Sprintf(`focused terminal of tab %d of front window`, tabIdx)
+	splitTarget := fmt.Sprintf(`focused terminal of tab %d of %s`, tabIdx, g.mustWindowClause())
 	if surfaceRef != "" {
-		target, terr := ghosttyTerminalSpecifier(surfaceRef, tabIdx)
+		target, terr := ghosttyTerminalSpecifier(surfaceRef, tabIdx, g.mustWindowClause())
 		if terr != nil {
 			return "", fmt.Errorf("resolve split target: %w", terr)
 		}
@@ -697,7 +727,7 @@ func (g *GhosttyClient) waitForTerminalReady(workspaceRef, terminalRef string) {
 	if err != nil {
 		return
 	}
-	target, err := ghosttyTerminalSpecifier(terminalRef, tabIdx)
+	target, err := ghosttyTerminalSpecifier(terminalRef, tabIdx, g.mustWindowClause())
 	if err != nil {
 		return
 	}
@@ -721,7 +751,7 @@ func (g *GhosttyClient) FocusPane(paneRef, workspaceRef string) error {
 	if err != nil {
 		return err
 	}
-	target, err := ghosttyTerminalSpecifier(paneRef, tabIdx)
+	target, err := ghosttyTerminalSpecifier(paneRef, tabIdx, g.mustWindowClause())
 	if err != nil {
 		return err
 	}
@@ -740,7 +770,7 @@ func (g *GhosttyClient) FirstSurfaceRef(workspaceRef string) string {
 		return ""
 	}
 	id, err := g.runScript(fmt.Sprintf(
-		`tell application "%s" to id of terminal 1 of tab %d of front window`, g.appName(), tabIdx,
+		`tell application "%s" to id of terminal 1 of tab %d of %s`, g.appName(), tabIdx, g.mustWindowClause(),
 	))
 	if err != nil || id == "" {
 		return ""
@@ -757,7 +787,7 @@ func (g *GhosttyClient) Send(workspaceRef, surfaceRef, text string) error {
 	if surfaceRef == "" {
 		surfaceRef = "terminal:1"
 	}
-	target, err := ghosttyTerminalSpecifier(surfaceRef, tabIdx)
+	target, err := ghosttyTerminalSpecifier(surfaceRef, tabIdx, g.mustWindowClause())
 	if err != nil {
 		return err
 	}
@@ -802,8 +832,8 @@ func (g *GhosttyClient) CloseWorkspace(ref string) error {
 		return err
 	}
 	_, err = g.runScript(fmt.Sprintf(
-		`tell application "%s" to close tab (a reference to tab %d of front window)`, g.appName(),
-		tabIdx,
+		`tell application "%s" to close tab (a reference to tab %d of %s)`, g.appName(),
+		tabIdx, g.mustWindowClause(),
 	))
 	return err
 }
@@ -832,7 +862,7 @@ func (g *GhosttyClient) SurfaceState(workspaceRef, surfaceRef string) (*SurfaceS
 	if err != nil {
 		return nil, err
 	}
-	spec, err := ghosttyTerminalSpecifier(surfaceRef, tabIdx)
+	spec, err := ghosttyTerminalSpecifier(surfaceRef, tabIdx, g.mustWindowClause())
 	if err != nil {
 		return nil, err
 	}
