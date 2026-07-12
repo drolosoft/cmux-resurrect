@@ -34,6 +34,7 @@ var (
 	crexBin  string
 	repoRoot string
 	homeDir  string
+	crexConf string // isolated empty config — the audit must not inherit the user's settings (e.g. a pinned default backend)
 )
 
 func TestMain(m *testing.M) {
@@ -53,6 +54,11 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 	crexBin = filepath.Join(tmp, "crex")
+	crexConf = filepath.Join(tmp, "config.toml")
+	if err := os.WriteFile(crexConf, []byte("# isolated audit config — defaults only\n"), 0o644); err != nil {
+		fmt.Fprintln(os.Stderr, "audit:", err)
+		os.Exit(1)
+	}
 	build := exec.Command("go", "build", "-o", crexBin, "./cmd/crex")
 	build.Dir = repoRoot
 	if out, err := build.CombinedOutput(); err != nil {
@@ -95,7 +101,7 @@ func runCrex(t *testing.T, layoutsDir string, env []string, args ...string) (str
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, crexBin, append([]string{"--layouts-dir", layoutsDir}, args...)...)
+	cmd := exec.CommandContext(ctx, crexBin, append([]string{"--layouts-dir", layoutsDir, "--config", crexConf}, args...)...)
 	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 	t.Logf("crex %s → err=%v\n%s", strings.Join(args, " "), err, out)

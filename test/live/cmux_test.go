@@ -160,11 +160,14 @@ func (g paneGeom) String() string {
 }
 
 // paneGeoms returns each pane's pixel frame plus its first surface's cwd.
+// Returns nil when the workspace is missing from the tree — `cmux tree` can
+// transiently omit it under polling load, so pollers must retry instead of
+// dying (the final assertion catches a genuinely vanished workspace).
 func paneGeoms(t *testing.T, wsRef string) []paneGeom {
 	t.Helper()
 	ws := wsByRef(t, wsRef)
 	if ws == nil {
-		t.Fatalf("workspace %s not in tree", wsRef)
+		return nil
 	}
 	arg, _ := json.Marshal(map[string]string{"workspace_id": ws.ID})
 	out, err := cmuxRun(t, "rpc", "pane.list", string(arg))
@@ -254,8 +257,11 @@ func waitPaneCWDs(t *testing.T, wsRef string, want []string) []paneGeom {
 	var geoms []paneGeom
 	waitFor(60*time.Second, time.Second, func() bool {
 		geoms = paneGeoms(t, wsRef)
-		return multisetEqual(geomCWDs(geoms), want)
+		return geoms != nil && multisetEqual(geomCWDs(geoms), want)
 	})
+	if geoms == nil {
+		t.Fatalf("workspace %s not in tree after the cwd wait", wsRef)
+	}
 	return geoms
 }
 
@@ -377,7 +383,16 @@ func TestCmux_SaveRestoreResaveAside(t *testing.T) {
 		return false
 	})
 
+	// cmux 0.64 spawns shells lazily on first render. A workspace close from
+	// the previous test can race our select-workspace and steal the selection,
+	// leaving this workspace unrendered — its shells never spawn and cmux
+	// eventually reaps it ("not in tree"). Keep re-selecting while waiting.
+	reselect := 0
 	waitFor(45*time.Second, 500*time.Millisecond, func() bool {
+		if reselect%10 == 0 {
+			_, _ = cmuxRun(t, "select-workspace", "--workspace", wsRef)
+		}
+		reselect++
 		_, ready := terminals(t)
 		return ready[surfHome] && ready[surfDocs] && ready[surfDownloads]
 	})
