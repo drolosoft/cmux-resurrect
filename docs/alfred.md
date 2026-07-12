@@ -132,12 +132,32 @@ Alfred runs outside any terminal, so it can't tell whether you're "in" cmux or G
 
    ```bash
    export PATH="/opt/homebrew/bin:/Applications/cmux.app/Contents/Resources/bin:$PATH"
-   # Discover the cmux socket so crex can reach cmux when that's the chosen backend.
-   for sock in "$HOME/.local/state/cmux/cmux.sock" \
-               "$HOME/Library/Application Support/cmux/cmux-501.sock" \
-               "$HOME/Library/Application Support/cmux/cmux.sock"; do
-     [ -S "$sock" ] && export CMUX_SOCKET_PATH="$sock" && break
+
+   # Discover the cmux socket. last-socket-path is canonical — stale .sock
+   # files linger after cmux restarts and cause "broken pipe" from Alfred.
+   for lsp in "$HOME/.local/state/cmux/last-socket-path" \
+              "$HOME/Library/Application Support/cmux/last-socket-path"; do
+     if [ -f "$lsp" ]; then
+       sock=$(cat "$lsp")
+       [ -S "$sock" ] && export CMUX_SOCKET_PATH="$sock" && break
+     fi
    done
+   if [ -z "$CMUX_SOCKET_PATH" ]; then
+     for sock in "$HOME/.local/state/cmux/cmux-501.sock" \
+                 "$HOME/.local/state/cmux/cmux.sock" \
+                 "$HOME/Library/Application Support/cmux/cmux-501.sock" \
+                 "$HOME/Library/Application Support/cmux/cmux.sock"; do
+       [ -S "$sock" ] && export CMUX_SOCKET_PATH="$sock" && break
+     done
+   fi
+
+   # Launch the configured backend if it isn't running — from Alfred the
+   # terminal may be closed, and you can't restore into a dead app.
+   backend=$(crex settings backend get 2>/dev/null | grep -oE 'cmux|ghostty' | head -1)
+   case "$backend" in
+     ghostty) pgrep -xi ghostty >/dev/null 2>&1 || { open -a Ghostty; sleep 2; } ;;
+     cmux)    pgrep -xi cmux    >/dev/null 2>&1 || { open -a cmux;    sleep 2; } ;;
+   esac
 
    action="${1%%:*}"; rest="${1#*:}"
    case "$action" in
@@ -203,6 +223,8 @@ crex list --json
 
 **"Broken pipe" or "Connection refused"**
 - cmux socket control mode is not set to "Automation". See [cmux Setup](#cmux-setup).
+- **A stale `.sock` file is being picked up** — old sockets linger after cmux restarts. Always discover via `last-socket-path` (the scripts above do); never probe fixed `.sock` paths first.
+- **cmux ≥0.64: restart cmux after changing Socket Control Mode** — the socket server takes the mode at startup; the Settings toggle alone may not re-apply it to a live socket.
 - cmux socket path changed after restart. The auto-discover script handles this, but if you hardcoded the path, check `cat ~/.local/state/cmux/last-socket-path` or `cat ~/Library/Application\ Support/cmux/last-socket-path`.
 
 **Alfred shows file results instead of workspaces**
