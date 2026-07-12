@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [v1.26.1] — 2026-07-11
+## [v1.26.1] — 2026-07-12
 
 ### Added
 - **Default backend setting** — `crex settings backend set <auto|cmux|ghostty>` pins which backend crex uses when auto-detection is ambiguous (cmux AND Ghostty both running). Precedence: `CREX_BACKEND` env → config default → auto-detect. Running crex from *inside a live cmux session* always targets cmux, so the default only affects external launchers (Alfred) and plain shells. Available in the CLI and the TUI (`settings backend`); documented for the Alfred workflow
@@ -19,8 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Browser-pane readiness and pane focusing on Ghostty accept id-based refs (previously id refs were silently ignored there)
 - **Ghostty cold start: no leftover default tab** — when crex creates the anchor window itself, its default/session-restored tabs are now counted and purged after the workspace tab is added (previously a `~` tab leaked alongside the restored one). crex still leaves pre-existing tabs untouched under `--mode add`
 
-### Added
-- `scripts/tui-dialog-e2e.js` — asserting end-to-end check of the TUI browse→restore dialog against a live backend (verifies the workspace/tab is actually created, not just that the dialog renders)
+### Changed
+- **Alfred docs hardened from field debugging** — cmux socket discovery via the canonical `last-socket-path` (stale `.sock` files caused broken-pipe), launch the configured backend app when it isn't running, and a troubleshooting note that cmux ≥0.64 applies Socket Control Mode at server startup (restart cmux after changing it). Added `scripts/tui-dialog-e2e.js`, an asserting end-to-end check of the TUI browse→restore dialog against a live backend
 
 ---
 
