@@ -80,7 +80,7 @@ func (tu *TemplateUser) dryRun(panes []model.Pane, opts TemplateUseOpts, title s
 			direction = "right"
 		}
 		if pane.Type == "browser" {
-			result.Commands = append(result.Commands, f.FmtNewPane(pane.Type, direction, ref, pane.Command))
+			result.Commands = append(result.Commands, f.FmtNewPane(pane.Type, direction, ref, pane.Command, pane.Profile))
 		} else {
 			result.Commands = append(result.Commands, f.FmtNewSplit(direction, ref))
 			if pane.Command != "" {
@@ -100,6 +100,17 @@ func (tu *TemplateUser) dryRun(panes []model.Pane, opts TemplateUseOpts, title s
 
 func (tu *TemplateUser) execute(panes []model.Pane, opts TemplateUseOpts, title string, result *TemplateUseResult) (*TemplateUseResult, error) {
 	tu.progress("Creating workspace...")
+
+	// Pre-create any browser profiles the template references (same guarantee
+	// as restore: newer cmux rejects unknown --profile selectors). Failures
+	// degrade to the default profile, never abort the template.
+	if en, ok := tu.Client.(client.BrowserProfileEnsurer); ok {
+		for _, slug := range layoutBrowserProfiles([]model.Workspace{{Panes: panes}}) {
+			if err := en.EnsureBrowserProfile(slug); err != nil {
+				tu.progress(fmt.Sprintf("ensure browser profile %q: %v", slug, err))
+			}
+		}
+	}
 
 	// 1. Create workspace.
 	ref, err := tu.Client.NewWorkspace(client.NewWorkspaceOpts{CWD: opts.CWD})
@@ -178,6 +189,7 @@ func (tu *TemplateUser) execute(panes []model.Pane, opts TemplateUseOpts, title 
 				Direction:    direction,
 				WorkspaceRef: ref,
 				URL:          pane.Command,
+				Profile:      pane.Profile,
 			})
 			if err != nil {
 				tu.progress(fmt.Sprintf("pane %d new-pane browser: %v", i, err))

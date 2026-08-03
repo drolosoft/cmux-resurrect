@@ -390,3 +390,55 @@ func TestBuildCmuxLayout_EmptyLeafCWDFallsBackToWorkspaceCWD(t *testing.T) {
 		t.Errorf("pane2 cwd = %v, want workspace fallback /home/u/downloads", got)
 	}
 }
+
+func TestBuildCmuxLayout_BrowserProfile(t *testing.T) {
+	ws := model.Workspace{
+		Title: "dev",
+		CWD:   "/tmp/project",
+		Panes: []model.Pane{
+			{Type: "terminal", Focus: true},
+			{
+				Type: "browser", Split: "right", URL: "http://localhost:3000",
+				Profile: "work-admin",
+				Surfaces: []model.Surface{
+					{Type: "browser", URL: "http://localhost:3000/user", Profile: "work-user"},
+				},
+			},
+		},
+	}
+
+	layoutJSON, _, ok := buildCmuxLayout(ws)
+	if !ok {
+		t.Fatal("layout not buildable")
+	}
+	if !strings.Contains(layoutJSON, `"profile":"work-admin"`) {
+		t.Errorf("layout JSON missing pane profile:\n%s", layoutJSON)
+	}
+	if !strings.Contains(layoutJSON, `"profile":"work-user"`) {
+		t.Errorf("layout JSON missing surface profile:\n%s", layoutJSON)
+	}
+	// Exactly the two browser entries carry a profile — terminals never do.
+	if n := strings.Count(layoutJSON, `"profile"`); n != 2 {
+		t.Errorf("layout JSON has %d profile keys, want 2:\n%s", n, layoutJSON)
+	}
+}
+
+func TestBuildCmuxLayout_NoProfileStaysClean(t *testing.T) {
+	// The common path: no profiles anywhere → the layout JSON must not
+	// contain a profile key at all (byte-identical to pre-feature output).
+	ws := model.Workspace{
+		Title: "dev",
+		CWD:   "/tmp/project",
+		Panes: []model.Pane{
+			{Type: "terminal", Focus: true},
+			{Type: "browser", Split: "right", URL: "http://localhost:3000"},
+		},
+	}
+	layoutJSON, _, ok := buildCmuxLayout(ws)
+	if !ok {
+		t.Fatal("layout not buildable")
+	}
+	if strings.Contains(layoutJSON, "profile") {
+		t.Errorf("no-profile layout JSON leaks a profile key:\n%s", layoutJSON)
+	}
+}

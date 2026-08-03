@@ -351,6 +351,21 @@ func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode, workspace
 		return workspaces[i].Index < workspaces[j].Index
 	})
 
+	// Pre-create any browser profiles the layout references (GitHub #9).
+	// cmux >0.64.20 rejects pane creation with an unknown --profile selector,
+	// so a layout restored on a fresh machine needs its (empty) profile
+	// buckets to exist first. Failures are warnings: panes still restore,
+	// on the default profile at worst.
+	if !dryRun {
+		if en, ok := r.Client.(client.BrowserProfileEnsurer); ok {
+			for _, slug := range layoutBrowserProfiles(workspaces) {
+				if err := en.EnsureBrowserProfile(slug); err != nil {
+					result.Errors = append(result.Errors, fmt.Sprintf("ensure browser profile %q: %v", slug, err))
+				}
+			}
+		}
+	}
+
 	// Create workspaces. Skip existing ones only when skipMatching is true.
 	for _, ws := range workspaces {
 		if !dryRun && skipMatching && existingTitles[ws.Title] {
@@ -384,6 +399,30 @@ func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode, workspace
 	}
 
 	return result, nil
+}
+
+// layoutBrowserProfiles returns the distinct browser profile slugs referenced
+// by the given workspaces, sorted for deterministic ensure order.
+func layoutBrowserProfiles(workspaces []model.Workspace) []string {
+	seen := make(map[string]bool)
+	for _, ws := range workspaces {
+		for _, p := range ws.Panes {
+			if p.Type == "browser" && p.Profile != "" {
+				seen[p.Profile] = true
+			}
+			for _, s := range p.Surfaces {
+				if s.Type == "browser" && s.Profile != "" {
+					seen[s.Profile] = true
+				}
+			}
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for slug := range seen {
+		out = append(out, slug)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *RestoreResult) (string, error) {
@@ -517,6 +556,7 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 				Direction:    direction,
 				WorkspaceRef: ref,
 				URL:          pane.URL,
+				Profile:      pane.Profile,
 			})
 			if err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("  pane %d new-pane browser: %v", i, err))
@@ -735,7 +775,7 @@ func (r *Restorer) dryRunWorkspace(ws model.Workspace, result *RestoreResult) (s
 			direction = "right"
 		}
 		if pane.Type == "browser" {
-			result.Commands = append(result.Commands, f.FmtNewPane(pane.Type, direction, ref, pane.URL))
+			result.Commands = append(result.Commands, f.FmtNewPane(pane.Type, direction, ref, pane.URL, pane.Profile))
 		} else {
 			result.Commands = append(result.Commands, f.FmtNewSplit(direction, ref))
 			if pane.Command != "" || pane.CWD != "" {

@@ -31,7 +31,9 @@ func cmuxRun(t *testing.T, args ...string) (string, error) {
 }
 
 type cmuxSurface struct {
-	Ref string `json:"ref"`
+	Ref  string `json:"ref"`
+	ID   string `json:"id"`
+	Type string `json:"type"`
 }
 
 type cmuxPane struct {

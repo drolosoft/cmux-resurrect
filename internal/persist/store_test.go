@@ -461,3 +461,57 @@ func TestValidateName_RejectsControlCharacters(t *testing.T) {
 		}
 	}
 }
+
+func TestFileStore_BrowserProfileRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	store, err := NewFileStore(dir)
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+
+	layout := &model.Layout{
+		Name:    "profiles",
+		Version: 1,
+		SavedAt: time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC),
+		Workspaces: []model.Workspace{
+			{
+				Title: "0 dev",
+				CWD:   "/tmp/project",
+				Panes: []model.Pane{
+					{Type: "terminal", Focus: true},
+					{Type: "browser", Split: "right", URL: "http://localhost:3000", Profile: "work-admin"},
+					{
+						Type: "terminal", Split: "down",
+						Surfaces: []model.Surface{
+							{Type: "browser", URL: "http://localhost:3000/user", Profile: "work-user"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	if err := store.Save("profiles", layout); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+
+	got, err := store.Load("profiles")
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	panes := got.Workspaces[0].Panes
+	if panes[1].Profile != "work-admin" {
+		t.Errorf("pane profile = %q, want %q", panes[1].Profile, "work-admin")
+	}
+	if panes[2].Surfaces[0].Profile != "work-user" {
+		t.Errorf("surface profile = %q, want %q", panes[2].Surfaces[0].Profile, "work-user")
+	}
+	// Terminal panes must not carry a profile field in the TOML.
+	data, err := os.ReadFile(filepath.Join(dir, "profiles.toml"))
+	if err != nil {
+		t.Fatalf("read toml: %v", err)
+	}
+	if n := strings.Count(string(data), "profile ="); n != 2 {
+		t.Errorf("TOML contains %d profile fields, want 2:\n%s", n, data)
+	}
+}

@@ -219,11 +219,14 @@ crex targets full parity between cmux and Ghostty; where the platform APIs diffe
 | Exact split arrangement (positions, sizes) | ✅ pixel-exact | ⚠️ splits recreated in order, geometry not captured² |
 | Sub-tabs within a pane (multi-surface) | ✅ | — (Ghostty has no sub-tabs) |
 | Browser panes | ✅ | opens URL in default browser |
+| Browser profiles | ✅ saved per pane, reapplied on restore³ | — (no browser panes) |
 | AI session resume | ✅ | ✅ |
 
 ¹ Ghostty reports each terminal's directory via OSC 7 (shell integration). When a shell doesn't emit OSC 7, crex falls back to the terminal title (`user@host: ~/path`), accepted only if the directory exists. Restore always sends each pane's `cd`.
 
 ² Ghostty's AppleScript API exposes no pane frames, so saved layouts restore their splits as a right-chain. Edit the layout's `split =` directions by hand (`crex edit <name>`) to customize — re-saves preserve your edits. Exact geometry lands with libghostty.
+
+³ Each browser pane's profile is saved as `profile = "<name>"` in the layout — only the profile *name*, never cookies, logins, or any credential data (those stay in cmux's own per-profile storage). On restore, crex creates any missing profile as an empty bucket and asks cmux to open the pane with it; cmux applies the assignment starting with the release after 0.64.20 (older cmux opens the pane on the default profile). Re-saves preserve the saved profile either way.
 
 ## Common Recipes
 

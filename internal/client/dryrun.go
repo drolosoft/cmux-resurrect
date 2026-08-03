@@ -12,7 +12,7 @@ type DryRunFormatter interface {
 	FmtSend(workspaceRef, text string) string
 	FmtPinWorkspace(ref string) string
 	FmtUnpinWorkspace(ref string) string
-	FmtNewPane(paneType, direction, ref, url string) string
+	FmtNewPane(paneType, direction, ref, url, profile string) string
 	FmtNewSurface(paneRef, workspaceRef string) string
 }
 
@@ -43,10 +43,13 @@ func (CmuxDryRun) FmtPinWorkspace(ref string) string {
 func (CmuxDryRun) FmtUnpinWorkspace(ref string) string {
 	return fmt.Sprintf("cmux workspace-action --action unpin --workspace %s", ref)
 }
-func (CmuxDryRun) FmtNewPane(paneType, direction, ref, url string) string {
+func (CmuxDryRun) FmtNewPane(paneType, direction, ref, url, profile string) string {
 	cmd := fmt.Sprintf("cmux new-pane --type %s --direction %s --workspace %s", paneType, direction, ref)
 	if url != "" {
 		cmd += fmt.Sprintf(" --url %q", url)
+	}
+	if profile != "" {
+		cmd += fmt.Sprintf(" --profile %s", profile)
 	}
 	return cmd
 }
@@ -81,7 +84,7 @@ func (GhosttyDryRun) FmtPinWorkspace(ref string) string {
 func (GhosttyDryRun) FmtUnpinWorkspace(ref string) string {
 	return "# unpin: not supported by Ghostty"
 }
-func (GhosttyDryRun) FmtNewPane(paneType, direction, ref, url string) string {
+func (GhosttyDryRun) FmtNewPane(paneType, direction, ref, url, _ string) string {
 	if paneType == "browser" && url != "" {
 		return fmt.Sprintf("osascript: split %s in %s + open %q in system browser", direction, ref, url)
 	}

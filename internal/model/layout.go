@@ -32,6 +32,7 @@ type Pane struct {
 	Command     string    `toml:"command,omitempty"`
 	Focus       bool      `toml:"focus,omitempty"`
 	URL         string    `toml:"url,omitempty"`
+	Profile     string    `toml:"profile,omitempty"` // browser profile slug (cmux browser panes only)
 	Index       int       `toml:"index,omitempty"`
 	FocusTarget int       `toml:"focus_target,omitempty"`
 	SplitRatio  float64   `toml:"split_ratio,omitempty"`
@@ -46,6 +47,7 @@ type Surface struct {
 	Command string `toml:"command,omitempty"`
 	CWD     string `toml:"cwd,omitempty"`
 	URL     string `toml:"url,omitempty"`
+	Profile string `toml:"profile,omitempty"` // browser profile slug (cmux browser surfaces only)
 	Focus   bool   `toml:"focus,omitempty"`
 }
 

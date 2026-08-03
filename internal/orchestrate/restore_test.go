@@ -812,3 +812,185 @@ func TestRestore_SplitsAddressExplicitTargetRefs(t *testing.T) {
 		t.Errorf("focus dance still used despite explicit targets: %v", mc.focusCalls)
 	}
 }
+
+// profileEnsureMock records NewPane opts and ensured browser profiles.
+type profileEnsureMock struct {
+	mockClient
+	newPaneOpts []client.NewPaneOpts
+	ensured     []string
+}
+
+func (m *profileEnsureMock) NewPane(opts client.NewPaneOpts) (string, error) {
+	m.newPaneOpts = append(m.newPaneOpts, opts)
+	return "surface:new", nil
+}
+
+func (m *profileEnsureMock) EnsureBrowserProfile(slug string) error {
+	m.ensured = append(m.ensured, slug)
+	return nil
+}
+
+func TestRestore_BrowserProfilePassedAndEnsured(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := persist.NewFileStore(dir)
+
+	layout := &model.Layout{
+		Name:    "profile-restore",
+		Version: 1,
+		SavedAt: time.Now().UTC(),
+		Workspaces: []model.Workspace{
+			{
+				Title: "dev",
+				CWD:   "/tmp/project",
+				Index: 0,
+				Panes: []model.Pane{
+					{Type: "terminal", Focus: true},
+					{
+						Type: "browser", Split: "right", URL: "http://localhost:3000",
+						Profile: "work-admin",
+						Surfaces: []model.Surface{
+							{Type: "browser", URL: "http://localhost:3000/u", Profile: "work-user"},
+						},
+					},
+					// Second pane on the same profile: ensure must dedupe.
+					{Type: "browser", Split: "down", URL: "http://localhost:3000/b", Profile: "work-admin"},
+				},
+			},
+		},
+	}
+	_ = store.Save("profile-restore", layout)
+
+	mc := &profileEnsureMock{mockClient: mockClient{
+		treeResp:    &client.TreeResponse{},
+		sidebarCWDs: map[string]string{},
+	}}
+	restorer := &Restorer{Client: mc, Store: store}
+
+	if _, err := restorer.Restore("profile-restore", false, RestoreModeAdd, "", true); err != nil {
+		t.Fatalf("restore: %v", err)
+	}
+
+	// Distinct profiles ensured, sorted, before pane creation.
+	if len(mc.ensured) != 2 {
+		t.Fatalf("ensured = %v, want exactly [work-admin work-user]", mc.ensured)
+	}
+	got := map[string]bool{mc.ensured[0]: true, mc.ensured[1]: true}
+	if !got["work-admin"] || !got["work-user"] {
+		t.Errorf("ensured = %v, want work-admin + work-user", mc.ensured)
+	}
+
+	// Browser panes created with their profile.
+	if len(mc.newPaneOpts) != 2 {
+		t.Fatalf("NewPane calls = %d, want 2", len(mc.newPaneOpts))
+	}
+	for _, opts := range mc.newPaneOpts {
+		if opts.Profile != "work-admin" {
+			t.Errorf("NewPane profile = %q, want work-admin (opts: %+v)", opts.Profile, opts)
+		}
+	}
+}
+
+func TestTemplateUse_BrowserProfilePassed(t *testing.T) {
+	mc := &profileEnsureMock{mockClient: mockClient{
+		treeResp:    &client.TreeResponse{},
+		sidebarCWDs: map[string]string{},
+	}}
+	tu := &TemplateUser{Client: mc}
+
+	panes := []model.Pane{
+		{Type: "terminal", Focus: true},
+		{Type: "browser", Split: "right", Command: "http://localhost:3000", Profile: "work-admin"},
+	}
+	if _, err := tu.Use(panes, TemplateUseOpts{Title: "t", CWD: "/tmp"}, false); err != nil {
+		t.Fatalf("template use: %v", err)
+	}
+
+	if len(mc.newPaneOpts) != 1 {
+		t.Fatalf("NewPane calls = %d, want 1", len(mc.newPaneOpts))
+	}
+	if got := mc.newPaneOpts[0].Profile; got != "work-admin" {
+		t.Errorf("NewPane profile = %q, want work-admin (dry-run advertises it, execute must match)", got)
+	}
+	if len(mc.ensured) != 1 || mc.ensured[0] != "work-admin" {
+		t.Errorf("ensured = %v, want [work-admin]", mc.ensured)
+	}
+}
+
+func TestRestore_DryRunShowsProfile(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := persist.NewFileStore(dir)
+	layout := &model.Layout{
+		Name: "dry-profile", Version: 1, SavedAt: time.Now().UTC(),
+		Workspaces: []model.Workspace{{
+			Title: "dev", CWD: "/tmp", Index: 0,
+			Panes: []model.Pane{
+				{Type: "terminal", Focus: true},
+				{Type: "browser", Split: "right", URL: "http://localhost:3000", Profile: "work-admin"},
+			},
+		}},
+	}
+	_ = store.Save("dry-profile", layout)
+
+	mc := &mockClient{sidebarCWDs: map[string]string{}}
+	restorer := &Restorer{Client: mc, Store: store}
+	result, err := restorer.Restore("dry-profile", true, RestoreModeAdd, "", true)
+	if err != nil {
+		t.Fatalf("dry-run: %v", err)
+	}
+	found := false
+	for _, cmd := range result.Commands {
+		if strings.Contains(cmd, "--profile work-admin") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("dry-run commands missing --profile work-admin:\n%s", strings.Join(result.Commands, "\n"))
+	}
+}
+
+// ensureFailMock fails every profile ensure; restore must degrade, not fail.
+type ensureFailMock struct {
+	profileEnsureMock
+}
+
+func (m *ensureFailMock) EnsureBrowserProfile(slug string) error {
+	return fmt.Errorf("browser.profiles.list unsupported on this cmux")
+}
+
+func TestRestore_EnsureProfileFailureIsNonFatal(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := persist.NewFileStore(dir)
+	layout := &model.Layout{
+		Name: "ensure-fail", Version: 1, SavedAt: time.Now().UTC(),
+		Workspaces: []model.Workspace{{
+			Title: "dev", CWD: "/tmp", Index: 0,
+			Panes: []model.Pane{
+				{Type: "terminal", Focus: true},
+				{Type: "browser", Split: "right", URL: "http://localhost:3000", Profile: "work-admin"},
+			},
+		}},
+	}
+	_ = store.Save("ensure-fail", layout)
+
+	mc := &ensureFailMock{profileEnsureMock{mockClient: mockClient{
+		treeResp:    &client.TreeResponse{},
+		sidebarCWDs: map[string]string{},
+	}}}
+	restorer := &Restorer{Client: mc, Store: store}
+	result, err := restorer.Restore("ensure-fail", false, RestoreModeAdd, "", true)
+	if err != nil {
+		t.Fatalf("restore must not fail when profile ensure fails: %v", err)
+	}
+	if len(mc.newPaneOpts) != 1 {
+		t.Fatalf("browser pane not created after ensure failure (NewPane calls = %d)", len(mc.newPaneOpts))
+	}
+	warned := false
+	for _, e := range result.Errors {
+		if strings.Contains(e, "work-admin") {
+			warned = true
+		}
+	}
+	if !warned {
+		t.Errorf("ensure failure not surfaced as warning; errors = %v", result.Errors)
+	}
+}

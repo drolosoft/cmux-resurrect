@@ -1079,3 +1079,145 @@ func TestSave_SplitPaneCWDEqualToWorkspaceCWDIsRecorded(t *testing.T) {
 		t.Errorf("pane[1] cwd = %q, want /home/user/downloads even though it equals the workspace cwd", ws.Panes[1].CWD)
 	}
 }
+
+// profileMockClient extends mockClient with BrowserProfileProvider.
+type profileMockClient struct {
+	mockClient
+	surfaceProfiles map[string]string
+	profilesErr     error
+}
+
+func (m *profileMockClient) SurfaceProfiles() (map[string]string, error) {
+	return m.surfaceProfiles, m.profilesErr
+}
+
+func TestSave_CapturesBrowserProfiles(t *testing.T) {
+	treeResp := &client.TreeResponse{
+		Windows: []client.TreeWindow{{
+			Ref: "window:1",
+			Workspaces: []client.TreeWorkspace{{
+				Ref:   "workspace:1",
+				Title: "dev",
+				Index: 0,
+				Panes: []client.TreePane{
+					{Index: 0, Focused: true, Surfaces: []client.TreeSurface{
+						{Ref: "surface:1", Type: "terminal"},
+					}},
+					{Index: 1, Surfaces: []client.TreeSurface{
+						{Ref: "surface:2", Type: "browser", URL: strPtr("http://localhost:3000/admin")},
+						{Ref: "surface:3", Type: "browser", URL: strPtr("http://localhost:3000/user")},
+					}},
+					{Index: 2, Surfaces: []client.TreeSurface{
+						{Ref: "surface:4", Type: "browser", URL: strPtr("https://example.com")},
+					}},
+				},
+			}},
+		}},
+	}
+
+	pmc := &profileMockClient{
+		mockClient: mockClient{
+			treeResp:    treeResp,
+			sidebarCWDs: map[string]string{"workspace:1": "/home/user/project"},
+		},
+		surfaceProfiles: map[string]string{
+			"surface:2": "work-admin",
+			"surface:3": "work-user",
+			// surface:4 on the default profile → absent from the map.
+		},
+	}
+
+	dir := t.TempDir()
+	store, _ := persist.NewFileStore(dir)
+	saver := &Saver{Client: pmc, Store: store}
+
+	layout, err := saver.Save("profile-capture", "")
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+
+	panes := layout.Workspaces[0].Panes
+	if panes[0].Profile != "" {
+		t.Errorf("terminal pane profile = %q, want empty", panes[0].Profile)
+	}
+	if panes[1].Profile != "work-admin" {
+		t.Errorf("browser pane profile = %q, want work-admin", panes[1].Profile)
+	}
+	if len(panes[1].Surfaces) != 1 || panes[1].Surfaces[0].Profile != "work-user" {
+		t.Errorf("browser tab profile = %+v, want work-user", panes[1].Surfaces)
+	}
+	if panes[2].Profile != "" {
+		t.Errorf("default-profile browser pane profile = %q, want empty", panes[2].Profile)
+	}
+}
+
+func TestSave_ProfileProviderErrorIsSoft(t *testing.T) {
+	treeResp := &client.TreeResponse{
+		Windows: []client.TreeWindow{{
+			Ref: "window:1",
+			Workspaces: []client.TreeWorkspace{{
+				Ref: "workspace:1", Title: "dev", Index: 0,
+				Panes: []client.TreePane{
+					{Index: 0, Surfaces: []client.TreeSurface{
+						{Ref: "surface:1", Type: "browser", URL: strPtr("https://example.com")},
+					}},
+				},
+			}},
+		}},
+	}
+	pmc := &profileMockClient{
+		mockClient:  mockClient{treeResp: treeResp, sidebarCWDs: map[string]string{}},
+		profilesErr: fmt.Errorf("session file missing"),
+	}
+	dir := t.TempDir()
+	store, _ := persist.NewFileStore(dir)
+	saver := &Saver{Client: pmc, Store: store}
+
+	layout, err := saver.Save("profile-soft", "")
+	if err != nil {
+		t.Fatalf("save must not fail on profile capture error: %v", err)
+	}
+	if got := layout.Workspaces[0].Panes[0].Profile; got != "" {
+		t.Errorf("profile = %q, want empty on provider error", got)
+	}
+}
+
+func TestMergeUserEdits_PreservesBrowserProfile(t *testing.T) {
+	live := &model.Layout{
+		Workspaces: []model.Workspace{{
+			Title: "dev",
+			Panes: []model.Pane{
+				{Type: "terminal", Index: 0},
+				// Live capture yielded no profile (e.g. session file unreadable).
+				{Type: "browser", Index: 1, URL: "http://localhost:3000",
+					Surfaces: []model.Surface{{Type: "browser", URL: "http://localhost:3000/u"}}},
+				// Live capture DID yield a profile — live must win.
+				{Type: "browser", Index: 2, URL: "https://example.com", Profile: "fresh"},
+			},
+		}},
+	}
+	existing := &model.Layout{
+		Workspaces: []model.Workspace{{
+			Title: "dev",
+			Panes: []model.Pane{
+				{Type: "terminal", Index: 0},
+				{Type: "browser", Index: 1, URL: "http://localhost:3000", Profile: "work-admin",
+					Surfaces: []model.Surface{{Type: "browser", URL: "http://localhost:3000/u", Profile: "work-user"}}},
+				{Type: "browser", Index: 2, URL: "https://example.com", Profile: "stale"},
+			},
+		}},
+	}
+
+	mergeUserEdits(live, existing, nil)
+
+	panes := live.Workspaces[0].Panes
+	if panes[1].Profile != "work-admin" {
+		t.Errorf("pane 1 profile = %q, want preserved work-admin", panes[1].Profile)
+	}
+	if panes[1].Surfaces[0].Profile != "work-user" {
+		t.Errorf("pane 1 tab profile = %q, want preserved work-user", panes[1].Surfaces[0].Profile)
+	}
+	if panes[2].Profile != "fresh" {
+		t.Errorf("pane 2 profile = %q, want live fresh to win", panes[2].Profile)
+	}
+}

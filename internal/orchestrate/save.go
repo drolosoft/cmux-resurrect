@@ -45,12 +45,22 @@ func (s *Saver) Save(name, description string) (*model.Layout, error) {
 	// one with the most panes that have ttys.
 	workspaces := deduplicateWorkspaces(win.Workspaces)
 
+	// Per-surface browser profile slugs (GitHub #9), for backends that can
+	// report them. Errors are soft: profile info is an enrichment, never a
+	// reason to fail a save.
+	var surfaceProfiles map[string]string
+	if pp, ok := s.Client.(client.BrowserProfileProvider); ok {
+		if m, err := pp.SurfaceProfiles(); err == nil {
+			surfaceProfiles = m
+		}
+	}
+
 	// Titles of workspaces whose split geometry was resolved from live pixel
 	// frames. For these, live geometry is authoritative and a previously saved
 	// split direction must not override it on re-save (GitHub #8 follow-up).
 	geoTitles := make(map[string]bool)
 	for _, tw := range workspaces {
-		ws, geometryApplied, err := s.buildWorkspace(tw)
+		ws, geometryApplied, err := s.buildWorkspace(tw, surfaceProfiles)
 		if err != nil {
 			// Log but don't fail — isolate errors per workspace.
 			fmt.Fprintf(os.Stderr, "  warning: workspace %q: %v\n", tw.Title, err)
@@ -135,7 +145,7 @@ func (s *Saver) surfaceCWD(wsRef string, surf client.TreeSurface) string {
 // pane geometry was resolved from live pixel frames (true) or fell back to the
 // default right-chain (false); the merge step uses it to decide whether a
 // previously saved split direction may override the live one.
-func (s *Saver) buildWorkspace(tw client.TreeWorkspace) (*model.Workspace, bool, error) {
+func (s *Saver) buildWorkspace(tw client.TreeWorkspace, surfaceProfiles map[string]string) (*model.Workspace, bool, error) {
 	// Get CWD from sidebar-state.
 	sidebar, err := s.Client.SidebarState(tw.Ref)
 	if err != nil {
@@ -178,6 +188,9 @@ func (s *Saver) buildWorkspace(tw client.TreeWorkspace) (*model.Workspace, bool,
 			if surf.URL != nil {
 				pane.URL = *surf.URL
 			}
+			if surf.Type == "browser" {
+				pane.Profile = surfaceProfiles[surf.Ref]
+			}
 			if surf.Type == "terminal" {
 				if surf.TTY != "" {
 					if cmd := detect.ForegroundCommand(surf.TTY); cmd != "" {
@@ -202,6 +215,9 @@ func (s *Saver) buildWorkspace(tw client.TreeWorkspace) (*model.Workspace, bool,
 				}
 				if extra.URL != nil {
 					es.URL = *extra.URL
+				}
+				if extra.Type == "browser" {
+					es.Profile = surfaceProfiles[extra.Ref]
 				}
 				if extra.Type == "terminal" {
 					if extra.TTY != "" {
@@ -612,6 +628,20 @@ func mergeUserEdits(live, existing *model.Layout, geoTitles map[string]bool) {
 			// would leak through).
 			if ep.Command != "" && lp.Type != "browser" {
 				lp.Command = ep.Command
+			}
+			// Preserve a browser pane's saved profile when live capture
+			// yielded none: profile capture reads cmux's session file, and
+			// its absence must not strip profiles on re-save (idempotency).
+			// A live-reported profile always wins.
+			if lp.Type == "browser" && lp.Profile == "" && ep.Profile != "" {
+				lp.Profile = ep.Profile
+			}
+			// Same for extra browser tabs, matched positionally.
+			for k := range lp.Surfaces {
+				ls := &lp.Surfaces[k]
+				if k < len(ep.Surfaces) && ls.Type == "browser" && ls.Profile == "" && ep.Surfaces[k].Profile != "" {
+					ls.Profile = ep.Surfaces[k].Profile
+				}
 			}
 		}
 	}

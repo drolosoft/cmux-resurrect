@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Added
+- **Browser profiles saved and restored (GitHub #9)** — each cmux browser pane's profile is now captured into the layout as `profile = "<name>"` and reapplied on restore. Only the profile *name* is stored — never cookies, logins, or any credential data; those stay in cmux's own per-profile storage, so restored panes come back signed in exactly as the local profile is. Restore pre-creates missing profiles as empty buckets (so shared layouts don't fail on a fresh machine) and passes the profile through both the atomic layout and the sequential `new-pane --profile` paths. cmux applies the assignment starting with the release after 0.64.20; on current cmux the pane opens on the default profile and the saved field is preserved across re-saves either way. Ghostty: not applicable (no browser panes). The live audit gained a capture-pipeline test and a restore/ensure round-trip test
+
+---
+
 ## [v1.26.1] — 2026-07-12
 
 ### Added

@@ -99,6 +99,7 @@ type NewPaneOpts struct {
 	Direction    string // "left", "right", "up", "down"
 	WorkspaceRef string
 	URL          string // for browser panes
+	Profile      string // browser profile slug; honored by cmux >0.64.20, ignored before
 }
 
 // PaneListResponse is the parsed output of `cmux rpc pane.list`.

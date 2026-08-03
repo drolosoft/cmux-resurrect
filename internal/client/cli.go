@@ -13,6 +13,9 @@ import (
 type CLIClient struct {
 	Binary  string
 	Timeout time.Duration
+	// SessionDir overrides where cmux's session persistence files are looked
+	// up for browser-profile capture (tests). Empty = the real app support dir.
+	SessionDir string
 }
 
 // NewCLIClient creates a CLIClient with sensible defaults.
@@ -339,17 +342,10 @@ func (c *CLIClient) NewSplit(direction, workspaceRef, surfaceRef string) (string
 	return "", fmt.Errorf("split created but could not determine new surface ref")
 }
 
-func (c *CLIClient) NewPane(opts NewPaneOpts) (string, error) {
-	// Snapshot surface refs before creation so we can detect the new one.
-	var before map[string]bool
-	if opts.WorkspaceRef != "" {
-		var err error
-		before, err = c.surfaceSnapshot(opts.WorkspaceRef)
-		if err != nil {
-			return "", err
-		}
-	}
-
+// newPaneArgs builds the `cmux new-pane` argument list. --profile is emitted
+// for browser panes only: cmux >0.64.20 honors it there and rejects it on
+// terminal panes; older cmux ignores it either way.
+func newPaneArgs(opts NewPaneOpts) []string {
 	args := []string{"new-pane"}
 	if opts.Type != "" {
 		args = append(args, "--type", opts.Type)
@@ -363,7 +359,24 @@ func (c *CLIClient) NewPane(opts NewPaneOpts) (string, error) {
 	if opts.URL != "" {
 		args = append(args, "--url", opts.URL)
 	}
-	if _, err := c.run(args...); err != nil {
+	if opts.Profile != "" && opts.Type == "browser" {
+		args = append(args, "--profile", opts.Profile)
+	}
+	return args
+}
+
+func (c *CLIClient) NewPane(opts NewPaneOpts) (string, error) {
+	// Snapshot surface refs before creation so we can detect the new one.
+	var before map[string]bool
+	if opts.WorkspaceRef != "" {
+		var err error
+		before, err = c.surfaceSnapshot(opts.WorkspaceRef)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	if _, err := c.run(newPaneArgs(opts)...); err != nil {
 		return "", err
 	}
 

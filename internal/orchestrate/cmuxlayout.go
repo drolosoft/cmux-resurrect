@@ -92,11 +92,15 @@ func buildCmuxLayout(ws model.Workspace) (string, []int, bool) {
 
 	// Serialize the tree.
 	type surfaceJSON struct {
-		Type  string `json:"type"`
-		Name  string `json:"name,omitempty"`
-		CWD   string `json:"cwd,omitempty"`
-		URL   string `json:"url,omitempty"`
-		Focus bool   `json:"focus,omitempty"`
+		Type string `json:"type"`
+		Name string `json:"name,omitempty"`
+		CWD  string `json:"cwd,omitempty"`
+		URL  string `json:"url,omitempty"`
+		// Profile is the browser profile slug. cmux ≤0.64 ignores unknown
+		// layout keys, so embedding it is forward-compatible: it starts
+		// working the moment cmux honors profiles in layout specs.
+		Profile string `json:"profile,omitempty"`
+		Focus   bool   `json:"focus,omitempty"`
 	}
 	type paneJSON struct {
 		Surfaces []surfaceJSON `json:"surfaces"`
@@ -121,11 +125,12 @@ func buildCmuxLayout(ws model.Workspace) (string, []int, bool) {
 			cwd = ws.CWD
 		}
 		out := []surfaceJSON{{
-			Type:  typ,
-			Name:  p.Name,
-			CWD:   expandHomeNonEmpty(cwd),
-			URL:   p.URL,
-			Focus: p.Focus,
+			Type:    typ,
+			Name:    p.Name,
+			CWD:     expandHomeNonEmpty(cwd),
+			URL:     p.URL,
+			Profile: browserProfile(typ, p.Profile),
+			Focus:   p.Focus,
 		}}
 		for _, s := range p.Surfaces {
 			st := s.Type
@@ -137,10 +142,11 @@ func buildCmuxLayout(ws model.Workspace) (string, []int, bool) {
 				scwd = ws.CWD
 			}
 			out = append(out, surfaceJSON{
-				Type: st,
-				Name: s.Name,
-				CWD:  expandHomeNonEmpty(scwd),
-				URL:  s.URL,
+				Type:    st,
+				Name:    s.Name,
+				CWD:     expandHomeNonEmpty(scwd),
+				URL:     s.URL,
+				Profile: browserProfile(st, s.Profile),
 			})
 		}
 		return out
@@ -167,6 +173,15 @@ func buildCmuxLayout(ws model.Workspace) (string, []int, bool) {
 		return "", nil, false
 	}
 	return string(data), finalVisual, true
+}
+
+// browserProfile guards the profile slug to browser surfaces only, so a
+// stale profile on a hand-edited terminal pane can't leak into the layout.
+func browserProfile(surfaceType, profile string) string {
+	if surfaceType != "browser" {
+		return ""
+	}
+	return profile
 }
 
 // expandHomeNonEmpty expands ~ but keeps "" as "" (omitted in JSON → the
