@@ -226,7 +226,7 @@ crex targets full parity between cmux and Ghostty; where the platform APIs diffe
 
 ² Ghostty's AppleScript API exposes no pane frames, so saved layouts restore their splits as a right-chain. Edit the layout's `split =` directions by hand (`crex edit <name>`) to customize — re-saves preserve your edits. Exact geometry lands with libghostty.
 
-³ Each browser pane's profile is saved as `profile = "<name>"` in the layout — only the profile *name*, never cookies, logins, or any credential data (those stay in cmux's own per-profile storage). On restore, crex creates any missing profile as an empty bucket and asks cmux to open the pane with it; cmux applies the assignment starting with the release after 0.64.20 (older cmux opens the pane on the default profile). Re-saves preserve the saved profile either way.
+³ Each browser pane's profile is saved as `profile = "<name>"` in the layout — only the profile *name*, never cookies, logins, or any credential data (those stay in cmux's own per-profile storage). On restore, crex creates any missing profile as an empty bucket and asks cmux to open the pane with it; cmux applies the assignment from v0.64.21 (older cmux opens the pane on the default profile). Re-saves preserve the saved profile either way.
 
 ## Common Recipes
 

@@ -7,10 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [v1.27.0] — 2026-08-03
 
 ### Added
-- **Browser profiles saved and restored (GitHub #9)** — each cmux browser pane's profile is now captured into the layout as `profile = "<name>"` and reapplied on restore. Only the profile *name* is stored — never cookies, logins, or any credential data; those stay in cmux's own per-profile storage, so restored panes come back signed in exactly as the local profile is. Restore pre-creates missing profiles as empty buckets (so shared layouts don't fail on a fresh machine) and passes the profile through both the atomic layout and the sequential `new-pane --profile` paths. cmux applies the assignment starting with the release after 0.64.20; on current cmux the pane opens on the default profile and the saved field is preserved across re-saves either way. Ghostty: not applicable (no browser panes). The live audit gained a capture-pipeline test and a restore/ensure round-trip test
+- **Browser profiles saved and restored (GitHub #9)** — each cmux browser pane's profile is now captured into the layout as `profile = "<name>"` and reapplied on restore. Only the profile *name* is stored — never cookies, logins, or any credential data; those stay in cmux's own per-profile storage, so restored panes come back signed in exactly as the local profile is. Restore pre-creates missing profiles as empty buckets (so shared layouts don't fail on a fresh machine) and passes the profile through both the atomic layout and the sequential `new-pane --profile` paths. cmux applies the assignment from v0.64.21 (browser profile targeting in CLI pane creation); on older cmux the pane opens on the default profile and the saved field is preserved across re-saves either way. Ghostty: not applicable (no browser panes). The live audit gained a capture-pipeline test, a restore/ensure round-trip test, and a Ghostty harmlessness test
 
 ---
 
@@ -615,6 +615,7 @@ Initial public release.
 [v1.22.2]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.22.2
 [v1.23.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.23.0
 [v1.24.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.24.0
+[v1.27.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.27.0
 [v1.26.1]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.26.1
 [v1.26.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.26.0
 [v1.25.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.25.0
