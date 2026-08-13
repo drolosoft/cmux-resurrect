@@ -91,5 +91,7 @@ func (GhosttyDryRun) FmtNewPane(paneType, direction, ref, url, _ string) string 
 	return fmt.Sprintf("osascript: split %s in %s", direction, ref)
 }
 func (GhosttyDryRun) FmtNewSurface(paneRef, workspaceRef string) string {
-	return fmt.Sprintf("osascript: new surface in %s (not supported)", paneRef)
+	// Ghostty has no sub-tabs; restore recreates each one as a split beside
+	// the pane so its shell, folder and session survive.
+	return fmt.Sprintf("osascript: split right of %s (pane tab → split)", paneRef)
 }

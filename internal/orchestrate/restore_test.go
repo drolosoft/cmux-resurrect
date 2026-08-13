@@ -994,3 +994,307 @@ func TestRestore_EnsureProfileFailureIsNonFatal(t *testing.T) {
 		t.Errorf("ensure failure not surfaced as warning; errors = %v", result.Errors)
 	}
 }
+
+// focusRecorderMock records the ORDER of surface focuses and sends. cmux only
+// spawns a tab's shell when the tab is rendered, and `send` to an unspawned
+// tab is silently discarded — so a tab's command must be preceded by a focus
+// of that tab (GitHub #8).
+type focusRecorderMock struct {
+	mockClient
+	calls      []string // "focus:<ref>" / "send:<ref>:<text>"
+	surfaceSeq int
+}
+
+func (m *focusRecorderMock) FocusSurface(_, surfaceRef string) error {
+	m.calls = append(m.calls, "focus:"+surfaceRef)
+	return nil
+}
+
+func (m *focusRecorderMock) Send(_, surfaceRef, text string) error {
+	m.calls = append(m.calls, "send:"+surfaceRef+":"+strings.TrimSpace(text))
+	return nil
+}
+
+func (m *focusRecorderMock) NewSurface(paneRef, workspaceRef string) (string, error) {
+	m.surfaceSeq++
+	return fmt.Sprintf("surface:tab%d", m.surfaceSeq), nil
+}
+
+// focusBeforeSend reports whether every send to surfaceRef was preceded by a
+// focus of that same surface.
+func focusBeforeSend(calls []string, surfaceRef string) bool {
+	focused := false
+	for _, c := range calls {
+		switch {
+		case c == "focus:"+surfaceRef:
+			focused = true
+		case strings.HasPrefix(c, "send:"+surfaceRef+":"):
+			if !focused {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func TestRestoreSurfaces_FocusesTabBeforeSendingItsCommand(t *testing.T) {
+	mc := &focusRecorderMock{mockClient: mockClient{
+		treeResp:    &client.TreeResponse{},
+		sidebarCWDs: map[string]string{},
+	}}
+	r := &Restorer{Client: mc}
+	result := &RestoreResult{}
+
+	pane := model.Pane{
+		Type: "terminal",
+		Surfaces: []model.Surface{
+			{Type: "terminal", CWD: "/w/a", Command: "claude --resume aaa"},
+			{Type: "terminal", CWD: "/w/b", Command: "claude --resume bbb"},
+		},
+	}
+	r.restoreSurfaces(pane, "pane:0", "workspace:1", result, 0, "surface:0")
+
+	for _, ref := range []string{"surface:tab1", "surface:tab2"} {
+		if !focusBeforeSend(mc.calls, ref) {
+			t.Errorf("command sent to %s without focusing it first — cmux discards input to an unspawned tab.\ncalls: %v", ref, mc.calls)
+		}
+	}
+	sends := 0
+	for _, c := range mc.calls {
+		if strings.HasPrefix(c, "send:") {
+			sends++
+		}
+	}
+	if sends != 2 {
+		t.Errorf("got %d sends, want 2 (one per tab): %v", sends, mc.calls)
+	}
+}
+
+// layoutFocusMock drives the ATOMIC restore path (cmux `--layout`) while
+// recording focuses and sends.
+type layoutFocusMock struct {
+	focusRecorderMock
+	tree *client.TreeResponse
+}
+
+func (m *layoutFocusMock) NewWorkspaceLayout(_ client.NewWorkspaceOpts, _ string) (string, error) {
+	return "workspace:new", nil
+}
+
+func (m *layoutFocusMock) Tree() (*client.TreeResponse, error) { return m.tree, nil }
+
+func TestTypeCommands_FocusesEachTabBeforeItsCommand(t *testing.T) {
+	// Live tree of the freshly created workspace: one pane, three tabs.
+	tree := &client.TreeResponse{
+		Windows: []client.TreeWindow{{
+			Ref: "window:1",
+			Workspaces: []client.TreeWorkspace{{
+				Ref: "workspace:new", Title: "proj",
+				Panes: []client.TreePane{{
+					Index: 0,
+					Surfaces: []client.TreeSurface{
+						{Ref: "surface:10", Type: "terminal"},
+						{Ref: "surface:11", Type: "terminal"},
+						{Ref: "surface:12", Type: "terminal"},
+					},
+				}},
+			}},
+		}},
+	}
+	mc := &layoutFocusMock{
+		focusRecorderMock: focusRecorderMock{mockClient: mockClient{sidebarCWDs: map[string]string{}}},
+		tree:              tree,
+	}
+	r := &Restorer{Client: mc}
+	result := &RestoreResult{}
+
+	ws := model.Workspace{
+		Title: "proj", CWD: "/w",
+		Panes: []model.Pane{{
+			Type: "terminal", Index: 0, CWD: "/w", Command: "claude --resume main",
+			Surfaces: []model.Surface{
+				{Type: "terminal", CWD: "/w/a", Command: "claude --resume aaa"},
+				{Type: "terminal", CWD: "/w/b", Command: "claude --resume bbb"},
+			},
+		}},
+	}
+	r.typeCommands(ws, "workspace:new", []int{0}, result)
+
+	for _, ref := range []string{"surface:11", "surface:12"} {
+		if !focusBeforeSend(mc.calls, ref) {
+			t.Errorf("tab %s got its command without being focused first.\ncalls: %v", ref, mc.calls)
+		}
+	}
+	// All three commands must be delivered, each to its own surface.
+	want := map[string]string{
+		"surface:10": "claude --resume main",
+		"surface:11": "claude --resume aaa",
+		"surface:12": "claude --resume bbb",
+	}
+	for ref, cmd := range want {
+		found := false
+		for _, c := range mc.calls {
+			if strings.HasPrefix(c, "send:"+ref+":") && strings.Contains(c, cmd) {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("%s never received %q.\ncalls: %v", ref, cmd, mc.calls)
+		}
+	}
+	// The pane must be left showing its FIRST tab, not the last one typed into.
+	lastFocus := ""
+	for _, c := range mc.calls {
+		if strings.HasPrefix(c, "focus:") {
+			lastFocus = strings.TrimPrefix(c, "focus:")
+		}
+	}
+	if lastFocus != "surface:10" {
+		t.Errorf("pane left on %q, want surface:10 (its first tab)", lastFocus)
+	}
+}
+
+func TestTypeCommands_RestoresIntendedFocusAfterTypingIntoTabs(t *testing.T) {
+	// Focusing a tab also focuses its pane, so typing into pane 1's tabs must
+	// not leave pane 1 focused when the layout marks pane 0 as focused.
+	tree := &client.TreeResponse{
+		Windows: []client.TreeWindow{{
+			Ref: "window:1",
+			Workspaces: []client.TreeWorkspace{{
+				Ref: "workspace:new", Title: "proj",
+				Panes: []client.TreePane{
+					{Index: 0, Surfaces: []client.TreeSurface{{Ref: "surface:20", Type: "terminal"}}},
+					{Index: 1, Surfaces: []client.TreeSurface{
+						{Ref: "surface:21", Type: "terminal"},
+						{Ref: "surface:22", Type: "terminal"},
+					}},
+				},
+			}},
+		}},
+	}
+	mc := &layoutFocusMock{
+		focusRecorderMock: focusRecorderMock{mockClient: mockClient{sidebarCWDs: map[string]string{}}},
+		tree:              tree,
+	}
+	r := &Restorer{Client: mc}
+	result := &RestoreResult{}
+
+	ws := model.Workspace{
+		Title: "proj", CWD: "/w",
+		Panes: []model.Pane{
+			{Type: "terminal", Index: 0, CWD: "/w", Focus: true},
+			{Type: "terminal", Index: 1, CWD: "/w", Split: "right",
+				Surfaces: []model.Surface{{Type: "terminal", CWD: "/w/b", Command: "claude --resume bbb"}}},
+		},
+	}
+	r.typeCommands(ws, "workspace:new", []int{0, 1}, result)
+
+	lastFocus := ""
+	for _, c := range mc.calls {
+		if strings.HasPrefix(c, "focus:") {
+			lastFocus = strings.TrimPrefix(c, "focus:")
+		}
+	}
+	if lastFocus != "surface:20" {
+		t.Errorf("workspace left focused on %q, want surface:20 (the pane the layout marks focus = true)", lastFocus)
+	}
+}
+
+// ghosttyLikeMock models a backend WITHOUT sub-tabs (Ghostty): NewSurface is
+// unsupported, but splits work fine.
+type ghosttyLikeMock struct {
+	mockClient
+	splits []string // "<direction>:<target surface>"
+	sends  []string // "<surface>:<text>"
+	seq    int
+}
+
+func (m *ghosttyLikeMock) NewSurface(paneRef, workspaceRef string) (string, error) {
+	return "", client.ErrNotSupported
+}
+
+func (m *ghosttyLikeMock) NewSplit(dir, wsRef, surfRef string) (string, error) {
+	m.seq++
+	m.splits = append(m.splits, dir+":"+surfRef)
+	return fmt.Sprintf("terminal:%d", m.seq+10), nil
+}
+
+func (m *ghosttyLikeMock) Send(wsRef, surfRef, text string) error {
+	m.sends = append(m.sends, surfRef+":"+strings.TrimSpace(text))
+	return nil
+}
+
+// TestRestoreSurfaces_FallsBackToSplitsWhenTabsUnsupported: a pane's extra tabs
+// used to be dropped entirely on Ghostty — the shell, its folder and its AI
+// session simply vanished from the restored layout. Ghostty has no sub-tabs but
+// it does have splits, so the work stays visible instead of being lost.
+func TestRestoreSurfaces_FallsBackToSplitsWhenTabsUnsupported(t *testing.T) {
+	mc := &ghosttyLikeMock{mockClient: mockClient{
+		treeResp:    &client.TreeResponse{},
+		sidebarCWDs: map[string]string{},
+	}}
+	r := &Restorer{Client: mc}
+	result := &RestoreResult{}
+
+	pane := model.Pane{
+		Type: "terminal",
+		Surfaces: []model.Surface{
+			{Type: "terminal", CWD: "/w/a", Command: "claude --resume aaa"},
+			{Type: "terminal", CWD: "/w/b", Command: "claude --resume bbb"},
+		},
+	}
+	r.restoreSurfaces(pane, "pane:0", "workspace:1", result, 0, "terminal:1")
+
+	if len(mc.splits) != 2 {
+		t.Fatalf("splits = %v, want one per lost tab", mc.splits)
+	}
+	// The first tab splits off the pane itself; the next stacks beside it, so
+	// they form a row instead of repeatedly halving the original pane.
+	if mc.splits[0] != "right:terminal:1" {
+		t.Errorf("first split = %q, want it anchored on the pane (right:terminal:1)", mc.splits[0])
+	}
+	if mc.splits[1] != "right:terminal:11" {
+		t.Errorf("second split = %q, want it anchored on the previous split", mc.splits[1])
+	}
+	// Every tab keeps its own folder and its own session command.
+	for _, want := range []string{"/w/a", "claude --resume aaa", "/w/b", "claude --resume bbb"} {
+		found := false
+		for _, s := range mc.sends {
+			if strings.Contains(s, want) {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("no send carried %q — the tab's content was lost.\nsends: %v", want, mc.sends)
+		}
+	}
+}
+
+// splitlessMock supports neither sub-tabs nor splits: the warning path must
+// still work and must not panic.
+type splitlessMock struct {
+	ghosttyLikeMock
+}
+
+func (m *splitlessMock) NewSplit(string, string, string) (string, error) {
+	return "", client.ErrNotSupported
+}
+
+func TestRestoreSurfaces_WarnsWhenNeitherTabsNorSplitsWork(t *testing.T) {
+	mc := &splitlessMock{ghosttyLikeMock{mockClient: mockClient{
+		treeResp:    &client.TreeResponse{},
+		sidebarCWDs: map[string]string{},
+	}}}
+	var progress []string
+	r := &Restorer{Client: mc, OnProgress: func(msg string, _ int, _ error) {
+		progress = append(progress, msg)
+	}}
+	result := &RestoreResult{}
+
+	pane := model.Pane{Type: "terminal", Surfaces: []model.Surface{{Type: "terminal", CWD: "/w/a"}}}
+	r.restoreSurfaces(pane, "pane:0", "workspace:1", result, 0, "terminal:1")
+
+	if len(progress) == 0 {
+		t.Error("expected a warning when a backend can restore neither tabs nor splits")
+	}
+}

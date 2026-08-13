@@ -21,7 +21,7 @@ type Saver struct {
 
 // Save captures the live cmux state and writes it to the store.
 func (s *Saver) Save(name, description string) (*model.Layout, error) {
-	tree, err := s.Client.Tree()
+	tree, err := s.tree()
 	if err != nil {
 		return nil, fmt.Errorf("get tree: %w", err)
 	}
@@ -30,8 +30,11 @@ func (s *Saver) Save(name, description string) (*model.Layout, error) {
 		return nil, fmt.Errorf("no windows found")
 	}
 
-	// Use the first (typically only) window.
-	win := tree.Windows[0]
+	// Capture the window the user is looking at. A layout describes one window's
+	// worth of workspaces, so with several cmux windows open the current one is
+	// the only defensible choice — taking the first would store a different
+	// session than the one on screen.
+	win := currentWindow(tree)
 
 	layout := &model.Layout{
 		Name:        name,
@@ -45,22 +48,15 @@ func (s *Saver) Save(name, description string) (*model.Layout, error) {
 	// one with the most panes that have ttys.
 	workspaces := deduplicateWorkspaces(win.Workspaces)
 
-	// Per-surface browser profile slugs (GitHub #9), for backends that can
-	// report them. Errors are soft: profile info is an enrichment, never a
-	// reason to fail a save.
-	var surfaceProfiles map[string]string
-	if pp, ok := s.Client.(client.BrowserProfileProvider); ok {
-		if m, err := pp.SurfaceProfiles(); err == nil {
-			surfaceProfiles = m
-		}
-	}
+	// Per-surface data the tree can't report, gathered once per save.
+	extras := s.gatherExtras()
 
 	// Titles of workspaces whose split geometry was resolved from live pixel
 	// frames. For these, live geometry is authoritative and a previously saved
 	// split direction must not override it on re-save (GitHub #8 follow-up).
 	geoTitles := make(map[string]bool)
 	for _, tw := range workspaces {
-		ws, geometryApplied, err := s.buildWorkspace(tw, surfaceProfiles)
+		ws, geometryApplied, err := s.buildWorkspace(tw, extras)
 		if err != nil {
 			// Log but don't fail — isolate errors per workspace.
 			fmt.Fprintf(os.Stderr, "  warning: workspace %q: %v\n", tw.Title, err)
@@ -116,12 +112,102 @@ func (s *Saver) Save(name, description string) (*model.Layout, error) {
 	return layout, nil
 }
 
-// surfaceCWD returns the live working directory of a surface's shell. It
-// prefers the TTY foreground process (most precise when a foreground command
-// cd'd deeper); then a CWD the backend reported in the tree itself (Ghostty);
-// then the backend's live surface state (`cmux rpc debug.terminals`, since
-// current cmux builds report no tty in `tree --json`).
-func (s *Saver) surfaceCWD(wsRef string, surf client.TreeSurface) string {
+// tree fetches the workspace tree for a save. It asks for EVERY window when
+// the backend can, because a backend's default tree may be scoped to the
+// focused window — which is not necessarily the one crex was run in. Falling
+// back to the scoped tree keeps older backends working.
+func (s *Saver) tree() (*client.TreeResponse, error) {
+	if mw, ok := s.Client.(client.MultiWindowTreeProvider); ok {
+		if t, err := mw.TreeAllWindows(); err == nil && t != nil && len(t.Windows) > 0 {
+			return t, nil
+		}
+	}
+	return s.Client.Tree()
+}
+
+// currentWindow picks the window a save should describe. A layout covers one
+// window's worth of workspaces, so with several windows open the only
+// defensible choice is the one the user is working in — taking the first would
+// store a different session than the one on screen.
+//
+// In practice cmux already scopes `tree --json` to the caller's window, so this
+// is a safety net rather than a hot path; it matters for any caller that hands
+// us a multi-window tree. Order: the window holding the caller (ground truth
+// for "where crex was run"), then the backend's own current/active flags, then
+// the first. Callers must pass a non-empty slice.
+func currentWindow(tree *client.TreeResponse) client.TreeWindow {
+	windows := tree.Windows
+	for _, ref := range []string{callerWindowRef(tree.Caller), callerWindowRef(tree.Active)} {
+		if ref == "" {
+			continue
+		}
+		for _, w := range windows {
+			if w.Ref == ref {
+				return w
+			}
+		}
+	}
+	for _, w := range windows {
+		if w.Current {
+			return w
+		}
+	}
+	for _, w := range windows {
+		if w.Active {
+			return w
+		}
+	}
+	return windows[0]
+}
+
+func callerWindowRef(c *client.CallerInfo) string {
+	if c == nil {
+		return ""
+	}
+	return c.WindowRef
+}
+
+// liveExtras is per-surface data gathered once per save from sources outside
+// the tree — the backend's persisted session state. Both maps are keyed by
+// surface ref and may be nil (backend can't report, or reporting failed);
+// a nil map simply yields no information.
+type liveExtras struct {
+	profiles map[string]string // browser profile slug (GitHub #9)
+	dirs     map[string]string // persisted working directory (GitHub #8)
+}
+
+// gatherExtras collects the optional per-surface data a backend can report.
+// Every failure is soft: this is enrichment, never a reason to fail a save.
+func (s *Saver) gatherExtras() liveExtras {
+	var e liveExtras
+	if pp, ok := s.Client.(client.BrowserProfileProvider); ok {
+		if m, err := pp.SurfaceProfiles(); err == nil {
+			e.profiles = m
+		}
+	}
+	if dp, ok := s.Client.(client.SurfaceDirectoryProvider); ok {
+		if m, err := dp.SurfaceDirectories(); err == nil {
+			e.dirs = m
+		}
+	}
+	return e
+}
+
+// surfaceCWD returns the working directory of a surface, most trustworthy
+// source first:
+//
+//  1. the TTY foreground process — most precise when a foreground command
+//     cd'd deeper than the shell;
+//  2. a CWD the backend reported in the tree itself (Ghostty);
+//  3. the live surface state (`cmux rpc debug.terminals`) when its shell is
+//     READY — a running shell is authoritative, the user may have cd'd;
+//  4. the directory the backend persisted for that surface. cmux spawns a
+//     tab's shell lazily on first render, and until then it reports the
+//     WORKSPACE directory for that tab — which collapsed every unopened tab
+//     onto the first tab's path (GitHub #8). The persisted value survives
+//     the lazy spawn;
+//  5. the live state even when not ready — last resort, better than nothing.
+func (s *Saver) surfaceCWD(wsRef string, surf client.TreeSurface, extras liveExtras) string {
 	if surf.TTY != "" {
 		if cwd := detect.ForegroundCWD(surf.TTY); cwd != "" {
 			return cwd
@@ -130,22 +216,30 @@ func (s *Saver) surfaceCWD(wsRef string, surf client.TreeSurface) string {
 	if surf.CWD != "" {
 		return surf.CWD
 	}
-	ss, ok := s.Client.(client.SurfaceStater)
-	if !ok || surf.Ref == "" {
-		return ""
+
+	var live *client.SurfaceState
+	if ss, ok := s.Client.(client.SurfaceStater); ok && surf.Ref != "" {
+		if st, err := ss.SurfaceState(wsRef, surf.Ref); err == nil {
+			live = st
+		}
 	}
-	st, err := ss.SurfaceState(wsRef, surf.Ref)
-	if err != nil || st == nil {
-		return ""
+	if live != nil && live.Ready && live.CWD != "" {
+		return live.CWD
 	}
-	return st.CWD
+	if dir := extras.dirs[surf.Ref]; dir != "" {
+		return dir
+	}
+	if live != nil {
+		return live.CWD
+	}
+	return ""
 }
 
 // buildWorkspace captures one workspace. The returned bool reports whether
 // pane geometry was resolved from live pixel frames (true) or fell back to the
 // default right-chain (false); the merge step uses it to decide whether a
 // previously saved split direction may override the live one.
-func (s *Saver) buildWorkspace(tw client.TreeWorkspace, surfaceProfiles map[string]string) (*model.Workspace, bool, error) {
+func (s *Saver) buildWorkspace(tw client.TreeWorkspace, extras liveExtras) (*model.Workspace, bool, error) {
 	// Get CWD from sidebar-state.
 	sidebar, err := s.Client.SidebarState(tw.Ref)
 	if err != nil {
@@ -189,7 +283,7 @@ func (s *Saver) buildWorkspace(tw client.TreeWorkspace, surfaceProfiles map[stri
 				pane.URL = *surf.URL
 			}
 			if surf.Type == "browser" {
-				pane.Profile = surfaceProfiles[surf.Ref]
+				pane.Profile = extras.profiles[surf.Ref]
 			}
 			if surf.Type == "terminal" {
 				if surf.TTY != "" {
@@ -203,7 +297,7 @@ func (s *Saver) buildWorkspace(tw client.TreeWorkspace, surfaceProfiles map[stri
 				// with no cwd gets no cd and lands wherever the backend spawns
 				// it (2026-07-11 audit: Ghostty save-back lost the focused
 				// split's folder because the sidebar CWD matched it).
-				if cwd := s.surfaceCWD(tw.Ref, surf); cwd != "" {
+				if cwd := s.surfaceCWD(tw.Ref, surf, extras); cwd != "" {
 					pane.CWD = cwd
 				}
 			}
@@ -217,7 +311,7 @@ func (s *Saver) buildWorkspace(tw client.TreeWorkspace, surfaceProfiles map[stri
 					es.URL = *extra.URL
 				}
 				if extra.Type == "browser" {
-					es.Profile = surfaceProfiles[extra.Ref]
+					es.Profile = extras.profiles[extra.Ref]
 				}
 				if extra.Type == "terminal" {
 					if extra.TTY != "" {
@@ -225,7 +319,7 @@ func (s *Saver) buildWorkspace(tw client.TreeWorkspace, surfaceProfiles map[stri
 							es.Command = cmd
 						}
 					}
-					if cwd := s.surfaceCWD(tw.Ref, extra); cwd != "" {
+					if cwd := s.surfaceCWD(tw.Ref, extra, extras); cwd != "" {
 						es.CWD = cwd
 					}
 				}
@@ -389,14 +483,22 @@ var aiResumePatterns = []string{
 // Called before re-detection so each save starts fresh. User-set commands
 // (like "npm run dev") are kept because they don't match AI patterns.
 func clearAutoDetectedCommands(layout *model.Layout) {
+	clear := func(cmd *string) {
+		for _, pattern := range aiResumePatterns {
+			if strings.HasPrefix(*cmd, pattern) {
+				*cmd = ""
+				return
+			}
+		}
+	}
 	for i := range layout.Workspaces {
 		for j := range layout.Workspaces[i].Panes {
-			cmd := layout.Workspaces[i].Panes[j].Command
-			for _, pattern := range aiResumePatterns {
-				if strings.HasPrefix(cmd, pattern) {
-					layout.Workspaces[i].Panes[j].Command = ""
-					break
-				}
+			p := &layout.Workspaces[i].Panes[j]
+			clear(&p.Command)
+			// Extra tabs carry resume commands too (GitHub #8); a stale
+			// session id there would survive every re-save.
+			for k := range p.Surfaces {
+				clear(&p.Surfaces[k].Command)
 			}
 		}
 	}
@@ -427,17 +529,14 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces []client.TreeWor
 		return
 	}
 
-	// Build a lookup of surface titles by workspace title + pane index.
-	type paneKey struct {
-		wsTitle string
-		paneIdx int
-	}
-	surfaceTitles := make(map[paneKey]string)
+	// Live surface titles by workspace title + pane index + surface index.
+	// EVERY surface is recorded, not just the first of each pane: a pane's
+	// extra tabs each run their own AI session (GitHub #8).
+	surfaceTitles := make(map[surfaceTitleKey]string)
 	for _, tw := range treeWorkspaces {
 		for _, tp := range tw.Panes {
-			for _, s := range tp.Surfaces {
-				surfaceTitles[paneKey{tw.Title, tp.Index}] = s.Title
-				break // first surface per pane is enough
+			for k, s := range tp.Surfaces {
+				surfaceTitles[surfaceTitleKey{tw.Title, tp.Index, k}] = s.Title
 			}
 		}
 	}
@@ -455,50 +554,45 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces []client.TreeWor
 	}
 
 	// Pass 1a: Title + CWD match (highest confidence). Assign sessions only
-	// when both the pane title confirms the tool AND the workspace CWD matches
-	// a detected session's CWD. This prevents CWD-mismatched workspaces from
-	// stealing sessions that belong to other workspaces.
+	// when both the surface title confirms the tool AND a CWD matches a
+	// detected session's CWD. This prevents CWD-mismatched workspaces from
+	// stealing sessions that belong to other workspaces. Each slot is matched
+	// on its OWN cwd first (a tab per git worktree resolves to its own
+	// session), then on the workspace cwd.
 	for i := range layout.Workspaces {
 		ws := &layout.Workspaces[i]
-		for j := range ws.Panes {
-			if ws.Panes[j].Type != "terminal" {
-				continue
-			}
-			// Key by the pane's stable Index, not its array position:
-			// applySplitGeometry reorders panes into creation order.
-			title := surfaceTitles[paneKey{ws.Title, ws.Panes[j].Index}]
+		for _, sl := range commandSlots(ws, surfaceTitles) {
 			for tool, patterns := range aiTitlePatterns {
-				if !titleMatchesAI(title, patterns) {
+				if !titleMatchesAI(sl.title, patterns) {
 					continue
 				}
-				if s := findSession(detected.ByCWD[ws.CWD], tool); s != nil {
-					ws.Panes[j].Command = s.Command
-					consumed[s.Command] = true
+				for _, cwd := range sl.searchCWDs() {
+					if s := findSession(detected.ByCWD[cwd], tool); s != nil {
+						*sl.cmd = s.Command
+						consumed[s.Command] = true
+						break
+					}
 				}
 				break
 			}
 		}
 	}
 
-	// Pass 1b: Title match only (fallback). For panes with a matching title
+	// Pass 1b: Title match only (fallback). For slots with a matching title
 	// but no CWD-matched session, assign any unconsumed session for that tool.
 	for i := range layout.Workspaces {
 		ws := &layout.Workspaces[i]
-		for j := range ws.Panes {
-			if ws.Panes[j].Type != "terminal" {
-				continue
-			}
+		for _, sl := range commandSlots(ws, surfaceTitles) {
 			// Skip if already assigned in Pass 1a.
-			if ws.Panes[j].Command != "" && !aiProcessNames[ws.Panes[j].Command] {
+			if sl.assigned() {
 				continue
 			}
-			title := surfaceTitles[paneKey{ws.Title, ws.Panes[j].Index}]
 			for tool, patterns := range aiTitlePatterns {
-				if !titleMatchesAI(title, patterns) {
+				if !titleMatchesAI(sl.title, patterns) {
 					continue
 				}
 				if s := findSession(detected.ByTool[tool], tool); s != nil {
-					ws.Panes[j].Command = s.Command
+					*sl.cmd = s.Command
 					consumed[s.Command] = true
 				}
 				break
@@ -507,26 +601,104 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces []client.TreeWor
 	}
 
 	// Pass 2: CWD-only fallback for tools that don't set a recognizable
-	// title (e.g. Codex). Restricted to single-pane workspaces.
+	// title (e.g. Codex). Restricted to single-pane workspaces, where a slot's
+	// cwd identifies it unambiguously.
 	for i := range layout.Workspaces {
 		ws := &layout.Workspaces[i]
 		if len(ws.Panes) != 1 || ws.Panes[0].Type != "terminal" {
 			continue
 		}
-		// Allow upgrade if the command is empty or a bare AI tool name
-		// (set by foreground detection, e.g. "claude" without --resume).
-		if ws.Panes[0].Command != "" && !aiProcessNames[ws.Panes[0].Command] {
-			continue
-		}
-		sessions := detected.ByCWD[ws.CWD]
-		for _, s := range sessions {
-			if !consumed[s.Command] {
-				ws.Panes[0].Command = s.Command
-				consumed[s.Command] = true
-				break
+		for _, sl := range commandSlots(ws, surfaceTitles) {
+			// Allow upgrade if the command is empty or a bare AI tool name
+			// (set by foreground detection, e.g. "claude" without --resume).
+			if sl.assigned() {
+				continue
+			}
+			// Any tool: this pass exists for tools with no title signal.
+			claimed := false
+			for _, cwd := range sl.searchCWDs() {
+				for _, s := range detected.ByCWD[cwd] {
+					if !consumed[s.Command] {
+						*sl.cmd = s.Command
+						consumed[s.Command] = true
+						claimed = true
+						break
+					}
+				}
+				if claimed {
+					break
+				}
 			}
 		}
 	}
+}
+
+// surfaceTitleKey addresses one live surface: workspace title + the pane's
+// stable cmux Index (array position drifts — applySplitGeometry reorders panes
+// into creation order) + the surface's position within the pane.
+type surfaceTitleKey struct {
+	wsTitle string
+	paneIdx int
+	surfIdx int
+}
+
+// commandSlot is one command-bearing terminal target — a pane (its first
+// surface) or one of the pane's extra tabs. AI detection writes through these
+// so tabs are first-class targets, not just panes (GitHub #8).
+type commandSlot struct {
+	cmd   *string // the Command field to fill
+	title string  // live surface title, used to confirm which tool runs here
+	cwd   string  // the slot's own working directory ("" when not captured)
+	wsCWD string  // the enclosing workspace's directory
+}
+
+// searchCWDs lists the directories to match a session against, most specific
+// first. The workspace cwd is kept as a fallback so layouts saved before
+// per-pane cwd capture still resolve their sessions.
+func (s commandSlot) searchCWDs() []string {
+	if s.cwd == "" || s.cwd == s.wsCWD {
+		return []string{s.wsCWD}
+	}
+	return []string{s.cwd, s.wsCWD}
+}
+
+// assigned reports whether this slot already holds a real command. A bare AI
+// tool name (e.g. "claude", from foreground detection) counts as unassigned so
+// a later pass can upgrade it to a full resume command.
+func (s commandSlot) assigned() bool {
+	return *s.cmd != "" && !aiProcessNames[*s.cmd]
+}
+
+// commandSlots enumerates a workspace's terminal panes and their extra tabs,
+// pairing each with its live surface title.
+func commandSlots(ws *model.Workspace, titles map[surfaceTitleKey]string) []commandSlot {
+	var out []commandSlot
+	for j := range ws.Panes {
+		p := &ws.Panes[j]
+		if p.Type != "terminal" {
+			continue
+		}
+		out = append(out, commandSlot{
+			cmd:   &p.Command,
+			title: titles[surfaceTitleKey{ws.Title, p.Index, 0}],
+			cwd:   p.CWD,
+			wsCWD: ws.CWD,
+		})
+		for k := range p.Surfaces {
+			s := &p.Surfaces[k]
+			// Surface.Type is omitted for terminals in older layouts.
+			if s.Type != "" && s.Type != "terminal" {
+				continue
+			}
+			out = append(out, commandSlot{
+				cmd:   &s.Command,
+				title: titles[surfaceTitleKey{ws.Title, p.Index, k + 1}],
+				cwd:   s.CWD,
+				wsCWD: ws.CWD,
+			})
+		}
+	}
+	return out
 }
 
 // titleMatchesAI checks whether a surface title contains any of the

@@ -112,7 +112,7 @@ crex template use ide
 
 ### AI Session Resume
 
-`crex save` detects running AI sessions and captures their session IDs. On restore, each resumes exactly where you left off.
+`crex save` detects running AI sessions and captures their session IDs. On restore, each resumes exactly where you left off — per pane **and per tab**, so a workspace holding one tab per git worktree comes back with every tab on its own conversation.
 
 ```
 crex❯ save my-day

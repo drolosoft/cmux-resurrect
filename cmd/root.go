@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/term"
@@ -149,24 +150,44 @@ func clientFor(detect func() client.DetectedBackend) client.Backend {
 	if cfg != nil {
 		configBackend = cfg.Backend
 	}
-	// Being literally inside a cmux session (not just having a discoverable
-	// socket) is a strong context signal: CMUX_WORKSPACE_ID / CMUX_SURFACE_ID
-	// are set by cmux for its own shells but NOT by Alfred's socket discovery.
-	insideCmux := os.Getenv("CMUX_WORKSPACE_ID") != "" || os.Getenv("CMUX_SURFACE_ID") != ""
-	return resolveBackendChoice(os.Getenv("CREX_BACKEND"), configBackend, insideCmux, detect)
+	return resolveBackendChoice(os.Getenv("CREX_BACKEND"), configBackend, callerBackend(), detect, client.BackendAppRunning)
+}
+
+// callerBackend reports which terminal crex is running INSIDE, or
+// BackendUnknown when it can't tell (Alfred, cron, a plain SSH shell).
+//
+// Being literally inside a session is a strong context signal, stronger than
+// any configured default: whichever terminal the user typed the command in is
+// the one they mean. CMUX_WORKSPACE_ID / CMUX_SURFACE_ID are set by cmux for
+// its own shells but NOT by Alfred's socket discovery. TERM_PROGRAM only
+// decides afterwards, because cmux is built on Ghostty and sets
+// TERM_PROGRAM=ghostty for its own shells too — the CMUX_* vars disambiguate.
+func callerBackend() client.DetectedBackend {
+	if os.Getenv("CMUX_WORKSPACE_ID") != "" || os.Getenv("CMUX_SURFACE_ID") != "" {
+		return client.BackendCmux
+	}
+	if strings.EqualFold(os.Getenv("TERM_PROGRAM"), "ghostty") {
+		return client.BackendGhostty
+	}
+	return client.BackendUnknown
 }
 
 // resolveBackendChoice picks the backend by precedence:
 //  1. CREX_BACKEND env override (explicit, needed for external callers)
-//  2. the current cmux session — when insideCmux, cmux wins so the config
-//     default never hijacks `crex save`/`restore` run from inside a cmux tab
+//  2. the terminal crex was invoked from — a command typed inside cmux acts on
+//     cmux, one typed inside Ghostty acts on Ghostty, so the config default
+//     never hijacks the session the user is actually looking at. This holds even
+//     when that terminal is unreachable but still RUNNING: the command fails
+//     naming the right backend instead of quietly rebuilding the user's
+//     workspaces in a different app
 //  3. the config's default backend (applies to external/ambiguous contexts
 //     like Alfred, where cmux and Ghostty may both be running)
 //  4. liveness-aware auto-detection
 //
 // Unrecognized override/config values warn and fall through. detect is the
-// detection function; nil uses client.Detect.
-func resolveBackendChoice(envOverride, configBackend string, insideCmux bool, detect func() client.DetectedBackend) client.Backend {
+// detection function; nil uses client.Detect. appRunning probes whether a
+// backend's app is running; nil uses client.BackendAppRunning.
+func resolveBackendChoice(envOverride, configBackend string, caller client.DetectedBackend, detect func() client.DetectedBackend, appRunning func(client.DetectedBackend) bool) client.Backend {
 	if envOverride != "" {
 		if cl, ok := client.NewForOverride(envOverride); ok {
 			return cl
@@ -176,11 +197,16 @@ func resolveBackendChoice(envOverride, configBackend string, insideCmux bool, de
 	if detect == nil {
 		detect = client.Detect
 	}
-	// Inside a cmux session, cmux is authoritative — but only if it's actually
-	// reachable; a leaked-but-dead env still falls through to detection.
-	if insideCmux {
-		if detect() == client.BackendCmux {
-			return client.NewForDetected(client.BackendCmux)
+	if appRunning == nil {
+		appRunning = client.BackendAppRunning
+	}
+	// The caller's own terminal is authoritative. Reachable is the normal case;
+	// unreachable-but-running still wins, so a cmux tab whose control socket is
+	// closed reports "cmux not reachable" instead of restoring into Ghostty.
+	// Only a genuinely absent app (leaked env from a closed cmux) falls through.
+	if caller != client.BackendUnknown {
+		if detect() == caller || appRunning(caller) {
+			return client.NewForDetected(caller)
 		}
 	}
 	if configBackend != "" {

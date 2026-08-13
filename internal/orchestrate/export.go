@@ -18,7 +18,7 @@ type Exporter struct {
 // ExportToMD reads live cmux state and updates the MD file,
 // preserving templates and tail sections (docs, etc.).
 func (e *Exporter) ExportToMD(mdPath string) error {
-	tree, err := e.Client.Tree()
+	tree, err := exportTree(e.Client)
 	if err != nil {
 		return fmt.Errorf("get tree: %w", err)
 	}
@@ -26,7 +26,8 @@ func (e *Exporter) ExportToMD(mdPath string) error {
 		return fmt.Errorf("no windows found")
 	}
 
-	win := tree.Windows[0]
+	// Same rule as save: describe the window the user is looking at.
+	win := currentWindow(tree)
 
 	// Load existing file to preserve templates and tail.
 	var wf *model.WorkspaceFile
@@ -121,4 +122,15 @@ func AbbreviateHome(path string) string {
 		return "~" + path[len(home):]
 	}
 	return path
+}
+
+// exportTree mirrors the save path: prefer every window so the caller's own
+// window can be selected, falling back to the backend's scoped tree.
+func exportTree(c client.Backend) (*client.TreeResponse, error) {
+	if mw, ok := c.(client.MultiWindowTreeProvider); ok {
+		if t, err := mw.TreeAllWindows(); err == nil && t != nil && len(t.Windows) > 0 {
+			return t, nil
+		}
+	}
+	return c.Tree()
 }

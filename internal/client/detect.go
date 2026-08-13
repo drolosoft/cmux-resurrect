@@ -54,15 +54,34 @@ func cmuxAlive() bool {
 }
 
 // ghosttyRunning reports whether the Ghostty app is running.
-// pgrep -x "Ghostty" fails on macOS because the binary name is lowercase
-// "ghostty" while the app bundle is "Ghostty.app". Use osascript to check
-// via System Events, which matches the app name reliably.
-func ghosttyRunning() bool {
+func ghosttyRunning() bool { return appRunning("Ghostty") }
+
+// appRunning reports whether a macOS app with the given process name is running.
+// pgrep -x "Ghostty" fails here because the binary name is lowercase "ghostty"
+// while the app bundle is "Ghostty.app". System Events matches the app name
+// reliably for both cmux and Ghostty.
+func appRunning(name string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	out, err := exec.CommandContext(ctx, "osascript", "-e",
-		`tell application "System Events" to (name of processes) contains "Ghostty"`).Output()
+		`tell application "System Events" to (name of processes) contains "`+name+`"`).Output()
 	return err == nil && len(out) > 0 && out[0] == 't' // "true\n"
+}
+
+// BackendAppRunning reports whether the app behind a backend is running, even if
+// it is not reachable. Used to keep a command on the terminal it was typed in:
+// cmux can be wide open while its control socket refuses connections (Socket
+// Control Mode off or password protected), and silently retargeting another
+// terminal would recreate the user's workspaces in the wrong app.
+func BackendAppRunning(b DetectedBackend) bool {
+	switch b {
+	case BackendCmux:
+		return appRunning("cmux")
+	case BackendGhostty:
+		return appRunning("Ghostty")
+	default:
+		return false
+	}
 }
 
 // NewForOverride returns the Backend selected by an explicit override string

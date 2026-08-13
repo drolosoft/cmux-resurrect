@@ -1,6 +1,9 @@
 package detect
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestParseForegroundCommand(t *testing.T) {
 	tests := []struct {
@@ -103,12 +106,12 @@ func TestParseForegroundCommand(t *testing.T) {
 			want: "go test ./... -v",
 		},
 		{
-			name: "long command truncated at 80",
+			name: "long but shell-safe command is kept whole",
 			psOut: `  PID  PPID STAT ARGS
  1234   823 Ss   /usr/bin/login
  1235  1234 S    -/bin/zsh
  5678  1235 S+   python3 /very/long/path/to/some/script.py --arg1 value1 --arg2 value2 --arg3 value3 --verbose --debug`,
-			want: "python3 /very/long/path/to/some/script.py --arg1 value1 --arg2 value2 --arg3...",
+			want: "python3 /very/long/path/to/some/script.py --arg1 value1 --arg2 value2 --arg3 value3 --verbose --debug",
 		},
 		{
 			name: "caffeinate with flag",
@@ -198,5 +201,45 @@ func TestForegroundLeaderPID(t *testing.T) {
 				t.Fatalf("foregroundLeaderPID() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+// TestParseForegroundCommand_UnsafeArgsReduceToBinary covers the field report
+// on GitHub #8: cmux launches Claude through a wrapper that injects a JSON
+// --settings blob. crex types a saved command back into a shell verbatim, and
+// the shell strips the quotes — the pane then dies with a JSON parse error.
+// Only the binary is worth keeping; AI detection upgrades it to a real resume
+// command afterwards.
+func TestParseForegroundCommand_UnsafeArgsReduceToBinary(t *testing.T) {
+	ps := `  PID  PPID STAT ARGS
+ 1234   823 Ss   /usr/bin/login
+ 1235  1234 S    -/bin/zsh
+ 5678  1235 S+   claude --settings {"preferredNotifChannel":"notifications_disabled","hooks":{"PreToolUse":[]}} --resume abc`
+	if got := parseForegroundCommand(ps); got != "claude" {
+		t.Errorf("got %q, want %q — a JSON blob cannot be re-typed into a shell", got, "claude")
+	}
+}
+
+// TestParseForegroundCommand_NeverEmitsTruncatedCommand: a truncated command is
+// not merely broken, it is dangerous — a cut-off path can act on the wrong
+// target when typed back.
+func TestParseForegroundCommand_NeverEmitsTruncatedCommand(t *testing.T) {
+	long := "deploy --target " + strings.Repeat("abcdefghij/", 40)
+	ps := "  PID  PPID STAT ARGS\n 1234   823 Ss   /usr/bin/login\n 1235  1234 S    -/bin/zsh\n 5678  1235 S+   " + long
+	got := parseForegroundCommand(ps)
+	if strings.Contains(got, "...") {
+		t.Errorf("got %q — never save a truncated command", got)
+	}
+	if got != "deploy" {
+		t.Errorf("got %q, want %q", got, "deploy")
+	}
+}
+
+// A long-but-safe command stays intact: readability is not worth losing args.
+func TestParseForegroundCommand_KeepsLongSafeCommand(t *testing.T) {
+	cmd := "python3 /very/long/path/to/some/script.py --arg1 value1 --arg2 value2 --arg3 value3 --verbose --debug"
+	ps := "  PID  PPID STAT ARGS\n 1234   823 Ss   /usr/bin/login\n 1235  1234 S    -/bin/zsh\n 5678  1235 S+   " + cmd
+	if got := parseForegroundCommand(ps); got != cmd {
+		t.Errorf("got %q, want the command intact", got)
 	}
 }

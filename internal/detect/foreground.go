@@ -210,10 +210,42 @@ func cleanCommand(args string) string {
 	return capLength(result)
 }
 
-// capLength truncates a command string if it exceeds 80 characters.
+// maxCommandLen bounds how much of a command line is worth keeping in a saved
+// layout. Beyond it only the binary name is kept — never a fragment.
+const maxCommandLen = 200
+
+// shellHazards are characters whose meaning changes when a command is typed
+// back into a shell. crex replays saved commands as literal keystrokes, so a
+// command containing any of them cannot be reproduced faithfully: the shell
+// re-parses the quoting and the program receives something different from what
+// was captured.
+const shellHazards = "\"'`$\\{}();&|<>\n\r\t*?[]!#~"
+
+// capLength reduces a captured command line to something that is SAFE TO RE-TYPE.
+//
+// A command is kept verbatim only when it is short enough and free of shell
+// metacharacters; otherwise just the binary name survives. Two failures drove
+// this (GitHub #8 field report):
+//
+//   - cmux launches Claude through a wrapper that injects a JSON `--settings`
+//     blob. Typed back, the shell strips its quotes and the pane dies with a
+//     JSON parse error. Reduced to "claude", AI detection then upgrades it to a
+//     proper `--resume` command;
+//   - the previous behavior appended "..." to anything over 80 characters,
+//     which is worse than useless: a truncated command is unrunnable, and a
+//     cut-off path can act on the WRONG target when replayed.
+//
+// The binary name alone is always safe to type: at worst it starts the tool
+// fresh, which is what a user would do by hand.
 func capLength(s string) string {
-	if len(s) > 80 {
-		return strings.TrimRight(s[:77], " ") + "..."
+	if s == "" {
+		return ""
+	}
+	if len(s) <= maxCommandLen && !strings.ContainsAny(s, shellHazards) {
+		return s
+	}
+	if bin, _, found := strings.Cut(s, " "); found {
+		return bin
 	}
 	return s
 }

@@ -125,6 +125,26 @@ type FirstSurfaceResolver interface {
 	FirstSurfaceRef(workspaceRef string) string
 }
 
+// MultiWindowTreeProvider is optionally implemented by backends whose normal
+// Tree() is scoped to one window. cmux's `tree --json` returns the FOCUSED
+// window, not the caller's — so `crex save` run in a background window used to
+// store the frontmost window's workspaces, a different session from the one the
+// user was looking at. Save and export use this to see every window and then
+// pick the caller's; every other call keeps the cheaper scoped tree.
+type MultiWindowTreeProvider interface {
+	TreeAllWindows() (*TreeResponse, error)
+}
+
+// SurfaceFocuser is optionally implemented by backends that can select an
+// individual surface (tab) within a pane. Restore needs it because cmux spawns
+// a tab's shell only when that tab is first RENDERED: text sent to a tab
+// nobody has looked at is accepted and then silently discarded, so a tab's
+// command has to be preceded by focusing it (GitHub #8). Backends without
+// sub-tabs don't implement it and are detected via type assertion.
+type SurfaceFocuser interface {
+	FocusSurface(workspaceRef, surfaceRef string) error
+}
+
 // SurfaceStater is optionally implemented by backends that can report live
 // per-surface state. Used during restore to gate on the real readiness/cwd of
 // the specific pane being created (not a workspace-level heuristic), which makes

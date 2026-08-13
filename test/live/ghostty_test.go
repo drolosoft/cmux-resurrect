@@ -135,7 +135,30 @@ func singlePaneWorkspace(title, cwd string, index int) model.Workspace {
 // a Ghostty shell inheriting CMUX_* vars from a cmux that is no longer
 // reachable. crex must fall back to the live Ghostty instead of dying with
 // "backend not reachable".
-func TestGhostty_DetectionSurvivesDeadCmuxEnv(t *testing.T) {
+// cmuxAppRunning asks the OS (not crex) whether the cmux app is up.
+func cmuxAppRunning(t *testing.T) bool {
+	t.Helper()
+	return strings.TrimSpace(osa(t,
+		`tell application "System Events" to (name of processes) contains "cmux"`)) == "true"
+}
+
+// TestGhostty_DeadCmuxEnvNeverRetargetsSilently pins the rule that a command
+// stays on the terminal it was typed in.
+//
+// A shell can carry CMUX_* variables that no longer lead anywhere: Ghostty
+// windows launched from cmux inherit them, and the socket also goes quiet when
+// cmux has Socket Control Mode disabled. What crex must do depends on whether
+// cmux is actually THERE:
+//
+//   - cmux running → keep the command on cmux, even though the socket is
+//     unreachable. Rebuilding the user's workspaces in Ghostty because their own
+//     terminal did not answer is the worst possible outcome (field report);
+//   - cmux absent → fall back to the live Ghostty instead of dying with
+//     "backend not reachable" (the original leaked-env edge).
+//
+// The audit machine usually runs cmux, so both branches are asserted from the
+// real state rather than assuming one.
+func TestGhostty_DeadCmuxEnvNeverRetargetsSilently(t *testing.T) {
 	requireGhostty(t)
 	layouts := t.TempDir()
 	docs := filepath.Join(homeDir, "Documents")
@@ -150,6 +173,26 @@ func TestGhostty_DetectionSurvivesDeadCmuxEnv(t *testing.T) {
 		"CMUX_SOCKET_PATH=/tmp/crex-audit-dead.sock", // dead on purpose
 		"CMUX_WORKSPACE_ID=workspace:999",
 	)
+
+	if cmuxAppRunning(t) {
+		// cmux is up: the command must not leak into Ghostty.
+		cmuxBefore := wsRefs(t)
+		_, _ = runCrex(t, layouts, env, "restore", "audit-det", "--mode", "add")
+		t.Cleanup(func() {
+			for ref := range wsRefs(t) {
+				if !cmuxBefore[ref] {
+					closeWorkspace(t, ref)
+				}
+			}
+		})
+		if got := tabCount(t); got != baseTabs {
+			closeTabsFrom(t, baseTabs+1)
+			t.Fatalf("Ghostty gained %d tab(s) while cmux was running — a dead cmux socket must never retarget the user's command", got-baseTabs)
+		}
+		return
+	}
+
+	// cmux is not running: the live Ghostty is the only sensible target.
 	out, err := runCrex(t, layouts, env, "restore", "audit-det", "--mode", "add")
 	t.Cleanup(func() { closeTabsFrom(t, baseTabs+1) })
 	if err != nil {

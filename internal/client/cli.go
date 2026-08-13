@@ -52,7 +52,19 @@ func (c *CLIClient) Ping() error {
 }
 
 func (c *CLIClient) Tree() (*TreeResponse, error) {
-	out, err := c.run("tree", "--json")
+	return c.tree("tree", "--json")
+}
+
+// TreeAllWindows returns every window, not just the focused one. Implements
+// MultiWindowTreeProvider: the caller's window is missing from the scoped tree
+// whenever another window has focus, and `caller.window_ref` is only useful if
+// that window is actually in the response.
+func (c *CLIClient) TreeAllWindows() (*TreeResponse, error) {
+	return c.tree("tree", "--all", "--json")
+}
+
+func (c *CLIClient) tree(args ...string) (*TreeResponse, error) {
+	out, err := c.run(args...)
 	if err != nil {
 		return nil, err
 	}
@@ -457,6 +469,18 @@ func (c *CLIClient) NewSurface(paneRef, workspaceRef string) (string, error) {
 	return "", fmt.Errorf("new-surface created but could not determine ref")
 }
 
+// FocusSurface selects a single surface (tab) within its pane. Implements
+// SurfaceFocuser: this is what makes cmux render the tab and spawn its shell,
+// without which any text sent to it is silently dropped (GitHub #8).
+func (c *CLIClient) FocusSurface(workspaceRef, surfaceRef string) error {
+	if surfaceRef == "" {
+		return nil
+	}
+	params := fmt.Sprintf(`{"workspace_id":%q,"surface_id":%q}`, workspaceRef, surfaceRef)
+	_, err := c.run("rpc", "surface.focus", params)
+	return err
+}
+
 func (c *CLIClient) FocusPane(paneRef, workspaceRef string) error {
 	args := []string{"focus-pane", "--pane", paneCLIRef(paneRef, workspaceRef)}
 	if workspaceRef != "" {
@@ -518,7 +542,8 @@ func (c *CLIClient) PaneList(workspaceRef string) (*PaneListResponse, error) {
 // resolveWorkspaceUUID maps a workspace ref (e.g. "workspace:16") to its UUID
 // by querying the tree with --id-format both.
 func (c *CLIClient) resolveWorkspaceUUID(workspaceRef string) (string, error) {
-	out, err := c.run("tree", "--json", "--id-format", "both")
+	// --all: a ref may belong to a window that does not currently have focus.
+	out, err := c.run("tree", "--all", "--json", "--id-format", "both")
 	if err != nil {
 		return "", err
 	}

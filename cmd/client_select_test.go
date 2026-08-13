@@ -27,10 +27,21 @@ func TestClientFor_OverrideWinsOverDetection(t *testing.T) {
 	}
 }
 
-// TestClientFor_FallsBackToDetection ensures that with no override the detected
-// backend is used.
+// clearCallerContext removes the env that identifies the terminal crex is
+// running inside, so a test's outcome doesn't depend on which terminal the
+// suite happens to run in (the caller's own session outranks detection).
+func clearCallerContext(t *testing.T) {
+	t.Helper()
+	t.Setenv("CMUX_WORKSPACE_ID", "")
+	t.Setenv("CMUX_SURFACE_ID", "")
+	t.Setenv("TERM_PROGRAM", "")
+}
+
+// TestClientFor_FallsBackToDetection ensures that with no override and no
+// caller context, the detected backend is used.
 func TestClientFor_FallsBackToDetection(t *testing.T) {
 	t.Setenv("CREX_BACKEND", "")
+	clearCallerContext(t)
 
 	cl := clientFor(func() client.DetectedBackend { return client.BackendGhostty })
 	if _, ok := cl.(*client.GhosttyClient); !ok {
@@ -42,6 +53,7 @@ func TestClientFor_FallsBackToDetection(t *testing.T) {
 // falls back to detection rather than failing.
 func TestClientFor_UnknownOverrideFallsBack(t *testing.T) {
 	t.Setenv("CREX_BACKEND", "kitty")
+	clearCallerContext(t)
 
 	cl := clientFor(func() client.DetectedBackend { return client.BackendCmux })
 	if _, ok := cl.(*client.CLIClient); !ok {

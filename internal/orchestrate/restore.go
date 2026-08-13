@@ -31,22 +31,43 @@ type Restorer struct {
 	OnProgress func(title string, panes int, err error) // called after each workspace
 }
 
-// restoreSurfaces creates additional surfaces (tabs) in a pane and sends their commands.
-func (r *Restorer) restoreSurfaces(pane model.Pane, paneRef, workspaceRef string, result *RestoreResult, paneIdx int) {
+// restoreSurfaces recreates a pane's extra tabs and sends their commands.
+//
+// Not every backend has sub-tabs. Ghostty doesn't, and these tabs used to be
+// dropped outright — the shell, its folder and its AI session disappeared from
+// the restored layout with only a warning. Ghostty does have splits, so each
+// lost tab is restored as a split instead: the arrangement differs from the
+// original, but nothing the user was working on goes missing. anchorSurfaceRef
+// is the pane's own surface, which the first split hangs off.
+func (r *Restorer) restoreSurfaces(pane model.Pane, paneRef, workspaceRef string, result *RestoreResult, paneIdx int, anchorSurfaceRef string) {
+	splitAnchor := anchorSurfaceRef
 	for j, surf := range pane.Surfaces {
 		surfRef, err := r.Client.NewSurface(paneRef, workspaceRef)
-		if err != nil {
-			if err == client.ErrNotSupported {
+		if err == client.ErrNotSupported {
+			// Fall back to a split beside the pane. Each tab hangs off the
+			// previous one so they form a row instead of repeatedly halving
+			// the original pane.
+			sref, serr := r.Client.NewSplit("right", workspaceRef, splitAnchor)
+			if serr != nil {
 				if r.OnProgress != nil {
 					r.OnProgress("⚠ pane tabs not supported on this backend", 0, nil)
 				}
-				return // skip all extra surfaces on unsupported backends
+				return // this backend can restore neither tabs nor splits
 			}
+			if j == 0 && r.OnProgress != nil {
+				r.OnProgress("ℹ pane tabs restored as splits (no sub-tabs on this backend)", 0, nil)
+			}
+			surfRef = sref
+			splitAnchor = sref
+		} else if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("  pane %d surface %d: new-surface: %v", paneIdx, j+1, err))
 			continue
 		}
 		r.applyName(workspaceRef, surfRef, surf.Name)
 		if surf.Command != "" || surf.CWD != "" {
+			// Bring the tab up first: an unrendered tab has no shell yet and
+			// silently swallows whatever is sent to it (GitHub #8).
+			r.focusSurface(workspaceRef, surfRef)
 			if err := waitForShellReady(r.Client, workspaceRef, surfRef); err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("  pane %d surface %d: shell not ready: %v", paneIdx, j+1, err))
 			} else if err := r.Client.Send(workspaceRef, surfRef, noHistoryCmd(cwdCommand(surf.CWD, r.applyAutoAccept(surf.Command)))); err != nil {
@@ -102,6 +123,7 @@ func (r *Restorer) typeCommands(ws model.Workspace, ref string, visualIdx []int,
 		}
 	}
 
+	focusedATab := false
 	for i, pane := range ws.Panes {
 		if pane.Type == "browser" {
 			continue // browser surfaces carry their url natively
@@ -118,6 +140,7 @@ func (r *Restorer) typeCommands(ws model.Workspace, ref string, visualIdx []int,
 			}
 			sendTo(target, pane.Command, fmt.Sprintf("pane %d", i))
 		}
+		typedIntoTab := false
 		for j, extra := range pane.Surfaces {
 			if extra.Command == "" || extra.Type == "browser" {
 				continue
@@ -126,8 +149,50 @@ func (r *Restorer) typeCommands(ws model.Workspace, ref string, visualIdx []int,
 			if j+1 < len(surfs) {
 				target = surfs[j+1]
 			}
+			// Focus the tab so cmux renders it and spawns its shell; without
+			// this the command is accepted and then dropped (GitHub #8).
+			if target != "" {
+				r.focusSurface(ref, target)
+				typedIntoTab = true
+			}
 			sendTo(target, extra.Command, fmt.Sprintf("pane %d tab %d", i, j+1))
 		}
+		// Leave the pane showing its first tab rather than the last one typed
+		// into — the layout describes tab order, not a selected tab.
+		if typedIntoTab && len(surfs) > 0 {
+			r.focusSurface(ref, surfs[0])
+			focusedATab = true
+		}
+	}
+
+	// Selecting a tab also focuses its pane, so hand focus back to the pane the
+	// layout marks focused — otherwise the workspace opens on whichever pane
+	// happened to hold the last tab typed into.
+	if focusedATab {
+		for i, pane := range ws.Panes {
+			if !pane.Focus {
+				continue
+			}
+			vi := i
+			if i < len(visualIdx) && visualIdx[i] >= 0 {
+				vi = visualIdx[i]
+			}
+			if surfs := surfacesByPane[vi]; len(surfs) > 0 {
+				r.focusSurface(ref, surfs[0])
+			}
+			break
+		}
+	}
+}
+
+// focusSurface selects a surface (tab) when the backend supports it, so its
+// shell spawns before anything is typed. No-op on backends without sub-tabs.
+func (r *Restorer) focusSurface(workspaceRef, surfaceRef string) {
+	if surfaceRef == "" {
+		return
+	}
+	if sf, ok := r.Client.(client.SurfaceFocuser); ok {
+		_ = sf.FocusSurface(workspaceRef, surfaceRef)
 	}
 }
 
@@ -255,6 +320,11 @@ func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode, workspace
 	if err != nil {
 		return nil, fmt.Errorf("load layout: %w", err)
 	}
+
+	// Layouts written by older versions can carry a command that was cut
+	// mid-argument; typed back it breaks the pane instead of restoring it
+	// (GitHub #8). Repair those before anything is recreated.
+	sanitizeLayoutCommands(layout)
 
 	if workspaceFilter != "" {
 		// Try exact match first (case-insensitive).
@@ -518,7 +588,7 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 			r.applyName(ref, "", pane.Name)
 			// Create extra surfaces (tabs) in this pane.
 			if len(pane.Surfaces) > 0 {
-				r.restoreSurfaces(pane, "pane:0", ref, result, 0)
+				r.restoreSurfaces(pane, "pane:0", ref, result, 0, paneRefs[0])
 			}
 			// If more panes follow, let the command settle before creating splits.
 			if i < lastPane {
@@ -617,7 +687,7 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 			if len(pane.Surfaces) > 0 {
 				paneRef := paneRefForSurface(r.Client, surfaceRef, ref)
 				if paneRef != "" {
-					r.restoreSurfaces(pane, paneRef, ref, result, i)
+					r.restoreSurfaces(pane, paneRef, ref, result, i, surfaceRef)
 				}
 			}
 		}

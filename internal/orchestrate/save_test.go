@@ -1221,3 +1221,366 @@ func TestMergeUserEdits_PreservesBrowserProfile(t *testing.T) {
 		t.Errorf("pane 2 profile = %q, want live fresh to win", panes[2].Profile)
 	}
 }
+
+// lazyTabMock reproduces cmux's lazy shell spawn (GitHub #8): the tab the user
+// never looked at is NOT ready and reports the WORKSPACE directory, while the
+// session file holds its real path.
+type lazyTabMock struct {
+	mockClient
+	states map[string]*client.SurfaceState
+	dirs   map[string]string
+	dirErr error
+}
+
+func (m *lazyTabMock) SurfaceState(_, surfaceRef string) (*client.SurfaceState, error) {
+	return m.states[surfaceRef], nil
+}
+
+func (m *lazyTabMock) SurfaceDirectories() (map[string]string, error) {
+	return m.dirs, m.dirErr
+}
+
+func lazyTabTree() *client.TreeResponse {
+	return &client.TreeResponse{
+		Windows: []client.TreeWindow{{
+			Ref: "window:1",
+			Workspaces: []client.TreeWorkspace{{
+				Ref: "workspace:1", Title: "proj", Index: 0,
+				Panes: []client.TreePane{{
+					Index: 0, Focused: true,
+					Surfaces: []client.TreeSurface{
+						{Ref: "surface:1", Type: "terminal"},
+						{Ref: "surface:2", Type: "terminal"}, // never rendered
+					},
+				}},
+			}},
+		}},
+	}
+}
+
+func TestSave_UnspawnedTabKeepsItsOwnDirectory(t *testing.T) {
+	mc := &lazyTabMock{
+		mockClient: mockClient{
+			treeResp:    lazyTabTree(),
+			sidebarCWDs: map[string]string{"workspace:1": "/home/u/proj/main"},
+		},
+		states: map[string]*client.SurfaceState{
+			"surface:1": {Ref: "surface:1", CWD: "/home/u/proj/main", Ready: true},
+			// Lazy tab: no shell yet, so cmux reports the workspace dir.
+			"surface:2": {Ref: "surface:2", CWD: "/home/u/proj/main", Ready: false},
+		},
+		dirs: map[string]string{
+			"surface:1": "/home/u/proj/main",
+			"surface:2": "/home/u/proj/feature-a", // the tab's REAL path
+		},
+	}
+
+	dir := t.TempDir()
+	store, _ := persist.NewFileStore(dir)
+	saver := &Saver{Client: mc, Store: store}
+	layout, err := saver.Save("lazy", "")
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+
+	pane := layout.Workspaces[0].Panes[0]
+	if pane.CWD != "/home/u/proj/main" {
+		t.Errorf("pane cwd = %q, want /home/u/proj/main", pane.CWD)
+	}
+	if len(pane.Surfaces) != 1 {
+		t.Fatalf("surfaces = %d, want 1", len(pane.Surfaces))
+	}
+	if got := pane.Surfaces[0].CWD; got != "/home/u/proj/feature-a" {
+		t.Errorf("unspawned tab cwd = %q, want /home/u/proj/feature-a (collapsing to the workspace path is the #8 bug)", got)
+	}
+}
+
+func TestSave_LiveCWDWinsForReadyShell(t *testing.T) {
+	// A running shell that cd'd elsewhere is authoritative over the persisted
+	// directory, which lags behind.
+	mc := &lazyTabMock{
+		mockClient: mockClient{
+			treeResp:    lazyTabTree(),
+			sidebarCWDs: map[string]string{"workspace:1": "/home/u/proj/main"},
+		},
+		states: map[string]*client.SurfaceState{
+			"surface:1": {Ref: "surface:1", CWD: "/home/u/proj/main", Ready: true},
+			"surface:2": {Ref: "surface:2", CWD: "/home/u/proj/moved-here", Ready: true},
+		},
+		dirs: map[string]string{"surface:2": "/home/u/proj/stale"},
+	}
+	dir := t.TempDir()
+	store, _ := persist.NewFileStore(dir)
+	saver := &Saver{Client: mc, Store: store}
+	layout, err := saver.Save("live", "")
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	if got := layout.Workspaces[0].Panes[0].Surfaces[0].CWD; got != "/home/u/proj/moved-here" {
+		t.Errorf("tab cwd = %q, want the live shell's /home/u/proj/moved-here", got)
+	}
+}
+
+func TestSave_DirProviderErrorFallsBackToLiveCWD(t *testing.T) {
+	mc := &lazyTabMock{
+		mockClient: mockClient{
+			treeResp:    lazyTabTree(),
+			sidebarCWDs: map[string]string{"workspace:1": "/home/u/proj/main"},
+		},
+		states: map[string]*client.SurfaceState{
+			"surface:1": {Ref: "surface:1", CWD: "/home/u/proj/main", Ready: true},
+			"surface:2": {Ref: "surface:2", CWD: "/home/u/proj/whatever", Ready: false},
+		},
+		dirErr: fmt.Errorf("session file unreadable"),
+	}
+	dir := t.TempDir()
+	store, _ := persist.NewFileStore(dir)
+	saver := &Saver{Client: mc, Store: store}
+	layout, err := saver.Save("fallback", "")
+	if err != nil {
+		t.Fatalf("save must not fail when the dir provider errors: %v", err)
+	}
+	if got := layout.Workspaces[0].Panes[0].Surfaces[0].CWD; got != "/home/u/proj/whatever" {
+		t.Errorf("tab cwd = %q, want the live value as last resort", got)
+	}
+}
+
+// TestSave_CapturesTheCurrentWindowNotTheFirst: with several cmux windows open,
+// a save must capture the one the user is looking at. It used to take
+// Windows[0] unconditionally, so saving from any window other than the first
+// silently stored a different session than the one on screen.
+func TestSave_CapturesTheCurrentWindowNotTheFirst(t *testing.T) {
+	tree := &client.TreeResponse{
+		Windows: []client.TreeWindow{
+			{
+				Ref: "window:1", Index: 0, Current: false,
+				Workspaces: []client.TreeWorkspace{{
+					Ref: "workspace:1", Title: "other window", Index: 0,
+					Panes: []client.TreePane{{Index: 0, Surfaces: []client.TreeSurface{{Ref: "surface:1", Type: "terminal"}}}},
+				}},
+			},
+			{
+				Ref: "window:2", Index: 1, Current: true, Active: true,
+				Workspaces: []client.TreeWorkspace{{
+					Ref: "workspace:2", Title: "the one on screen", Index: 0,
+					Panes: []client.TreePane{{Index: 0, Surfaces: []client.TreeSurface{{Ref: "surface:2", Type: "terminal"}}}},
+				}},
+			},
+		},
+	}
+	mc := &mockClient{treeResp: tree, sidebarCWDs: map[string]string{
+		"workspace:1": "/w/other", "workspace:2": "/w/screen",
+	}}
+	dir := t.TempDir()
+	store, _ := persist.NewFileStore(dir)
+	saver := &Saver{Client: mc, Store: store}
+
+	layout, err := saver.Save("win", "")
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	if len(layout.Workspaces) != 1 {
+		t.Fatalf("workspaces = %d, want 1 (only the current window)", len(layout.Workspaces))
+	}
+	if got := layout.Workspaces[0].Title; got != "the one on screen" {
+		t.Errorf("saved window = %q, want the current one", got)
+	}
+}
+
+func TestSave_FallsBackToFirstWindowWhenNoneIsCurrent(t *testing.T) {
+	tree := &client.TreeResponse{
+		Windows: []client.TreeWindow{
+			{Ref: "window:1", Index: 0, Workspaces: []client.TreeWorkspace{{
+				Ref: "workspace:1", Title: "first", Index: 0,
+				Panes: []client.TreePane{{Index: 0, Surfaces: []client.TreeSurface{{Ref: "surface:1", Type: "terminal"}}}},
+			}}},
+			{Ref: "window:2", Index: 1, Workspaces: []client.TreeWorkspace{{
+				Ref: "workspace:2", Title: "second", Index: 0,
+				Panes: []client.TreePane{{Index: 0, Surfaces: []client.TreeSurface{{Ref: "surface:2", Type: "terminal"}}}},
+			}}},
+		},
+	}
+	mc := &mockClient{treeResp: tree, sidebarCWDs: map[string]string{}}
+	dir := t.TempDir()
+	store, _ := persist.NewFileStore(dir)
+	saver := &Saver{Client: mc, Store: store}
+
+	layout, err := saver.Save("win2", "")
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	if got := layout.Workspaces[0].Title; got != "first" {
+		t.Errorf("saved window = %q, want the first as fallback", got)
+	}
+}
+
+// TestCurrentWindow_Precedence pins every branch of the window choice. This
+// runs on the hot path of EVERY save, so each source is asserted explicitly.
+func TestCurrentWindow_Precedence(t *testing.T) {
+	win := func(ref string, current, active bool) client.TreeWindow {
+		return client.TreeWindow{Ref: ref, Current: current, Active: active}
+	}
+	caller := func(ref string) *client.CallerInfo { return &client.CallerInfo{WindowRef: ref} }
+
+	cases := []struct {
+		name string
+		tree *client.TreeResponse
+		want string
+	}{
+		{
+			name: "caller window wins over current and active",
+			tree: &client.TreeResponse{
+				Caller:  caller("window:3"),
+				Windows: []client.TreeWindow{win("window:1", true, true), win("window:3", false, false)},
+			},
+			want: "window:3",
+		},
+		{
+			name: "active info used when caller is absent",
+			tree: &client.TreeResponse{
+				Active:  caller("window:2"),
+				Windows: []client.TreeWindow{win("window:1", true, false), win("window:2", false, false)},
+			},
+			want: "window:2",
+		},
+		{
+			// A caller ref that isn't in the tree must not win by accident.
+			name: "stale caller ref falls through to the current flag",
+			tree: &client.TreeResponse{
+				Caller:  caller("window:99"),
+				Windows: []client.TreeWindow{win("window:1", false, false), win("window:2", true, false)},
+			},
+			want: "window:2",
+		},
+		{
+			name: "active flag when nothing is current",
+			tree: &client.TreeResponse{
+				Windows: []client.TreeWindow{win("window:1", false, false), win("window:2", false, true)},
+			},
+			want: "window:2",
+		},
+		{
+			name: "first window as last resort",
+			tree: &client.TreeResponse{
+				Windows: []client.TreeWindow{win("window:5", false, false), win("window:6", false, false)},
+			},
+			want: "window:5",
+		},
+		{
+			// The overwhelmingly common shape: cmux scopes `tree --json` to the
+			// caller's window, so there is exactly one.
+			name: "single window is returned untouched",
+			tree: &client.TreeResponse{
+				Caller:  caller("window:1"),
+				Windows: []client.TreeWindow{win("window:1", true, true)},
+			},
+			want: "window:1",
+		},
+		{
+			// Ghostty builds a synthetic tree whose flags may be unset.
+			name: "no flags, no caller, single window",
+			tree: &client.TreeResponse{
+				Windows: []client.TreeWindow{win("tab-window", false, false)},
+			},
+			want: "tab-window",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := currentWindow(c.tree).Ref; got != c.want {
+				t.Errorf("currentWindow() = %q, want %q", got, c.want)
+			}
+		})
+	}
+}
+
+// allWindowsMock reproduces the real cmux behavior: the scoped tree returns the
+// FOCUSED window, while the all-windows tree also contains the caller's.
+type allWindowsMock struct {
+	mockClient
+	all       *client.TreeResponse
+	allCalled bool
+	allErr    error
+}
+
+func (m *allWindowsMock) TreeAllWindows() (*client.TreeResponse, error) {
+	m.allCalled = true
+	if m.allErr != nil {
+		return nil, m.allErr
+	}
+	return m.all, nil
+}
+
+func twoWindowTrees() (scoped, all *client.TreeResponse) {
+	focused := client.TreeWindow{
+		Ref: "window:1", Current: true,
+		Workspaces: []client.TreeWorkspace{{
+			Ref: "workspace:1", Title: "focused window", Index: 0,
+			Panes: []client.TreePane{{Index: 0, Surfaces: []client.TreeSurface{{Ref: "surface:1", Type: "terminal"}}}},
+		}},
+	}
+	mine := client.TreeWindow{
+		Ref: "window:5",
+		Workspaces: []client.TreeWorkspace{{
+			Ref: "workspace:5", Title: "where I typed the command", Index: 0,
+			Panes: []client.TreePane{{Index: 0, Surfaces: []client.TreeSurface{{Ref: "surface:5", Type: "terminal"}}}},
+		}},
+	}
+	caller := &client.CallerInfo{WindowRef: "window:5", SurfaceRef: "surface:5"}
+	// cmux omits the caller's window from the scoped tree when another window
+	// has focus — that is exactly what made saves capture the wrong session.
+	scoped = &client.TreeResponse{Caller: caller, Windows: []client.TreeWindow{focused}}
+	all = &client.TreeResponse{Caller: caller, Windows: []client.TreeWindow{focused, mine}}
+	return scoped, all
+}
+
+// TestSave_CapturesTheCallersWindowNotTheFocusedOne: running `crex save` in a
+// cmux window that is not the frontmost one used to store the FOCUSED window's
+// workspaces — a completely different session from the one under the cursor.
+func TestSave_CapturesTheCallersWindowNotTheFocusedOne(t *testing.T) {
+	scoped, all := twoWindowTrees()
+	mc := &allWindowsMock{
+		mockClient: mockClient{treeResp: scoped, sidebarCWDs: map[string]string{
+			"workspace:1": "/w/focused", "workspace:5": "/w/mine",
+		}},
+		all: all,
+	}
+	dir := t.TempDir()
+	store, _ := persist.NewFileStore(dir)
+	saver := &Saver{Client: mc, Store: store}
+
+	layout, err := saver.Save("callerwin", "")
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	if !mc.allCalled {
+		t.Error("save did not ask for all windows, so it can never see the caller's")
+	}
+	if len(layout.Workspaces) != 1 {
+		t.Fatalf("workspaces = %d, want 1", len(layout.Workspaces))
+	}
+	if got := layout.Workspaces[0].Title; got != "where I typed the command" {
+		t.Errorf("saved %q — the frontmost window hijacked the save", got)
+	}
+}
+
+// A backend without the all-windows call (or one that errors) must still save
+// using the scoped tree.
+func TestSave_FallsBackToScopedTreeWhenAllWindowsFails(t *testing.T) {
+	scoped, _ := twoWindowTrees()
+	mc := &allWindowsMock{
+		mockClient: mockClient{treeResp: scoped, sidebarCWDs: map[string]string{"workspace:1": "/w/focused"}},
+		allErr:     fmt.Errorf("older backend"),
+	}
+	dir := t.TempDir()
+	store, _ := persist.NewFileStore(dir)
+	saver := &Saver{Client: mc, Store: store}
+
+	layout, err := saver.Save("fallbackwin", "")
+	if err != nil {
+		t.Fatalf("save must not fail when the all-windows tree is unavailable: %v", err)
+	}
+	if got := layout.Workspaces[0].Title; got != "focused window" {
+		t.Errorf("saved %q, want the scoped tree's window as fallback", got)
+	}
+}

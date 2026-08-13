@@ -208,6 +208,10 @@ crex skill show              # print it (pipe anywhere you like)
 
 Agents pick it up on their next session. Re-run `install` after upgrading crex to refresh it. Also available inside the TUI (`skill install`).
 
+## One Window Per Layout
+
+A layout describes a single terminal window's worth of workspaces. With several windows open, `crex save` captures **the window you ran the command in** — not whichever happens to be frontmost — so saving from a background window stores what is actually in front of you there. To keep several windows, save each one under its own layout name.
+
 ## Backend Differences
 
 crex targets full parity between cmux and Ghostty; where the platform APIs differ, this is the honest map:
@@ -217,16 +221,20 @@ crex targets full parity between cmux and Ghostty; where the platform APIs diffe
 | Per-tab working directory | ✅ | ✅ |
 | Per-pane (split) working directory | ✅ save + restore | ✅ save + restore¹ |
 | Exact split arrangement (positions, sizes) | ✅ pixel-exact | ⚠️ splits recreated in order, geometry not captured² |
-| Sub-tabs within a pane (multi-surface) | ✅ | — (Ghostty has no sub-tabs) |
+| Sub-tabs within a pane (multi-surface) | ✅ | ⚠️ restored as splits⁵ |
 | Browser panes | ✅ | opens URL in default browser |
 | Browser profiles | ✅ saved per pane, reapplied on restore³ | — (no browser panes) |
-| AI session resume | ✅ | ✅ |
+| AI session resume | ✅ per pane **and per tab**⁴ | ✅ per pane |
 
 ¹ Ghostty reports each terminal's directory via OSC 7 (shell integration). When a shell doesn't emit OSC 7, crex falls back to the terminal title (`user@host: ~/path`), accepted only if the directory exists. Restore always sends each pane's `cd`.
 
 ² Ghostty's AppleScript API exposes no pane frames, so saved layouts restore their splits as a right-chain. Edit the layout's `split =` directions by hand (`crex edit <name>`) to customize — re-saves preserve your edits. Exact geometry lands with libghostty.
 
 ³ Each browser pane's profile is saved as `profile = "<name>"` in the layout — only the profile *name*, never cookies, logins, or any credential data (those stay in cmux's own per-profile storage). On restore, crex creates any missing profile as an empty bucket and asks cmux to open the pane with it; cmux applies the assignment from v0.64.21 (older cmux opens the pane on the default profile). Re-saves preserve the saved profile either way.
+
+⁵ Ghostty has no sub-tabs, so a cmux pane holding several tabs restores them as splits beside that pane — each keeps its own folder and its own session command. The arrangement differs from the original, but nothing you were working on is dropped. Saving on Ghostty never produces sub-tabs, so this only applies to restoring a cmux-saved layout there.
+
+⁴ Every tab gets its own resume command, matched on that tab's working directory first — so a workspace holding one tab per git worktree, each with its own Claude Code session, comes back with each tab on its own conversation. Nothing to configure: run `crex save <name>` while the sessions are running. Each detected session is claimed exactly once, so tabs never steal each other's conversation.
 
 ## Common Recipes
 
