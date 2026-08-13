@@ -232,9 +232,9 @@ crex targets full parity between cmux and Ghostty; where the platform APIs diffe
 
 ³ Each browser pane's profile is saved as `profile = "<name>"` in the layout — only the profile *name*, never cookies, logins, or any credential data (those stay in cmux's own per-profile storage). On restore, crex creates any missing profile as an empty bucket and asks cmux to open the pane with it; cmux applies the assignment from v0.64.21 (older cmux opens the pane on the default profile). Re-saves preserve the saved profile either way.
 
-⁵ Ghostty has no sub-tabs, so a cmux pane holding several tabs restores them as splits beside that pane — each keeps its own folder and its own session command. The arrangement differs from the original, but nothing you were working on is dropped. Saving on Ghostty never produces sub-tabs, so this only applies to restoring a cmux-saved layout there.
-
 ⁴ Every tab gets its own resume command, matched on that tab's working directory first — so a workspace holding one tab per git worktree, each with its own Claude Code session, comes back with each tab on its own conversation. Nothing to configure: run `crex save <name>` while the sessions are running. Each detected session is claimed exactly once, so tabs never steal each other's conversation.
+
+⁵ Ghostty has no sub-tabs, so a cmux pane holding several tabs restores them as splits beside that pane — each keeps its own folder and its own session command. The arrangement differs from the original, but nothing you were working on is dropped. Saving on Ghostty never produces sub-tabs, so this only applies to restoring a cmux-saved layout there.
 
 ## Common Recipes
 

@@ -71,7 +71,10 @@ assert_not_contains() {
 cleanup() {
     echo ""
     echo "🧹 Cleaning up..."
-    for ref in "${CLEANUP_REFS[@]}"; do
+    for ref in "${CLEANUP_REFS[@]:-}"; do
+        # Demo workspaces are created PINNED (the blueprint pins them), and
+        # cmux refuses to close a pinned workspace — unpin first or they leak.
+        cmux workspace-action --action unpin --workspace "$ref" >/dev/null 2>&1 || true
         cmux close-workspace --workspace "$ref" 2>/dev/null || true
         sleep 0.2
     done
@@ -145,6 +148,16 @@ TOMLEOF
 
 CREX="crex --config $DEMO_DIR/config.toml"
 
+# Close demo-titled workspaces leaked by a previous run BEFORE snapshotting:
+# a leftover "🌐 webapp" makes the import report "skipped" instead of
+# "created" and poisons every downstream assertion.
+LEFTOVERS=$(cmux list-workspaces 2>/dev/null | grep -E "🌐 webapp|⚙️ api|📓 docs" | grep -o 'workspace:[0-9]*' || true)
+for ref in $LEFTOVERS; do
+    cmux workspace-action --action unpin --workspace "$ref" >/dev/null 2>&1 || true
+    cmux close-workspace --workspace "$ref" >/dev/null 2>&1 || true
+done
+[ -n "$LEFTOVERS" ] && sleep 1
+
 # Snapshot existing workspaces for cleanup.
 cmux list-workspaces 2>/dev/null | grep -o 'workspace:[0-9]*' | sort > "$DEMO_DIR/before.txt" || true
 
@@ -165,13 +178,15 @@ assert_contains "$HELP_OUTPUT" "crex import-from-md" "quick start: import-from-m
 assert_contains "$HELP_OUTPUT" "crex save my-day" "quick start: save example"
 assert_contains "$HELP_OUTPUT" "crex list" "quick start: list example"
 assert_contains "$HELP_OUTPUT" "crex restore my-day --mode add" "quick start: restore example"
-assert_contains "$HELP_OUTPUT" "crex workspace add" "quick start: workspace add example"
+assert_contains "$HELP_OUTPUT" "crex blueprint add" "quick start: blueprint add example"
 
 HELP_LINES=$(echo "$HELP_OUTPUT" | wc -l)
-if [[ $HELP_LINES -le 30 ]]; then
-    pass "help fits on screen ($HELP_LINES lines <= 30)"
+# 45 = today's help (42 lines) plus slack; the original 30 predates the
+# blueprint/template/skill/update commands. Revisit if it ever grows past 45.
+if [[ $HELP_LINES -le 45 ]]; then
+    pass "help fits on screen ($HELP_LINES lines <= 45)"
 else
-    fail "help too long ($HELP_LINES lines > 30)"
+    fail "help too long ($HELP_LINES lines > 45)"
 fi
 
 echo ""
@@ -248,12 +263,14 @@ sleep 1
 
 RESTORE_OUTPUT=$($CREX restore my-day --mode add 2>&1)
 
-assert_contains "$RESTORE_OUTPUT" "Adding from" "adding header shown"
+assert_contains "$RESTORE_OUTPUT" "Syncing (add)" "sync header shown"
 assert_contains "$RESTORE_OUTPUT" "my-day" "layout name shown"
-assert_contains "$RESTORE_OUTPUT" "webapp" "webapp created"
-assert_contains "$RESTORE_OUTPUT" "api" "api created"
+# webapp/api are already open from Scene 3, and sync-based restore (v1.26)
+# deliberately SKIPs matching workspaces instead of recreating them.
+assert_contains "$RESTORE_OUTPUT" "webapp" "webapp accounted for"
+assert_contains "$RESTORE_OUTPUT" "api" "api accounted for"
 assert_contains "$RESTORE_OUTPUT" "docs" "docs created"
-assert_not_contains "$RESTORE_OUTPUT" "SKIP" "no SKIPs — all created fresh"
+assert_contains "$RESTORE_OUTPUT" "SKIP" "already-open workspaces are skipped, not recreated"
 assert_contains "$RESTORE_OUTPUT" "Restored" "restore summary shown"
 
 # Track new workspaces for cleanup.
@@ -275,7 +292,7 @@ assert_contains "$ADD_OUTPUT" "Added" "success message"
 
 WS_LIST_OUTPUT=$($CREX workspace list 2>&1)
 
-assert_contains "$WS_LIST_OUTPUT" "Workspace Blueprint" "heading present"
+assert_contains "$WS_LIST_OUTPUT" "Blueprint" "heading present"
 assert_contains "$WS_LIST_OUTPUT" "webapp" "webapp in blueprint"
 assert_contains "$WS_LIST_OUTPUT" "api" "api in blueprint"
 assert_contains "$WS_LIST_OUTPUT" "notes" "notes added to blueprint"
@@ -306,7 +323,7 @@ assert_contains "$HELP_OUTPUT" "import-from-md" "help quick start mentions impor
 assert_contains "$HELP_OUTPUT" "crex save" "help quick start mentions save (scene 4)"
 assert_contains "$HELP_OUTPUT" "crex list" "help quick start mentions list (scene 5)"
 assert_contains "$HELP_OUTPUT" "restore.*--mode add" "help quick start mentions restore --mode add (scene 6)"
-assert_contains "$HELP_OUTPUT" "workspace add" "help quick start mentions workspace add (scene 7)"
+assert_contains "$HELP_OUTPUT" "blueprint add" "help quick start mentions blueprint add (scene 7)"
 
 echo ""
 
