@@ -583,3 +583,64 @@ func workspaceRefsIn(t *testing.T, windowRef string) []string {
 	}
 	return nil
 }
+
+// TestCmux_SurfaceDirectoriesSeeUnfocusedWindows: the per-tab enrichments
+// (persisted directories, browser profiles) join the session file against the
+// tree's surface UUIDs. That tree lookup used the SCOPED tree, which only
+// contains the focused window — so saving from a background window silently
+// lost every tab's own folder and every browser profile, even though the
+// window-structure fix shipped in v1.27.0 captured the right workspaces.
+func TestCmux_SurfaceDirectoriesSeeUnfocusedWindows(t *testing.T) {
+	requireCmux(t)
+	const title = "crex-audit-unfocused-dirs"
+	if wsByTitle(t, title) != nil {
+		t.Fatalf("a workspace titled %q is already open in cmux — close it and rerun", title)
+	}
+
+	// Three tabs in three folders, in the CURRENT window.
+	_, want := buildTabWorkspace(t, title) // registers its own cleanup
+
+	// Now open a second window and leave it focused: the tab workspace's
+	// window is no longer the frontmost one.
+	winsBefore := windowRefs(t)
+	if _, err := cmuxRun(t, "new-window"); err != nil {
+		t.Fatalf("new-window: %v", err)
+	}
+	var newWin string
+	waitFor(30*time.Second, time.Second, func() bool {
+		for ref := range windowRefs(t) {
+			if !winsBefore[ref] {
+				newWin = ref
+				return true
+			}
+		}
+		return false
+	})
+	if newWin == "" {
+		t.Fatal("second window never appeared")
+	}
+	t.Cleanup(func() { closeWindowByWorkspaces(t, newWin) })
+	_, _ = cmuxRun(t, "focus-window", "--window", newWin)
+	time.Sleep(2 * time.Second)
+
+	c := &client.CLIClient{Binary: cmuxPath(), Timeout: 10 * time.Second}
+	var got []string
+	ok := waitFor(30*time.Second, 2*time.Second, func() bool {
+		dirs, err := c.SurfaceDirectories()
+		if err != nil {
+			return false
+		}
+		ws := wsByTitle(t, title)
+		if ws == nil {
+			return false
+		}
+		got = got[:0]
+		for _, r := range surfaceRefs(ws) {
+			got = append(got, dirs[r])
+		}
+		return multisetEqual(got, want)
+	})
+	if !ok {
+		t.Fatalf("SurfaceDirectories lost the unfocused window's tabs.\nwant %v\ngot  %v", want, got)
+	}
+}

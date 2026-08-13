@@ -85,7 +85,10 @@ func (c *CLIClient) SurfaceDirectories() (map[string]string, error) {
 		return map[string]string{}, nil
 	}
 
-	out, err := c.run("tree", "--json", "--id-format", "both")
+	// --all: save captures the CALLER's window, which need not be the focused
+	// one, and the scoped tree omits every other window — without this the
+	// UUID→ref join comes back empty and each tab's folder is silently lost.
+	out, err := c.run("tree", "--all", "--json", "--id-format", "both")
 	if err != nil {
 		return nil, err
 	}

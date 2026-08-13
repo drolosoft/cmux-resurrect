@@ -238,7 +238,9 @@ func (c *CLIClient) SurfaceProfiles() (map[string]string, error) {
 		return nil, err
 	}
 
-	out, err := c.run("tree", "--json", "--id-format", "both")
+	// --all: same reason as SurfaceDirectories — the caller's window may not
+	// be focused, and the scoped tree would drop its surfaces from the join.
+	out, err := c.run("tree", "--all", "--json", "--id-format", "both")
 	if err != nil {
 		return nil, err
 	}

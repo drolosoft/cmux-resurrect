@@ -1584,3 +1584,39 @@ func TestSave_FallsBackToScopedTreeWhenAllWindowsFails(t *testing.T) {
 		t.Errorf("saved %q, want the scoped tree's window as fallback", got)
 	}
 }
+
+// TestLiveWindow_PrefersCallersWindow: `crex now` and anything else that shows
+// "the current session" must describe the window the command was typed in —
+// the same rule save follows — not whichever window is frontmost.
+func TestLiveWindow_PrefersCallersWindow(t *testing.T) {
+	scoped, all := twoWindowTrees()
+	mc := &allWindowsMock{
+		mockClient: mockClient{treeResp: scoped, sidebarCWDs: map[string]string{}},
+		all:        all,
+	}
+	win, err := LiveWindow(mc)
+	if err != nil {
+		t.Fatalf("LiveWindow: %v", err)
+	}
+	if win.Ref != "window:5" {
+		t.Errorf("LiveWindow = %q, want the caller's window:5", win.Ref)
+	}
+	if !mc.allCalled {
+		t.Error("LiveWindow did not ask for all windows")
+	}
+}
+
+func TestLiveWindow_FallsBackToScopedTree(t *testing.T) {
+	scoped, _ := twoWindowTrees()
+	mc := &allWindowsMock{
+		mockClient: mockClient{treeResp: scoped, sidebarCWDs: map[string]string{}},
+		allErr:     fmt.Errorf("older backend"),
+	}
+	win, err := LiveWindow(mc)
+	if err != nil {
+		t.Fatalf("LiveWindow must fall back, got: %v", err)
+	}
+	if win.Ref != "window:1" {
+		t.Errorf("LiveWindow fallback = %q, want window:1", win.Ref)
+	}
+}

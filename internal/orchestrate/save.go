@@ -125,6 +125,21 @@ func (s *Saver) tree() (*client.TreeResponse, error) {
 	return s.Client.Tree()
 }
 
+// LiveWindow returns the window the calling command should describe: every
+// read-only view of "the current session" (`crex now`, the TUI) follows the
+// same rule as save — the window the command was typed in, falling back to the
+// backend's scoped tree when it can't list all windows.
+func LiveWindow(c client.Backend) (client.TreeWindow, error) {
+	tree, err := (&Saver{Client: c}).tree()
+	if err != nil {
+		return client.TreeWindow{}, err
+	}
+	if len(tree.Windows) == 0 {
+		return client.TreeWindow{}, fmt.Errorf("no windows found")
+	}
+	return currentWindow(tree), nil
+}
+
 // currentWindow picks the window a save should describe. A layout covers one
 // window's worth of workspaces, so with several windows open the only
 // defensible choice is the one the user is working in — taking the first would

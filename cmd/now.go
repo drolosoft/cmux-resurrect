@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/drolosoft/cmux-resurrect/internal/orchestrate"
 	"github.com/spf13/cobra"
 )
 
@@ -22,7 +23,9 @@ func init() {
 
 func runNow(cmd *cobra.Command, args []string) error {
 	cl := newClient()
-	tree, err := cl.Tree()
+	// The window this command was typed in, not whichever is frontmost —
+	// the same rule save follows.
+	win, err := orchestrate.LiveWindow(cl)
 	if err != nil {
 		return fmt.Errorf("read live state: %w", err)
 	}
@@ -32,7 +35,7 @@ func runNow(cmd *cobra.Command, args []string) error {
 
 	home, _ := os.UserHomeDir()
 	total := 0
-	for _, win := range tree.Windows {
+	{
 		for _, ws := range win.Workspaces {
 			total++
 
