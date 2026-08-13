@@ -55,7 +55,12 @@ type cmuxTree struct {
 
 func tree(t *testing.T) cmuxTree {
 	t.Helper()
-	out, err := cmuxRun(t, "tree", "--json", "--id-format", "both")
+	// --all is mandatory here, not an optimization. `tree --json` is scoped to
+	// the FOCUSED window, so a scoped snapshot cannot see workspaces living in
+	// other windows: newWorkspaces() would then mistake a pre-existing
+	// workspace for one it just created the moment focus moved, and rename or
+	// close somebody else's work. Always look at every window.
+	out, err := cmuxRun(t, "tree", "--all", "--json", "--id-format", "both")
 	if err != nil {
 		t.Fatalf("cmux tree: %v", err)
 	}

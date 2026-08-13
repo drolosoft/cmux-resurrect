@@ -476,7 +476,10 @@ func TestCmux_SaveCapturesTheCallersWindow(t *testing.T) {
 	if newWin == "" {
 		t.Fatal("second cmux window never appeared")
 	}
-	t.Cleanup(func() { _, _ = cmuxRun(t, "close-window", "--window", newWin) })
+	// `close-window` answers OK without closing anything, so tear the window
+	// down by closing its workspaces: cmux disposes of a window once its last
+	// workspace goes. Without this the audit leaks a window per run.
+	t.Cleanup(func() { closeWindowByWorkspaces(t, newWin) })
 
 	var wsRef, surfRef string
 	waitFor(30*time.Second, time.Second, func() bool {
@@ -492,10 +495,13 @@ func TestCmux_SaveCapturesTheCallersWindow(t *testing.T) {
 
 	// Hand focus BACK to another window: the whole point is that the caller's
 	// window is not the frontmost one.
+	var refocused string
 	for ref := range before {
+		refocused = ref
 		_, _ = cmuxRun(t, "focus-window", "--window", ref)
 		break
 	}
+	_ = refocused
 	time.Sleep(2 * time.Second)
 
 	// Wait for the new window's shell, then run the save from inside it.
@@ -526,4 +532,54 @@ func TestCmux_SaveCapturesTheCallersWindow(t *testing.T) {
 	if n := strings.Count(string(data), "[[workspace]]"); n != 1 {
 		t.Errorf("captured %d workspaces, want only the caller window's 1:\n%s", n, data)
 	}
+}
+
+// closeWindowByWorkspaces disposes of a cmux window by closing every workspace
+// in it. `close-window` reports success without doing anything, and a window
+// disappears on its own once its last workspace is gone. Pinned workspaces are
+// unpinned first — cmux refuses to close those.
+func closeWindowByWorkspaces(t *testing.T, windowRef string) {
+	t.Helper()
+	for i := 0; i < 10; i++ {
+		refs := workspaceRefsIn(t, windowRef)
+		if len(refs) == 0 {
+			return
+		}
+		for _, ref := range refs {
+			_, _ = cmuxRun(t, "workspace-action", "--action", "unpin", "--workspace", ref)
+			_, _ = cmuxRun(t, "close-workspace", "--workspace", ref)
+		}
+		time.Sleep(time.Second)
+	}
+}
+
+// workspaceRefsIn lists the workspace refs of one window.
+func workspaceRefsIn(t *testing.T, windowRef string) []string {
+	t.Helper()
+	out, err := cmuxRun(t, "tree", "--all", "--json")
+	if err != nil {
+		return nil
+	}
+	var tr struct {
+		Windows []struct {
+			Ref        string `json:"ref"`
+			Workspaces []struct {
+				Ref string `json:"ref"`
+			} `json:"workspaces"`
+		} `json:"windows"`
+	}
+	if json.Unmarshal([]byte(out), &tr) != nil {
+		return nil
+	}
+	for _, w := range tr.Windows {
+		if w.Ref != windowRef {
+			continue
+		}
+		refs := make([]string, 0, len(w.Workspaces))
+		for _, ws := range w.Workspaces {
+			refs = append(refs, ws.Ref)
+		}
+		return refs
+	}
+	return nil
 }
