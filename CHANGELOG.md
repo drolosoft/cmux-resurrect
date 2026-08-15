@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.27.2] — 2026-08-15
+
+### Fixed
+- **Restored browser panes now actually open on their saved profile** — verified for the first time against a cmux that applies profiles (0.64.22): `new-pane --profile` honors the profile, but `workspace create --layout` silently ignores a surface's `profile` key and opens the pane on the last-used profile. crex's cmux restore takes the atomic `--layout` path whenever it can, so every profile-bearing layout landed all its panes on one profile — while the dry-run, which prints the sequential commands, advertised the right ones. Workspaces carrying a browser profile now take the sequential path, where the profile is applied per pane. A live test restores three panes on three profiles (one auto-created) and proves the assignment through per-profile storage isolation; it fails without this fix and passes with it
+
+---
+
 ## [v1.27.1] — 2026-08-15
 
 ### Fixed
@@ -22,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **AI sessions resume per TAB, not just per pane (GitHub #8)** — a workspace with several tabs, each a different git worktree running its own Claude Code (or Codex/OpenCode/…) session, now restores every tab on its own conversation. Detection was pane-only: only the first tab of each pane received a resume command and the rest came back as bare shells. Each tab is now matched on its own working directory first (so one tab per branch resolves to that branch's session) and falls back to the workspace directory; a session is still claimed exactly once, so tabs can't steal each other's conversations. Stale resume commands on tabs are also cleared before re-detection, which previously let an old session id survive every re-save
-- **Browser profiles saved and restored (GitHub #9)** — each cmux browser pane's profile is now captured into the layout as `profile = "<name>"` and reapplied on restore. Only the profile *name* is stored — never cookies, logins, or any credential data; those stay in cmux's own per-profile storage, so restored panes come back signed in exactly as the local profile is. Restore pre-creates missing profiles as empty buckets (so shared layouts don't fail on a fresh machine) and passes the profile through both the atomic layout and the sequential `new-pane --profile` paths. cmux applies the assignment from v0.64.21 (browser profile targeting in CLI pane creation); on older cmux the pane opens on the default profile and the saved field is preserved across re-saves either way. Ghostty: not applicable (no browser panes). The live audit gained a capture-pipeline test, a restore/ensure round-trip test, and a Ghostty harmlessness test
+- **Browser profiles saved and restored (GitHub #9)** — each cmux browser pane's profile is now captured into the layout as `profile = "<name>"` and reapplied on restore. Only the profile *name* is stored — never cookies, logins, or any credential data; those stay in cmux's own per-profile storage, so restored panes come back signed in exactly as the local profile is. Restore pre-creates missing profiles as empty buckets (so shared layouts don't fail on a fresh machine) and passes the profile through `new-pane --profile` (see v1.27.2: the atomic layout path drops it, so profile-bearing layouts restore sequentially). cmux applies the assignment from v0.64.21 (browser profile targeting in CLI pane creation); on older cmux the pane opens on the default profile and the saved field is preserved across re-saves either way. Ghostty: not applicable (no browser panes). The live audit gained a capture-pipeline test, a restore/ensure round-trip test, and a Ghostty harmlessness test
 
 ### Fixed
 - **`crex save` captures the window you ran it in, not whichever is frontmost** — with several cmux windows open, a save made from a background window stored the *focused* window's workspaces: a completely different session from the one under the cursor, silently. cmux scopes `tree --json` to the focused window, so the caller's own window wasn't even in the data crex was reading. Save and export now request every window and select the one holding the caller — the backend's current/active flags and the first window remain as fallbacks, and a backend that can't list all windows keeps working on the scoped tree. Workspace-ref lookups were widened the same way, since a ref can belong to an unfocused window. A live test drives a real save from inside a second window while another has focus
@@ -636,6 +643,7 @@ Initial public release.
 [v1.22.2]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.22.2
 [v1.23.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.23.0
 [v1.24.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.24.0
+[v1.27.2]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.27.2
 [v1.27.1]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.27.1
 [v1.27.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.27.0
 [v1.26.1]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.26.1
