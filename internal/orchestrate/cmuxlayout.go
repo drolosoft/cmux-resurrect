@@ -29,6 +29,14 @@ func buildCmuxLayout(ws model.Workspace) (string, []int, bool) {
 	if len(ws.Panes) == 1 && len(ws.Panes[0].Surfaces) == 0 {
 		return "", nil, false
 	}
+	// Browser profiles cannot ride the atomic path: cmux (verified on 0.64.22)
+	// silently ignores a surface's "profile" key in `workspace create --layout`
+	// and opens the pane on the last-used profile, whereas `new-pane --profile`
+	// honors it. Fall back to the sequential path so the profile is applied —
+	// the layout gains nothing atomic that outweighs landing on the wrong login.
+	if hasBrowserProfile(ws) {
+		return "", nil, false
+	}
 
 	// Mutable tree: a node is either a leaf (surfaces set) or a split.
 	type lnode struct {
@@ -173,6 +181,22 @@ func buildCmuxLayout(ws model.Workspace) (string, []int, bool) {
 		return "", nil, false
 	}
 	return string(data), finalVisual, true
+}
+
+// hasBrowserProfile reports whether any browser pane or tab carries a
+// non-default profile.
+func hasBrowserProfile(ws model.Workspace) bool {
+	for _, p := range ws.Panes {
+		if p.Type == "browser" && p.Profile != "" {
+			return true
+		}
+		for _, s := range p.Surfaces {
+			if s.Type == "browser" && s.Profile != "" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // browserProfile guards the profile slug to browser surfaces only, so a

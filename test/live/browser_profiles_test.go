@@ -354,3 +354,143 @@ func TestGhostty_ProfileBearingLayoutIsHarmless(t *testing.T) {
 			tabCount(t)-baseTabs, terminalsInTab(t, baseTabs+1))
 	}
 }
+
+// TestCmux_RestoredPanesLandOnTheirProfiles is the end-to-end proof that a
+// restored browser pane actually OPENS on its assigned profile — the one check
+// that could not run until cmux ≥0.64.21 shipped profile targeting.
+//
+// Verified live on 0.64.22 while writing this: `new-pane --profile` honors the
+// profile, but `workspace create --layout` silently ignores a surface's
+// "profile" key and opens the pane on the last-used profile. So the atomic
+// path can NEVER be used for profile-bearing layouts; this test would fail
+// again the day someone re-enables it. Assignment is proven by localStorage
+// isolation, which is per-profile in WebKit — no reliance on cmux's session
+// file. Skips (never fails) on cmux that ignores --profile entirely.
+func TestCmux_RestoredPanesLandOnTheirProfiles(t *testing.T) {
+	requireCmux(t)
+	const title = "crex-audit-e2e-profiles"
+	if wsByTitle(t, title) != nil {
+		t.Fatalf("a workspace titled %q is already open in cmux — close it and rerun", title)
+	}
+	profiles := []string{"crex-audit-p1", "crex-audit-p2", "crex-audit-p3"}
+	for _, p := range profiles {
+		deleteProfile(t, p)
+	}
+	t.Cleanup(func() {
+		for _, p := range profiles {
+			deleteProfile(t, p)
+		}
+	})
+	// p1 and p2 pre-exist; p3 must be auto-created by the restore.
+	for _, p := range profiles[:2] {
+		if _, err := cmuxRun(t, "browser", "profiles", "add", p); err != nil {
+			t.Fatalf("create profile %s: %v", p, err)
+		}
+	}
+
+	layouts := t.TempDir()
+	layoutTOML := fmt.Sprintf(`name = "audit-e2e-profiles"
+version = 1
+
+[[workspace]]
+title = %q
+cwd = %q
+index = 0
+
+  [[workspace.pane]]
+  type = "terminal"
+  focus = true
+
+  [[workspace.pane]]
+  type = "browser"
+  split = "right"
+  url = "https://example.net"
+  profile = %q
+
+  [[workspace.pane]]
+  type = "browser"
+  split = "down"
+  url = "https://example.net"
+  profile = %q
+
+  [[workspace.pane]]
+  type = "browser"
+  split = "down"
+  url = "https://example.net"
+  profile = %q
+`, title, homeDir, profiles[0], profiles[1], profiles[2])
+	if err := os.WriteFile(filepath.Join(layouts, "audit-e2e-profiles.toml"), []byte(layoutTOML), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	created := newWorkspaces(t, 1, func() {
+		if _, err := runCrex(t, layouts, crexEnv("CREX_BACKEND=cmux"),
+			"restore", "audit-e2e-profiles", "--mode", "add"); err != nil {
+			t.Fatalf("restore: %v", err)
+		}
+	})
+	t.Cleanup(func() {
+		for _, ref := range created {
+			closeWorkspace(t, ref)
+		}
+	})
+	if profileBySlug(t, profiles[2]) == nil {
+		t.Fatalf("profile %q was not auto-created during restore", profiles[2])
+	}
+
+	// Wait for the three browser surfaces to exist and load.
+	var browsers []string
+	waitFor(60*time.Second, time.Second, func() bool {
+		ws := wsByRef(t, created[0])
+		if ws == nil {
+			return false
+		}
+		browsers = browsers[:0]
+		for _, s := range allSurfaces(ws) {
+			if s.Type == "browser" {
+				browsers = append(browsers, s.Ref)
+			}
+		}
+		return len(browsers) == 3
+	})
+	if len(browsers) != 3 {
+		t.Fatalf("expected 3 browser surfaces, got %v", browsers)
+	}
+	time.Sleep(4 * time.Second)
+
+	// Seed a distinct marker in each surface, then require that NO surface can
+	// read another's marker: three isolated storages ⇒ three profiles.
+	evalOK := func(ref, js string) string {
+		out, _ := cmuxRun(t, "browser", "--surface", ref, "eval", js)
+		return strings.TrimSpace(out)
+	}
+	for i, ref := range browsers {
+		evalOK(ref, fmt.Sprintf("localStorage.setItem('crexE2E','P%d'); 'ok'", i))
+	}
+	time.Sleep(time.Second)
+	got := map[string]string{}
+	for _, ref := range browsers {
+		got[ref] = evalOK(ref, "localStorage.getItem('crexE2E')")
+	}
+	distinct := map[string]bool{}
+	for ref, v := range got {
+		if v == "" || v == "null" {
+			t.Fatalf("surface %s lost its own marker (%v) — eval not working, cannot judge", ref, got)
+		}
+		distinct[v] = true
+	}
+	switch len(distinct) {
+	case 3:
+		t.Logf("each restored pane sits on its own profile: %v", got)
+	case 1:
+		// Every pane shares one storage: either cmux ignores --profile (older
+		// than 0.64.21) or the atomic path swallowed the profiles again.
+		out, _ := cmuxRun(t, "version")
+		if strings.Contains(out, "0.64.20") || strings.Contains(out, "0.63") {
+			t.Skipf("cmux %s ignores --profile; profile assignment cannot be verified here", strings.TrimSpace(out))
+		}
+		t.Fatalf("all three restored panes share ONE profile on cmux %s — profiles were dropped on restore: %v", strings.TrimSpace(out), got)
+	default:
+		t.Fatalf("expected 3 isolated profiles, got %d: %v", len(distinct), got)
+	}
+}

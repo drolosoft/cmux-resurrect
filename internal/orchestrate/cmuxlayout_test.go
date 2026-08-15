@@ -391,35 +391,24 @@ func TestBuildCmuxLayout_EmptyLeafCWDFallsBackToWorkspaceCWD(t *testing.T) {
 	}
 }
 
+// TestBuildCmuxLayout_BrowserProfile: this test USED to require the profile
+// to be embedded in the atomic layout JSON, on the assumption cmux would honor
+// it. Verified live on cmux 0.64.22: it does not — `workspace create --layout`
+// ignores "profile" and the pane opens on the last-used profile. Embedding it
+// was therefore a silent no-op that let restores land on the wrong login while
+// the dry-run advertised the right one. Profiles now force the sequential
+// path (see the ...ForcesSequentialPath test); this guard makes sure nobody
+// re-enables the atomic path for them without re-verifying against cmux.
 func TestBuildCmuxLayout_BrowserProfile(t *testing.T) {
 	ws := model.Workspace{
-		Title: "dev",
-		CWD:   "/tmp/project",
+		Title: "dev", CWD: "/tmp/project",
 		Panes: []model.Pane{
 			{Type: "terminal", Focus: true},
-			{
-				Type: "browser", Split: "right", URL: "http://localhost:3000",
-				Profile: "work-admin",
-				Surfaces: []model.Surface{
-					{Type: "browser", URL: "http://localhost:3000/user", Profile: "work-user"},
-				},
-			},
+			{Type: "browser", Split: "right", URL: "http://localhost:3000", Profile: "work-admin"},
 		},
 	}
-
-	layoutJSON, _, ok := buildCmuxLayout(ws)
-	if !ok {
-		t.Fatal("layout not buildable")
-	}
-	if !strings.Contains(layoutJSON, `"profile":"work-admin"`) {
-		t.Errorf("layout JSON missing pane profile:\n%s", layoutJSON)
-	}
-	if !strings.Contains(layoutJSON, `"profile":"work-user"`) {
-		t.Errorf("layout JSON missing surface profile:\n%s", layoutJSON)
-	}
-	// Exactly the two browser entries carry a profile — terminals never do.
-	if n := strings.Count(layoutJSON, `"profile"`); n != 2 {
-		t.Errorf("layout JSON has %d profile keys, want 2:\n%s", n, layoutJSON)
+	if js, _, ok := buildCmuxLayout(ws); ok {
+		t.Fatalf("profile-bearing workspace built atomically; cmux would drop the profile:\n%s", js)
 	}
 }
 
@@ -440,5 +429,50 @@ func TestBuildCmuxLayout_NoProfileStaysClean(t *testing.T) {
 	}
 	if strings.Contains(layoutJSON, "profile") {
 		t.Errorf("no-profile layout JSON leaks a profile key:\n%s", layoutJSON)
+	}
+}
+
+// TestBuildCmuxLayout_BrowserProfileForcesSequentialPath: verified live on cmux
+// 0.64.22 — `workspace create --layout` silently IGNORES a surface's "profile"
+// key (the pane opens on the last-used profile), while `new-pane --profile`
+// honors it. A workspace carrying a non-default profile therefore cannot be
+// reproduced atomically and must take the sequential path, or the restored
+// panes land on the wrong profile with the dry-run claiming otherwise.
+func TestBuildCmuxLayout_BrowserProfileForcesSequentialPath(t *testing.T) {
+	ws := model.Workspace{
+		Title: "dev", CWD: "/tmp/project",
+		Panes: []model.Pane{
+			{Type: "terminal", Focus: true},
+			{Type: "browser", Split: "right", URL: "http://localhost:3000", Profile: "work-admin"},
+		},
+	}
+	if _, _, ok := buildCmuxLayout(ws); ok {
+		t.Fatal("a workspace with a browser profile must NOT be atomically buildable: cmux ignores profile in --layout")
+	}
+
+	// A profile on an extra TAB must force it too.
+	ws2 := model.Workspace{
+		Title: "dev", CWD: "/tmp/project",
+		Panes: []model.Pane{
+			{Type: "terminal", Focus: true},
+			{Type: "terminal", Split: "right", Surfaces: []model.Surface{
+				{Type: "browser", URL: "http://localhost:3000", Profile: "work-user"},
+			}},
+		},
+	}
+	if _, _, ok := buildCmuxLayout(ws2); ok {
+		t.Fatal("a browser TAB with a profile must also force the sequential path")
+	}
+
+	// Without profiles the atomic path stays available (the common case).
+	ws3 := model.Workspace{
+		Title: "dev", CWD: "/tmp/project",
+		Panes: []model.Pane{
+			{Type: "terminal", Focus: true},
+			{Type: "browser", Split: "right", URL: "http://localhost:3000"},
+		},
+	}
+	if _, _, ok := buildCmuxLayout(ws3); !ok {
+		t.Fatal("a profile-less workspace must remain atomically buildable")
 	}
 }
