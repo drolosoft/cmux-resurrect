@@ -19,9 +19,20 @@ git clone https://github.com/YOUR-USERNAME/cmux-resurrect.git
 cd cmux-resurrect
 make build
 make test
+make hooks   # installs the pre-commit guard described below
 ```
 
 Requires Go 1.26+.
+
+### What belongs in the repository
+
+This is a public repository. Only the product ships here: source, tests,
+user documentation, release tooling. Working material does not: planning
+notes, specs, prompt files, drafts, reports, or editor/agent configuration.
+`scripts/check-internal-files.sh` enforces this as a pre-commit hook
+(`make hooks`) and in CI, so a stray note fails the build instead of landing
+in every fork's history. If it flags a file that is genuinely public, add it
+to the allow-list in that script with a one-line reason.
 
 ## Code Style
 

@@ -81,6 +81,18 @@ audit-ghostty:
 lint:
 	go vet ./...
 	golangci-lint run
+	bash scripts/check-internal-files.sh --tree
+
+# Install the local pre-commit guard against committing internal files.
+# CI enforces the same check; this just fails earlier, on your machine.
+hooks:
+	printf '#!/usr/bin/env bash\nexec bash "$$(git rev-parse --show-toplevel)/scripts/check-internal-files.sh" --staged\n' > .git/hooks/pre-commit
+	chmod +x .git/hooks/pre-commit
+	@echo "✓ pre-commit hook installed"
+
+check-internal:
+	bash scripts/check-internal-files.sh --tree
+	bash scripts/check-internal-files_test.sh
 
 clean:
 	rm -rf bin/

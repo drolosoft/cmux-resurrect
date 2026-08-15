@@ -17,6 +17,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Public repository: refuse any tracked internal working file
+      # (plans, prompts, drafts, reports, AI-session commands). Runs first
+      # so a leak fails fast, and runs in CI so `git commit --no-verify`
+      # or `git add -f` can't bypass the local pre-commit hook.
+      - name: Guard against internal files
+        run: bash scripts/check-internal-files.sh --tree
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
