@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.27.1] — 2026-08-15
+
+### Fixed
+- **Saving from a background window no longer loses per-tab folders or browser profiles** — v1.27.0 taught `crex save` to capture the window the command was typed in, but the per-surface enrichments (each tab's persisted folder, each browser pane's profile) still joined against the focused window's tree. With several cmux windows open, a save made from a background one captured the right workspaces while silently dropping exactly the data GitHub #8 and #9 shipped: unopened tabs collapsed back onto the first tab's path and profile assignments vanished. Both lookups now read every window; a live test builds three tabs in three folders, focuses a different window, and requires the folders to survive
+- **`crex now` shows the window you ran it in** — with several windows open it listed the frontmost window's workspaces instead of yours. It now follows the same rule as save (the caller's window, with the same fallbacks), so what `now` prints is what `save` would capture
+
+### Changed
+- **`scripts/validate-demo.sh` repaired** — six assertions had drifted across releases (renamed commands, sync-based restore wording, help length) and three script bugs leaked pinned demo workspaces between runs; now passes 56/56 twice in a row leaving nothing behind
+
+---
+
 ## [v1.27.0] — 2026-08-13
 
 ### Added
@@ -625,6 +636,7 @@ Initial public release.
 [v1.22.2]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.22.2
 [v1.23.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.23.0
 [v1.24.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.24.0
+[v1.27.1]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.27.1
 [v1.27.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.27.0
 [v1.26.1]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.26.1
 [v1.26.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.26.0
