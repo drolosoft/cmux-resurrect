@@ -10,6 +10,7 @@ import (
 var autoAcceptCache = detect.AutoAcceptFlags()
 
 // InjectAutoAccept checks if a command starts with a known AI tool name
+// (after any leading VAR=value assignments)
 // and if that tool is enabled in the autoAccept config list. If so, it
 // injects the tool's auto-accept flag after the tool name.
 //
@@ -20,12 +21,16 @@ func InjectAutoAccept(command string, autoAccept []string) (string, string) {
 		return command, ""
 	}
 
+	// Leading VAR=value assignments (e.g. CLAUDE_CONFIG_DIR=…) are kept in
+	// front; the tool name is the first word after them.
+	envPrefix, cmdline := detect.SplitEnvPrefix(command)
+
 	// Extract the first word (tool name).
-	toolName := command
+	toolName := cmdline
 	rest := ""
-	if idx := strings.IndexByte(command, ' '); idx >= 0 {
-		toolName = command[:idx]
-		rest = command[idx:]
+	if idx := strings.IndexByte(cmdline, ' '); idx >= 0 {
+		toolName = cmdline[:idx]
+		rest = cmdline[idx:]
 	}
 
 	flag, known := autoAcceptCache[toolName]
@@ -51,5 +56,5 @@ func InjectAutoAccept(command string, autoAccept []string) (string, string) {
 	}
 
 	// Inject flag after the tool name.
-	return toolName + " " + flag + rest, toolName
+	return envPrefix + toolName + " " + flag + rest, toolName
 }

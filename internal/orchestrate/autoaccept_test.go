@@ -113,3 +113,13 @@ func TestInjectAutoAccept_MultiWordFlag(t *testing.T) {
 		t.Errorf("tool = %q, want qoder", tool)
 	}
 }
+
+func TestInjectAutoAccept_EnvPrefix(t *testing.T) {
+	cmd, tool := InjectAutoAccept("CLAUDE_CONFIG_DIR=/Users/me/.claude-pro claude --resume abc123", []string{"claude"})
+	if cmd != "CLAUDE_CONFIG_DIR=/Users/me/.claude-pro claude --dangerously-skip-permissions --resume abc123" {
+		t.Errorf("got %q", cmd)
+	}
+	if tool != "claude" {
+		t.Errorf("tool = %q, want claude", tool)
+	}
+}

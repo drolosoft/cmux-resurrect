@@ -25,6 +25,7 @@ type Session struct {
 	Tool    string // e.g. "claude", "opencode", "codex", "amp", "gemini", "copilot", "grok"
 	CWD     string // working directory of the process
 	Command string // full resume command (e.g. "claude --resume <id>")
+	Title   string // conversation title shown in the terminal title, if known (claude)
 }
 
 // detector defines how to detect and resolve sessions for one AI tool.
@@ -161,9 +162,10 @@ func AISessions() DetectedSessions {
 	// Deduplicate detector invocations:
 	//   - CWD-based tools (claude/opencode/codex): one call per (tool, cwd),
 	//     since multiple instances in the same CWD resolve to the same session.
-	//   - PID-based tools (amp): one call per (tool, pid), so two amp
-	//     instances in the same CWD each get their own thread.
+	//   - PID-based tools (amp, claude): one call per (tool, pid), so two
+	//     instances in the same CWD each get their own session.
 	seen := make(map[string]bool)
+	seenCommand := make(map[string]bool)
 
 	// Build process name → detector lookup.
 	detectorByName := make(map[string]detector, len(registry))
@@ -174,7 +176,10 @@ func AISessions() DetectedSessions {
 	procs := listAIProcesses(detectorByName)
 	for _, p := range procs {
 		key := p.tool + ":" + p.cwd
-		if p.tool == "amp" {
+		if p.tool == "amp" || p.tool == "claude" {
+			// amp resolves a thread per process; claude reads each process's
+			// own session file and config dir, so two instances in one CWD
+			// can hold different conversations.
 			key = p.tool + ":" + p.pid
 		}
 		if seen[key] {
@@ -184,7 +189,10 @@ func AISessions() DetectedSessions {
 
 		d := detectorByName[p.tool]
 		s := d.Detect(p.cwd, p.pid)
-		if s != nil {
+		// PID-keyed detectors can still resolve two processes to the same
+		// session (e.g. the most-recent-transcript fallback); keep one.
+		if s != nil && !seenCommand[s.Command] {
+			seenCommand[s.Command] = true
 			result.ByCWD[s.CWD] = append(result.ByCWD[s.CWD], *s)
 			result.ByTool[s.Tool] = append(result.ByTool[s.Tool], *s)
 		}
@@ -334,21 +342,42 @@ func batchCWDs(pids []struct{ pid, tool string }) map[string]string {
 	return cwds
 }
 
-// detectClaude finds the active session ID for a Claude Code instance by CWD.
-// Sessions are stored as .jsonl files in ~/.claude/projects/<path-with-dashes>/.
-func detectClaude(cwd, _ string) *Session {
-	home, err := os.UserHomeDir()
-	if err != nil {
+// detectClaude finds the session of a Claude Code process. The config dir
+// comes from the process's CLAUDE_CONFIG_DIR (default ~/.claude). The exact
+// session is read from <config>/sessions/<pid>.json when present; otherwise
+// the most recent transcript in <config>/projects/<encoded-cwd>/ is used.
+func detectClaude(cwd, pid string) *Session {
+	configDir, custom := claudeConfigDir(pid)
+	if configDir == "" {
 		return nil
 	}
 
-	// Claude converts "/" to "-" for the project directory name.
-	projectPath := strings.ReplaceAll(cwd, "/", "-")
-	projectDir := filepath.Join(home, ".claude", "projects", projectPath)
+	sessionID, transcript := claudeSessionForPID(configDir, pid, cwd)
+	if sessionID == "" {
+		for _, dir := range claudeProjectDirs(configDir, cwd) {
+			if sessionID = latestClaudeSession(dir); sessionID != "" {
+				transcript = filepath.Join(dir, sessionID+".jsonl")
+				break
+			}
+		}
+	}
+	if sessionID == "" {
+		return nil
+	}
+	return &Session{
+		Tool:    "claude",
+		CWD:     cwd,
+		Command: claudeResumeCommand(configDir, custom, sessionID),
+		Title:   claudeSessionTitle(transcript),
+	}
+}
 
+// latestClaudeSession returns the ID of the most recently modified
+// transcript in a Claude project directory, or "" if none qualifies.
+func latestClaudeSession(projectDir string) string {
 	entries, err := os.ReadDir(projectDir)
 	if err != nil {
-		return nil
+		return ""
 	}
 
 	// Find the most recently modified .jsonl file. Skip files under 500
@@ -378,7 +407,7 @@ func detectClaude(cwd, _ string) *Session {
 		})
 	}
 	if len(sessions) == 0 {
-		return nil
+		return ""
 	}
 
 	sort.Slice(sessions, func(i, j int) bool {
@@ -387,13 +416,9 @@ func detectClaude(cwd, _ string) *Session {
 
 	sessionID := strings.TrimSuffix(sessions[0].name, ".jsonl")
 	if !validSessionID.MatchString(sessionID) {
-		return nil
+		return ""
 	}
-	return &Session{
-		Tool:    "claude",
-		CWD:     cwd,
-		Command: "claude --resume " + sessionID,
-	}
+	return sessionID
 }
 
 // detectOpenCode finds the active session for an OpenCode instance by CWD.

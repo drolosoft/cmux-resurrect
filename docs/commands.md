@@ -252,6 +252,8 @@ crex targets full parity between cmux and Ghostty; where the platform APIs diffe
 
 ⁶ `crex save` reads the groups of the window it runs in and stores each one (name, collapsed, pinned, color, icon) with its members and anchor. Restore creates the anchor first, then the other members inside the group, then applies collapse, color, icon and pin. A layout without groups is written exactly as before, and an older crex ignores the group keys. On Ghostty, which has no groups, restore adds one line to its warnings and never fails.
 
+**Claude Code config directories.** Sessions started with a custom `CLAUDE_CONFIG_DIR` (for example a `claude-pro` alias for `CLAUDE_CONFIG_DIR=~/.claude-pro claude`) are detected too: crex reads the variable from each running `claude` process and looks for the session under that directory. The saved resume command sets it again (`CLAUDE_CONFIG_DIR=/Users/you/.claude-pro claude --resume <id>`), so the session reopens with the same account and settings. When several Claude sessions share a directory, each tab gets the session whose title it shows.
+
 ## Common Recipes
 
 ### Save before a reboot
