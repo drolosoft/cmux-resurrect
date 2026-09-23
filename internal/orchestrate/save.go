@@ -499,8 +499,11 @@ var aiResumePatterns = []string{
 // (like "npm run dev") are kept because they don't match AI patterns.
 func clearAutoDetectedCommands(layout *model.Layout) {
 	clear := func(cmd *string) {
+		// Resume commands may carry an env prefix such as
+		// CLAUDE_CONFIG_DIR=… for a non-default Claude config dir.
+		_, bare := detect.SplitEnvPrefix(*cmd)
 		for _, pattern := range aiResumePatterns {
-			if strings.HasPrefix(*cmd, pattern) {
+			if strings.HasPrefix(bare, pattern) {
 				*cmd = ""
 				return
 			}
@@ -568,27 +571,58 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces []client.TreeWor
 		return nil
 	}
 
+	// findTitledSession returns an unconsumed session whose conversation
+	// title appears in the surface title. Claude Code shows its session
+	// title in the terminal title, which tells apart several sessions
+	// running in the same directory.
+	findTitledSession := func(sessions []detect.Session, tool, title string) *detect.Session {
+		for i := range sessions {
+			s := &sessions[i]
+			if s.Tool == tool && !consumed[s.Command] && s.Title != "" && strings.Contains(title, s.Title) {
+				return s
+			}
+		}
+		return nil
+	}
+
 	// Pass 1a: Title + CWD match (highest confidence). Assign sessions only
 	// when both the surface title confirms the tool AND a CWD matches a
 	// detected session's CWD. This prevents CWD-mismatched workspaces from
 	// stealing sessions that belong to other workspaces. Each slot is matched
 	// on its OWN cwd first (a tab per git worktree resolves to its own
 	// session), then on the workspace cwd.
-	for i := range layout.Workspaces {
-		ws := &layout.Workspaces[i]
-		for _, sl := range commandSlots(ws, surfaceTitles) {
-			for tool, patterns := range aiTitlePatterns {
-				if !titleMatchesAI(sl.title, patterns) {
+	//
+	// It runs twice: first only where the session's own title is in the
+	// surface title, so a slot earlier in the layout can't take a session
+	// that a later slot names; then without that requirement.
+	titled := make(map[*string]bool)
+	for _, byTitle := range []bool{true, false} {
+		for i := range layout.Workspaces {
+			ws := &layout.Workspaces[i]
+			for _, sl := range commandSlots(ws, surfaceTitles) {
+				if titled[sl.cmd] {
 					continue
 				}
-				for _, cwd := range sl.searchCWDs() {
-					if s := findSession(detected.ByCWD[cwd], tool); s != nil {
-						*sl.cmd = s.Command
-						consumed[s.Command] = true
-						break
+				for tool, patterns := range aiTitlePatterns {
+					if !titleMatchesAI(sl.title, patterns) {
+						continue
 					}
+					for _, cwd := range sl.searchCWDs() {
+						var s *detect.Session
+						if byTitle {
+							s = findTitledSession(detected.ByCWD[cwd], tool, sl.title)
+						} else {
+							s = findSession(detected.ByCWD[cwd], tool)
+						}
+						if s != nil {
+							*sl.cmd = s.Command
+							consumed[s.Command] = true
+							titled[sl.cmd] = true
+							break
+						}
+					}
+					break
 				}
-				break
 			}
 		}
 	}

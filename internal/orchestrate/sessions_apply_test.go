@@ -191,3 +191,56 @@ func TestClearAutoDetectedCommands_ClearsExtraTabs(t *testing.T) {
 		t.Errorf("user command on tab was wrongly cleared: %q", pane.Surfaces[1].Command)
 	}
 }
+
+func TestClearAutoDetectedCommands_EnvPrefixedResume(t *testing.T) {
+	layout := &model.Layout{
+		Workspaces: []model.Workspace{{
+			Title: "proj",
+			Panes: []model.Pane{
+				{Type: "terminal", Command: "CLAUDE_CONFIG_DIR=/Users/me/.claude-pro claude --resume stale"},
+				{Type: "terminal", Command: "NODE_ENV=dev npm run dev"}, // user command: must survive
+			},
+		}},
+	}
+
+	clearAutoDetectedCommands(layout)
+
+	if got := layout.Workspaces[0].Panes[0].Command; got != "" {
+		t.Errorf("env-prefixed resume command not cleared: %q", got)
+	}
+	if got := layout.Workspaces[0].Panes[1].Command; got != "NODE_ENV=dev npm run dev" {
+		t.Errorf("user command wrongly cleared: %q", got)
+	}
+}
+
+// TestApplyDetectedSessions_SameCWDMatchedByTitle: two Claude sessions run in
+// the same directory, in two tabs. Each tab shows its session's title, which
+// decides the match — even when the tab listed first would otherwise take
+// whichever session was detected first.
+func TestApplyDetectedSessions_SameCWDMatchedByTitle(t *testing.T) {
+	layout := &model.Layout{
+		Workspaces: []model.Workspace{
+			{Title: "✳ Review code", CWD: "/home/u/proj", Panes: []model.Pane{{Type: "terminal"}}},
+			{Title: "⠂ Fix login bug", CWD: "/home/u/proj", Panes: []model.Pane{{Type: "terminal"}}},
+		},
+	}
+	tree := []client.TreeWorkspace{
+		{Title: "✳ Review code", Panes: []client.TreePane{{Surfaces: []client.TreeSurface{{Title: "✳ Review code"}}}}},
+		{Title: "⠂ Fix login bug", Panes: []client.TreePane{{Surfaces: []client.TreeSurface{{Title: "⠂ Fix login bug"}}}}},
+	}
+	login := detect.Session{Tool: "claude", CWD: "/home/u/proj", Command: "CLAUDE_CONFIG_DIR=/home/u/.claude-pro claude --resume login", Title: "Fix login bug"}
+	review := detect.Session{Tool: "claude", CWD: "/home/u/proj", Command: "claude --resume review", Title: "Review code"}
+	detected := detect.DetectedSessions{
+		ByCWD:  map[string][]detect.Session{"/home/u/proj": {login, review}},
+		ByTool: map[string][]detect.Session{"claude": {login, review}},
+	}
+
+	applyDetectedSessions(layout, tree, detected)
+
+	if got := layout.Workspaces[0].Panes[0].Command; got != review.Command {
+		t.Errorf("'Review code' tab command = %q, want %q", got, review.Command)
+	}
+	if got := layout.Workspaces[1].Panes[0].Command; got != login.Command {
+		t.Errorf("'Fix login bug' tab command = %q, want %q", got, login.Command)
+	}
+}

@@ -236,6 +236,8 @@ crex targets full parity between cmux and Ghostty; where the platform APIs diffe
 
 ⁵ Ghostty has no sub-tabs, so a cmux pane holding several tabs restores them as splits beside that pane — each keeps its own folder and its own session command. The arrangement differs from the original, but nothing you were working on is dropped. Saving on Ghostty never produces sub-tabs, so this only applies to restoring a cmux-saved layout there.
 
+**Claude Code config directories.** Sessions started with a custom `CLAUDE_CONFIG_DIR` (for example a `claude-pro` alias for `CLAUDE_CONFIG_DIR=~/.claude-pro claude`) are detected too: crex reads the variable from each running `claude` process and looks for the session under that directory. The saved resume command sets it again (`CLAUDE_CONFIG_DIR=/Users/you/.claude-pro claude --resume <id>`), so the session reopens with the same account and settings. When several Claude sessions share a directory, each tab gets the session whose title it shows.
+
 ## Common Recipes
 
 ### Save before a reboot
