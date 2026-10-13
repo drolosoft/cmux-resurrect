@@ -43,18 +43,28 @@ func (s *Saver) Save(name, description string) (*model.Layout, error) {
 		SavedAt:     time.Now().UTC(),
 	}
 
-	// Deduplicate workspaces with the same title. cmux can report ghost
-	// workspaces (stale refs with no tty). When duplicates exist, keep the
-	// one with the most panes that have ttys.
-	workspaces := deduplicateWorkspaces(win.Workspaces)
+	// Sidebar groups are per window in cmux, so they are read for the same
+	// window the workspaces come from. A failure here only costs the group
+	// data, never the save: the workspaces themselves are still worth keeping.
+	groups, groupErr := s.captureGroups(win)
+	if groupErr != nil {
+		fmt.Fprintf(os.Stderr, "  warning: workspace groups: %v (keeping the groups of the saved layout)\n", groupErr)
+	}
+
+	// Deduplicate workspaces with the same title in the same group. cmux can
+	// report ghost workspaces (stale refs with no tty). When duplicates
+	// exist, keep the one with the most panes that have ttys.
+	workspaces := deduplicateWorkspaces(win.Workspaces, groups.membership)
 
 	// Per-surface data the tree can't report, gathered once per save.
 	extras := s.gatherExtras()
 
-	// Titles of workspaces whose split geometry was resolved from live pixel
-	// frames. For these, live geometry is authoritative and a previously saved
-	// split direction must not override it on re-save (GitHub #8 follow-up).
-	geoTitles := make(map[string]bool)
+	// Positions in layout.Workspaces whose split geometry was resolved from
+	// live pixel frames. For these, live geometry is authoritative and a
+	// previously saved split direction must not override it on re-save
+	// (GitHub #8 follow-up). Positions, not titles, because two groups may
+	// each hold a workspace with the same title.
+	geoResolved := make(map[int]bool)
 	for _, tw := range workspaces {
 		ws, geometryApplied, err := s.buildWorkspace(tw, extras)
 		if err != nil {
@@ -62,8 +72,13 @@ func (s *Saver) Save(name, description string) (*model.Layout, error) {
 			fmt.Fprintf(os.Stderr, "  warning: workspace %q: %v\n", tw.Title, err)
 			continue
 		}
+
+		member := groups.membership[tw.Ref]
+		ws.Group = member.name
+		ws.GroupAnchor = member.anchor
+
 		if geometryApplied {
-			geoTitles[ws.Title] = true
+			geoResolved[len(layout.Workspaces)] = true
 		}
 		layout.Workspaces = append(layout.Workspaces, *ws)
 	}
@@ -72,12 +87,20 @@ func (s *Saver) Save(name, description string) (*model.Layout, error) {
 		return nil, fmt.Errorf("no workspaces could be captured")
 	}
 
+	layout.Groups = groups.savedGroups(layout.Workspaces)
+
 	// Load existing layout for merge and revision tracking.
 	existing, loadErr := s.Store.Load(name)
 
 	// If a TOML already exists, merge user-edited fields (description, commands).
 	if loadErr == nil {
-		mergeUserEdits(layout, existing, geoTitles)
+		// Only when cmux could not list the groups does the file speak for
+		// them; otherwise the live sidebar is the only source of group data.
+		// This runs before the merge so it can pair workspaces by group.
+		if groupErr != nil {
+			keepExistingGroups(layout, existing)
+		}
+		mergeUserEdits(layout, existing, geoResolved)
 	}
 
 	// Clear all auto-detected commands before re-detection. Each save is
@@ -412,17 +435,203 @@ func applySplitGeometry(ws *model.Workspace, paneList *client.PaneListResponse) 
 	return true
 }
 
-// deduplicateWorkspaces removes ghost workspaces that share a title with
-// a real workspace. When duplicates exist, the workspace with the most
-// panes that have ttys wins. Ghost workspaces in cmux are stale refs that
-// appear in the tree but have no active terminals.
-func deduplicateWorkspaces(workspaces []client.TreeWorkspace) []client.TreeWorkspace {
+// groupMembership is the group a tree workspace belongs to, as save will
+// write it: name is the group's name after duplicate names were made unique
+// ("" for a loose workspace), anchor marks the group's header workspace.
+type groupMembership struct {
+	name   string
+	anchor bool
+}
+
+// liveGroups is what save learned about the sidebar groups of one window.
+// The zero value means "no groups": a backend without groups, a failed list
+// or a window with none all leave both maps nil.
+type liveGroups struct {
+	// membership maps a tree workspace ref to its group.
+	membership map[string]groupMembership
+
+	// stateByName holds each group's sidebar state under its saved name.
+	stateByName map[string]model.Group
+}
+
+// placedGroup is a live group together with its position in the sidebar:
+// the sidebar index of its first member in the window being saved.
+type placedGroup struct {
+	group    client.WorkspaceGroup
+	position int
+}
+
+// captureGroups reads the sidebar groups of the window being saved, when the
+// backend has groups at all (cmux; Ghostty has none and is left untouched).
+// Groups are put in sidebar order before they are named, so when two live
+// groups share a name the one lower in the sidebar is the one renamed.
+func (s *Saver) captureGroups(win client.TreeWindow) (liveGroups, error) {
+	manager, ok := s.Client.(client.GroupManager)
+	if !ok {
+		return liveGroups{}, nil
+	}
+
+	listed, err := manager.ListGroups(win.Ref)
+	if err != nil {
+		return liveGroups{}, err
+	}
+	if len(listed) == 0 {
+		return liveGroups{}, nil
+	}
+
+	placed := placeGroups(listed, win.Workspaces)
+
+	captured := liveGroups{
+		membership:  make(map[string]groupMembership),
+		stateByName: make(map[string]model.Group),
+	}
+
+	// Workspaces point at their group by name, so names must be unique in a
+	// layout. cmux allows duplicates; the second one becomes "name (2)".
+	timesSeen := make(map[string]int)
+	for _, entry := range placed {
+		group := entry.group
+		timesSeen[group.Name]++
+
+		name := group.Name
+		if timesSeen[group.Name] > 1 {
+			name = fmt.Sprintf("%s (%d)", group.Name, timesSeen[group.Name])
+			fmt.Fprintf(os.Stderr, "  warning: group name %q is used more than once; saving this one as %q\n", group.Name, name)
+		}
+
+		captured.stateByName[name] = model.Group{
+			Name:      name,
+			Collapsed: group.Collapsed,
+			Pinned:    group.Pinned,
+			Color:     group.Color,
+			Icon:      group.Icon,
+		}
+
+		for _, ref := range group.MemberRefs {
+			// A workspace sits in one group only; should cmux ever repeat a
+			// ref, the group higher in the sidebar keeps it.
+			if _, taken := captured.membership[ref]; taken {
+				continue
+			}
+			captured.membership[ref] = groupMembership{name: name, anchor: ref == group.AnchorRef}
+		}
+	}
+
+	return captured, nil
+}
+
+// placeGroups orders the live groups as the sidebar shows them. A group sits
+// where its first member in this window sits; members cmux lists outside the
+// window are ignored, and a group with no member here is dropped because it
+// has nothing to save.
+func placeGroups(listed []client.WorkspaceGroup, workspaces []client.TreeWorkspace) []placedGroup {
+	sidebarIndex := make(map[string]int, len(workspaces))
+	for _, tw := range workspaces {
+		sidebarIndex[tw.Ref] = tw.Index
+	}
+
+	var placed []placedGroup
+	for _, group := range listed {
+		position := -1
+		for _, ref := range group.MemberRefs {
+			index, inWindow := sidebarIndex[ref]
+			if inWindow && (position < 0 || index < position) {
+				position = index
+			}
+		}
+		if position >= 0 {
+			placed = append(placed, placedGroup{group: group, position: position})
+		}
+	}
+
+	sort.SliceStable(placed, func(i, j int) bool {
+		return placed[i].position < placed[j].position
+	})
+
+	return placed
+}
+
+// savedGroups returns the layout's group list: one entry per group that kept
+// at least one saved member, in sidebar order of that first saved member. It
+// returns nil when no saved workspace is grouped, so the TOML has no group
+// keys at all and stays byte-identical to a layout from before groups.
+func (g liveGroups) savedGroups(workspaces []model.Workspace) []model.Group {
+	bySidebar := make([]model.Workspace, len(workspaces))
+	copy(bySidebar, workspaces)
+	sort.SliceStable(bySidebar, func(i, j int) bool {
+		return bySidebar[i].Index < bySidebar[j].Index
+	})
+
+	var groups []model.Group
+	listed := make(map[string]bool)
+	for _, ws := range bySidebar {
+		if ws.Group == "" || listed[ws.Group] {
+			continue
+		}
+		listed[ws.Group] = true
+		groups = append(groups, g.stateByName[ws.Group])
+	}
+
+	return groups
+}
+
+// keepExistingGroups copies the group data of the stored layout onto the live
+// one. It is only for a save where cmux could not list the groups: rather
+// than silently dropping every group from the file, the last known grouping
+// is kept. Workspaces pair up by title, in file order when a title repeats,
+// and only groups that still have a member are kept.
+func keepExistingGroups(live, existing *model.Layout) {
+	pendingByTitle := make(map[string][]*model.Workspace)
+	for i := range existing.Workspaces {
+		ew := &existing.Workspaces[i]
+		pendingByTitle[ew.Title] = append(pendingByTitle[ew.Title], ew)
+	}
+
+	referenced := make(map[string]bool)
+	for i := range live.Workspaces {
+		lw := &live.Workspaces[i]
+		pending := pendingByTitle[lw.Title]
+		if len(pending) == 0 {
+			continue
+		}
+
+		lw.Group = pending[0].Group
+		lw.GroupAnchor = pending[0].GroupAnchor
+		pendingByTitle[lw.Title] = pending[1:]
+		if lw.Group != "" {
+			referenced[lw.Group] = true
+		}
+	}
+
+	live.Groups = nil
+	for _, group := range existing.Groups {
+		if referenced[group.Name] {
+			live.Groups = append(live.Groups, group)
+		}
+	}
+}
+
+// workspaceKey identifies a workspace within one layout. A title alone is not
+// enough once groups exist: two groups may each hold an "api" workspace.
+type workspaceKey struct {
+	group string
+	title string
+}
+
+// deduplicateWorkspaces removes ghost workspaces that share a title with a
+// real workspace in the same group (or both loose). When duplicates exist,
+// the workspace with the most panes that have ttys wins. Ghost workspaces in
+// cmux are stale refs that appear in the tree but have no active terminals.
+// membership maps tree refs to groups and may be nil: then every workspace
+// counts as loose, which is how dedupe behaved before groups.
+func deduplicateWorkspaces(workspaces []client.TreeWorkspace, membership map[string]groupMembership) []client.TreeWorkspace {
 	type candidate struct {
 		index    int
 		ttyCount int
 	}
 
-	best := make(map[string]candidate) // title → best candidate
+	// Best candidate per group and title.
+	best := make(map[workspaceKey]candidate)
 	for i, ws := range workspaces {
 		ttys := 0
 		for _, p := range ws.Panes {
@@ -432,9 +641,10 @@ func deduplicateWorkspaces(workspaces []client.TreeWorkspace) []client.TreeWorks
 				}
 			}
 		}
-		prev, exists := best[ws.Title]
+		key := workspaceKey{group: membership[ws.Ref].name, title: ws.Title}
+		prev, exists := best[key]
 		if !exists || ttys > prev.ttyCount {
-			best[ws.Title] = candidate{index: i, ttyCount: ttys}
+			best[key] = candidate{index: i, ttyCount: ttys}
 		}
 	}
 
@@ -729,10 +939,21 @@ func titleMatchesAI(title string, patterns []string) bool {
 }
 
 // layoutContentChanged compares the structural content of two layouts,
-// ignoring metadata fields (SavedAt, Description, Revision).
+// ignoring metadata fields (SavedAt, Description, Revision). Group state
+// counts as content: folding or recolouring a group in cmux is a change the
+// user made, so it earns a new revision like any pane change.
 func layoutContentChanged(a, b *model.Layout) bool {
 	if a == nil || b == nil {
 		return a != b
+	}
+	if len(a.Groups) != len(b.Groups) {
+		return true
+	}
+	for i := range a.Groups {
+		// model.Group holds only comparable fields, so == covers all of them.
+		if a.Groups[i] != b.Groups[i] {
+			return true
+		}
 	}
 	if len(a.Workspaces) != len(b.Workspaces) {
 		return true
@@ -740,6 +961,9 @@ func layoutContentChanged(a, b *model.Layout) bool {
 	for i := range a.Workspaces {
 		wa, wb := &a.Workspaces[i], &b.Workspaces[i]
 		if wa.Title != wb.Title || wa.CWD != wb.CWD || wa.Pinned != wb.Pinned || wa.Active != wb.Active {
+			return true
+		}
+		if wa.Group != wb.Group || wa.GroupAnchor != wb.GroupAnchor {
 			return true
 		}
 		if len(wa.Panes) != len(wb.Panes) {
@@ -764,25 +988,40 @@ func layoutContentChanged(a, b *model.Layout) bool {
 // scramble re-saved layouts (GitHub #8 follow-up: re-saving over a name must
 // reproduce the same layout).
 //
-// geoTitles lists workspaces whose split direction was resolved from live
-// geometry; for those, live geometry is authoritative and a previously saved
-// split is never reapplied. Split preservation survives only for workspaces
-// with no geometry (e.g. never-rendered), where the default right-chain would
-// otherwise clobber a hand-edited direction.
-func mergeUserEdits(live, existing *model.Layout, geoTitles map[string]bool) {
+// geoResolved lists the positions in live.Workspaces whose split direction
+// was resolved from live geometry; for those, live geometry is authoritative
+// and a previously saved split is never reapplied. Split preservation
+// survives only for workspaces with no geometry (e.g. never-rendered), where
+// the default right-chain would otherwise clobber a hand-edited direction.
+//
+// Workspaces are matched by group and title, so two "api" workspaces in two
+// groups each keep their own edits. A workspace with no exact match falls
+// back to the title alone when exactly one stored workspace has it, which
+// covers a workspace that joined or left a group since the last save. Group
+// fields are never copied from the stored layout: the live sidebar owns them.
+func mergeUserEdits(live, existing *model.Layout, geoResolved map[int]bool) {
 	if live.Description == "" && existing.Description != "" {
 		live.Description = existing.Description
 	}
 
-	// Build index of existing workspaces by title for matching.
+	// Build indexes of existing workspaces for matching: by group and title,
+	// and by title with a count so the fallback can refuse ambiguous titles.
+	existByKey := make(map[workspaceKey]*model.Workspace)
 	existByTitle := make(map[string]*model.Workspace)
+	titleCount := make(map[string]int)
 	for i := range existing.Workspaces {
-		existByTitle[existing.Workspaces[i].Title] = &existing.Workspaces[i]
+		ew := &existing.Workspaces[i]
+		existByKey[workspaceKey{group: ew.Group, title: ew.Title}] = ew
+		existByTitle[ew.Title] = ew
+		titleCount[ew.Title]++
 	}
 
 	for i := range live.Workspaces {
 		lw := &live.Workspaces[i]
-		ew, ok := existByTitle[lw.Title]
+		ew, ok := existByKey[workspaceKey{group: lw.Group, title: lw.Title}]
+		if !ok && titleCount[lw.Title] == 1 {
+			ew, ok = existByTitle[lw.Title]
+		}
 		if !ok {
 			continue
 		}
@@ -796,7 +1035,7 @@ func mergeUserEdits(live, existing *model.Layout, geoTitles map[string]bool) {
 		for k := range ew.Panes {
 			exByIndex[ew.Panes[k].Index] = &ew.Panes[k]
 		}
-		geoResolved := geoTitles[lw.Title]
+		geometryResolved := geoResolved[i]
 
 		for j := range lw.Panes {
 			lp := &lw.Panes[j]
@@ -807,7 +1046,7 @@ func mergeUserEdits(live, existing *model.Layout, geoTitles map[string]bool) {
 			// Preserve a hand-edited split direction only when live geometry
 			// did NOT resolve it. When geometry is authoritative, trust it —
 			// reapplying a stale split mirrored aside layouts on re-save.
-			if !geoResolved && lp.Split == "right" && ep.Split != "" && ep.Split != "right" {
+			if !geometryResolved && lp.Split == "right" && ep.Split != "" && ep.Split != "right" {
 				lp.Split = ep.Split
 			}
 			// Preserve user-set command, but never for browser panes
