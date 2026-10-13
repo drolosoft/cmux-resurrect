@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [v1.28.0] — 2026-10-14
 
 ### Added
 - **cmux workspace groups are saved and restored** — a layout now keeps each sidebar group: its name, its members in sidebar order, the workspace that acts as the group header (the anchor), and whether it is collapsed or pinned, with its colour and icon. Before, the groups were lost on restore: every terminal came back flat in the sidebar, the group names were gone, and the old anchors showed up as stray workspaces called "Group 7". Restore now rebuilds each group around its saved anchor, creates the other members directly inside it, and applies the collapsed, pinned, colour and icon state at the end. With `--mode add`, `--workspace` or skipped workspaces, a group that already exists in the window is reused instead of created twice. In the layout file each group is a `[[group]]` table, and a workspace points to it with `group` and `group_anchor` (see [Workspace Groups](README.md#workspace-groups)). Layouts saved without groups restore as before, and older crex versions ignore the new fields. Ghostty has no groups: the workspaces come back loose, with one warning instead of an error
@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A change only in groups now bumps the layout revision** — a save where only the groups changed (a group renamed, collapsed, recoloured, or a workspace moved to another group) now writes a new revision instead of being treated as unchanged
 - **Save no longer drops a workspace whose title repeats in another group** — duplicate detection compared titles only, so two workspaces called `api` in two different groups were treated as one and the second was lost. The key is now the group plus the title
 - **Restore no longer confuses two groups' anchors when matching workspaces** — the skip check and the cleanup of `--mode replace` matched by title alone, so when two groups held a workspace with the same title (their headers, for example), one could be skipped or closed in place of the other. Both now match by group and title
+
+### Compatibility
+- **No breaking changes.** The layout format only gains optional keys (`[[group]]`, `group`, `group_anchor`): layouts saved by earlier versions load and restore exactly as before, and earlier versions read new layouts and simply ignore the groups. No command, flag or config key changed
+- **Visible differences, all additive:** `crex show`, `crex now` and the TUI list workspaces under their group when a layout or window has groups (unchanged otherwise); `crex list --json` gains `groups` and `memberships` only for layouts that have groups; restore with `--mode add` joins a group of the same name already open in the window instead of creating a second one; save keeps two workspaces with the same title when they live in different groups, where before the second was dropped
+- **Verified on cmux 0.64.22**, on both creation paths crex uses (`new-workspace --layout` and the sequential path). A new live test builds two groups in a fresh window, saves it, restores it into another window and requires cmux to report the same groups; it fails on v1.27.2 and passes here
 
 ---
 
@@ -655,6 +660,7 @@ Initial public release.
 [v1.22.2]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.22.2
 [v1.23.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.23.0
 [v1.24.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.24.0
+[v1.28.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.28.0
 [v1.27.2]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.27.2
 [v1.27.1]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.27.1
 [v1.27.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.27.0
