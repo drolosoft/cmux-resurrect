@@ -4,12 +4,46 @@ import "time"
 
 // Layout represents a complete terminal session layout.
 type Layout struct {
-	Name        string      `toml:"name"`
-	Description string      `toml:"description,omitempty"`
-	Version     int         `toml:"version"`
-	Revision    uint64      `toml:"revision"`
-	SavedAt     time.Time   `toml:"saved_at"`
-	Workspaces  []Workspace `toml:"workspace"`
+	Name        string    `toml:"name"`
+	Description string    `toml:"description,omitempty"`
+	Version     int       `toml:"version"`
+	Revision    uint64    `toml:"revision"`
+	SavedAt     time.Time `toml:"saved_at"`
+	// Groups lists the cmux sidebar groups in sidebar order. It is omitted
+	// when empty so a layout without groups serialises exactly as it did
+	// before groups existed, and older crex builds simply skip the key.
+	Groups     []Group     `toml:"group,omitempty"`
+	Workspaces []Workspace `toml:"workspace"`
+}
+
+// Group is a cmux sidebar group. The group itself owns no panes: in cmux
+// the group header is one of its member workspaces (the anchor), so the
+// layout keeps only the group's own state here and workspaces point back to
+// it by Name. Names are unique within a layout; save disambiguates
+// duplicates before they get here.
+type Group struct {
+	Name      string `toml:"name"`
+	Collapsed bool   `toml:"collapsed"`
+	Pinned    bool   `toml:"pinned"`
+
+	// Color is the custom colour as "#RRGGBB"; empty means cmux's default.
+	Color string `toml:"color,omitempty"`
+
+	// Icon is an SF Symbol name such as "flame"; empty means no icon.
+	Icon string `toml:"icon,omitempty"`
+}
+
+// GroupNamed returns the group called name, or nil when the layout has no
+// such group. The pointer goes into Layout.Groups, so callers can update a
+// group's state in place while they walk the workspaces that reference it.
+func (l *Layout) GroupNamed(name string) *Group {
+	for index := range l.Groups {
+		if l.Groups[index].Name == name {
+			return &l.Groups[index]
+		}
+	}
+
+	return nil
 }
 
 // Workspace represents a single cmux workspace (tab).
@@ -20,7 +54,17 @@ type Workspace struct {
 	Pinned      bool   `toml:"pinned"`
 	Index       int    `toml:"index"`
 	Active      bool   `toml:"active,omitempty"`
-	Panes       []Pane `toml:"pane"`
+
+	// Group is the Name of the sidebar group this workspace belongs to, or
+	// empty for a loose workspace outside any group.
+	Group string `toml:"group,omitempty"`
+
+	// GroupAnchor marks the workspace that acts as its group's header in
+	// the cmux sidebar. Restore makes it the group's anchor again; at most
+	// one workspace per group should carry it.
+	GroupAnchor bool `toml:"group_anchor,omitempty"`
+
+	Panes []Pane `toml:"pane"`
 }
 
 // Pane represents a terminal or browser pane within a workspace.

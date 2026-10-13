@@ -213,3 +213,38 @@ func TestLayoutTOMLFormat(t *testing.T) {
 		t.Errorf("missing pane type in:\n%s", s)
 	}
 }
+
+func TestLayout_GroupNamed(t *testing.T) {
+	layout := Layout{
+		Groups: []Group{
+			{Name: "🎮 Cmux"},
+			{Name: "🔥 Hot fixes", Pinned: true},
+		},
+	}
+
+	if got := layout.GroupNamed("nope"); got != nil {
+		t.Errorf("GroupNamed(unknown) = %+v, want nil", got)
+	}
+
+	got := layout.GroupNamed("🔥 Hot fixes")
+	if got == nil {
+		t.Fatal("GroupNamed(known) = nil")
+	}
+	if got != &layout.Groups[1] {
+		t.Error("GroupNamed must return a pointer into Layout.Groups, not a copy")
+	}
+
+	// Writing through the pointer must reach the layout itself.
+	got.Color = "#FF8800"
+	if layout.Groups[1].Color != "#FF8800" {
+		t.Errorf("Groups[1].Color = %q after writing through GroupNamed", layout.Groups[1].Color)
+	}
+}
+
+func TestLayout_GroupNamed_NoGroups(t *testing.T) {
+	var layout Layout
+
+	if got := layout.GroupNamed(""); got != nil {
+		t.Errorf("GroupNamed(\"\") on a layout without groups = %+v, want nil", got)
+	}
+}
