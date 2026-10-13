@@ -26,7 +26,7 @@ Save layouts by name. Restore them anytime. Switch between them in seconds. Resu
 <td width="50%" valign="top">
 
 **💾 [Save & Restore](docs/commands.md)**<br>
-Every tab, pane, CWD, and command — captured and restored by name, with the exact split arrangement.
+Every tab, pane, CWD, and command — captured and restored by name, with the exact split arrangement and cmux sidebar groups.
 
 **📦 [16 Templates](docs/templates.md)**<br>
 Instant workspace setup — splits, IDE layouts, AI pair-programming.
@@ -141,6 +141,44 @@ Configure [auto-accept](docs/configuration.md#auto-accept-for-ai-agents) to skip
 `crex tui` — a REPL with browse mode, numbered items, history, and tab completion.
 
 <p align="center"><img src="assets/demo-tui.gif" alt="crex interactive shell" width="800"></p>
+
+---
+
+### Workspace Groups
+
+On cmux, `crex save` also captures the sidebar groups: each group's name, its members in sidebar order, which workspace is the group header (the anchor), and whether the group is collapsed or pinned, with its colour and icon. `crex restore` rebuilds the groups and puts each workspace back in its own.
+
+In the layout file (`~/.config/crex/layouts/<name>.toml`), each group is a `[[group]]` table and each member workspace names its group:
+
+```toml
+[[group]]
+name = 'backend'
+collapsed = false
+pinned = true
+color = '#FF9500'   # "#RRGGBB", omit for the cmux default
+icon = 'flame'      # SF Symbol name, omit for no icon
+
+[[workspace]]
+title = 'api'
+cwd = '~/src/api'
+index = 0
+group = 'backend'
+group_anchor = true  # this workspace is the group header
+
+[[workspace.pane]]
+type = 'terminal'
+
+[[workspace]]
+title = 'worker'
+cwd = '~/src/worker'
+index = 1
+group = 'backend'
+
+[[workspace.pane]]
+type = 'terminal'
+```
+
+A workspace without `group` stays outside any group. Layouts saved before groups existed restore as before, and older crex versions ignore these fields. Ghostty has no groups: the workspaces come back loose, with a warning.
 
 ---
 

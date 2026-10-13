@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Added
+- **cmux workspace groups are saved and restored** — a layout now keeps each sidebar group: its name, its members in sidebar order, the workspace that acts as the group header (the anchor), and whether it is collapsed or pinned, with its colour and icon. Before, the groups were lost on restore: every terminal came back flat in the sidebar, the group names were gone, and the old anchors showed up as stray workspaces called "Group 7". Restore now rebuilds each group around its saved anchor, creates the other members directly inside it, and applies the collapsed, pinned, colour and icon state at the end. With `--mode add`, `--workspace` or skipped workspaces, a group that already exists in the window is reused instead of created twice. In the layout file each group is a `[[group]]` table, and a workspace points to it with `group` and `group_anchor` (see [Workspace Groups](README.md#workspace-groups)). Layouts saved without groups restore as before, and older crex versions ignore the new fields. Ghostty has no groups: the workspaces come back loose, with one warning instead of an error
+
+### Fixed
+- **A change only in groups now bumps the layout revision** — a save where only the groups changed (a group renamed, collapsed, recoloured, or a workspace moved to another group) now writes a new revision instead of being treated as unchanged
+- **Save no longer drops a workspace whose title repeats in another group** — duplicate detection compared titles only, so two workspaces called `api` in two different groups were treated as one and the second was lost. The key is now the group plus the title
+- **Restore no longer confuses two groups' anchors when matching workspaces** — the skip check and the cleanup of `--mode replace` matched by title alone, so when two groups held a workspace with the same title (their headers, for example), one could be skipped or closed in place of the other. Both now match by group and title
+
+---
+
 ## [v1.27.2] — 2026-08-15
 
 ### Fixed
