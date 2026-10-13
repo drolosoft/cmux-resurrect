@@ -1,0 +1,37 @@
+{
+  "groups" : [
+    {
+      "anchor_workspace_ref" : "workspace:74",
+      "custom_color" : "#FF8800",
+      "icon_symbol" : "flame",
+      "is_collapsed" : true,
+      "is_pinned" : true,
+      "member_count" : 3,
+      "member_workspace_refs" : [
+        "workspace:74",
+        "workspace:76",
+        "workspace:77"
+      ],
+      "name" : "🌋 Dos grupo",
+      "ref" : "workspace_group:16"
+    },
+    {
+      "anchor_workspace_ref" : "workspace:72",
+      "custom_color" : null,
+      "icon_symbol" : null,
+      "is_collapsed" : false,
+      "is_pinned" : false,
+      "member_count" : 5,
+      "member_workspace_refs" : [
+        "workspace:72",
+        "workspace:71",
+        "workspace:70",
+        "workspace:69",
+        "workspace:73"
+      ],
+      "name" : "🎮 Prueba uno",
+      "ref" : "workspace_group:15"
+    }
+  ],
+  "window_ref" : "window:4"
+}

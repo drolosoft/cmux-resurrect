@@ -100,6 +100,44 @@ type SurfaceRenamer interface {
 	RenameSurface(workspaceRef, surfaceRef, title string) error
 }
 
+// GroupManager is optionally implemented by backends with sidebar workspace
+// groups (cmux ≥0.64). Save and restore detect it via type assertion; Ghostty
+// has no groups, so its workspaces are saved and restored loose.
+type GroupManager interface {
+	// ListGroups returns the groups of one window; windowRef "" means the
+	// caller's window, because cmux scopes groups per window.
+	ListGroups(windowRef string) ([]WorkspaceGroup, error)
+
+	// CreateGroup runs `workspace-group create --name N --from a,b`. cmux
+	// ALWAYS creates a brand-new anchor workspace for the group (verified
+	// live), even when fromRefs is not empty; the returned group reports that
+	// new workspace in AnchorRef.
+	CreateGroup(name string, fromRefs []string) (WorkspaceGroup, error)
+
+	// SetGroupAnchor makes workspaceRef the group's anchor and moves it to
+	// the top of the group.
+	SetGroupAnchor(groupRef, workspaceRef string) error
+
+	// AddToGroup moves an existing workspace into the group, at its end.
+	AddToGroup(groupRef, workspaceRef string) error
+
+	// RenameGroup changes the group name; the anchor keeps its own title.
+	RenameGroup(groupRef, name string) error
+
+	// CollapseGroup folds the group in the sidebar.
+	CollapseGroup(groupRef string) error
+
+	// PinGroup pins the group, which moves the whole group to the top of the
+	// sidebar. The pinned flag of its workspaces does not change.
+	PinGroup(groupRef string) error
+
+	// SetGroupColor sets the group color from a "#RRGGBB" value.
+	SetGroupColor(groupRef, hex string) error
+
+	// SetGroupIcon sets the group icon from an SF Symbol name.
+	SetGroupIcon(groupRef, symbol string) error
+}
+
 // SurfaceState is the live state of a single surface.
 type SurfaceState struct {
 	Ref   string // surface ref, e.g. "surface:9"

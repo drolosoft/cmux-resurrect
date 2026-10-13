@@ -87,10 +87,40 @@ type WorkspaceInfo struct {
 	Selected bool
 }
 
+// WorkspaceGroup is one sidebar group as cmux reports it in
+// `workspace-group list --json`.
+type WorkspaceGroup struct {
+	// Ref is the group's handle for every other group command,
+	// "workspace_group:N".
+	Ref  string
+	Name string
+
+	// AnchorRef is the "workspace:N" that owns the group: the group header in
+	// the sidebar IS this workspace, so its own title and the group name are
+	// two different things.
+	AnchorRef string
+
+	// MemberRefs lists every member in sidebar order, anchor first.
+	MemberRefs []string
+
+	Collapsed bool
+	Pinned    bool
+
+	// Color is "#RRGGBB", or "" when cmux reports null (no custom color).
+	Color string
+
+	// Icon is an SF Symbol name, or "" when cmux reports null.
+	Icon string
+}
+
 // NewWorkspaceOpts for creating a new workspace.
 type NewWorkspaceOpts struct {
 	CWD     string
 	Command string
+
+	// Group is the ref of the group the new workspace joins, "" for a loose
+	// workspace. Only cmux reads it; backends without groups ignore it.
+	Group string
 }
 
 // NewPaneOpts for creating a new pane (terminal or browser).

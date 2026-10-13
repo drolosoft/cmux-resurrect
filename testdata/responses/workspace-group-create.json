@@ -1,0 +1,16 @@
+{
+  "group" : {
+    "anchor_workspace_ref" : "workspace:75",
+    "custom_color" : null,
+    "icon_symbol" : null,
+    "is_collapsed" : false,
+    "is_pinned" : false,
+    "member_count" : 2,
+    "member_workspace_refs" : [
+      "workspace:75",
+      "workspace:74"
+    ],
+    "name" : "🌋 Dos grupo",
+    "ref" : "workspace_group:16"
+  }
+}

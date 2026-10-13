@@ -1,9 +1,79 @@
 package client
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 )
+
+// workspaceGroupJSON mirrors one group object in cmux's workspace-group JSON.
+// Color and icon are pointers because cmux sends null when they are unset.
+type workspaceGroupJSON struct {
+	Ref        string   `json:"ref"`
+	Name       string   `json:"name"`
+	AnchorRef  string   `json:"anchor_workspace_ref"`
+	MemberRefs []string `json:"member_workspace_refs"`
+	Collapsed  bool     `json:"is_collapsed"`
+	Pinned     bool     `json:"is_pinned"`
+	Color      *string  `json:"custom_color"`
+	Icon       *string  `json:"icon_symbol"`
+}
+
+// toWorkspaceGroup converts the wire shape into the client type, turning a
+// null color or icon into "" so callers never deal with pointers.
+func (raw workspaceGroupJSON) toWorkspaceGroup() WorkspaceGroup {
+	group := WorkspaceGroup{
+		Ref:        raw.Ref,
+		Name:       raw.Name,
+		AnchorRef:  raw.AnchorRef,
+		MemberRefs: raw.MemberRefs,
+		Collapsed:  raw.Collapsed,
+		Pinned:     raw.Pinned,
+	}
+
+	if raw.Color != nil {
+		group.Color = *raw.Color
+	}
+	if raw.Icon != nil {
+		group.Icon = *raw.Icon
+	}
+	return group
+}
+
+// ParseWorkspaceGroups parses the output of `cmux --json workspace-group
+// list`. Groups and their members keep the order cmux reports them in, which
+// is the sidebar order.
+func ParseWorkspaceGroups(raw string) ([]WorkspaceGroup, error) {
+	var response struct {
+		Groups []workspaceGroupJSON `json:"groups"`
+	}
+	if err := json.Unmarshal([]byte(raw), &response); err != nil {
+		return nil, fmt.Errorf("parse workspace-group list JSON: %w", err)
+	}
+
+	groups := make([]WorkspaceGroup, 0, len(response.Groups))
+	for _, group := range response.Groups {
+		groups = append(groups, group.toWorkspaceGroup())
+	}
+	return groups, nil
+}
+
+// ParseWorkspaceGroup parses the output of `cmux --json workspace-group
+// create`, which wraps the new group in a "group" key. A response without it
+// is an error: the caller needs the group ref and the new anchor to go on.
+func ParseWorkspaceGroup(raw string) (WorkspaceGroup, error) {
+	var response struct {
+		Group *workspaceGroupJSON `json:"group"`
+	}
+	if err := json.Unmarshal([]byte(raw), &response); err != nil {
+		return WorkspaceGroup{}, fmt.Errorf("parse workspace-group JSON: %w", err)
+	}
+
+	if response.Group == nil {
+		return WorkspaceGroup{}, fmt.Errorf("workspace-group: no group in response")
+	}
+	return response.Group.toWorkspaceGroup(), nil
+}
 
 // ParseSidebarState parses the key=value text output of `cmux sidebar-state`.
 func ParseSidebarState(raw string) (*SidebarState, error) {

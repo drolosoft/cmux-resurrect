@@ -57,6 +57,61 @@ func (CmuxDryRun) FmtNewSurface(paneRef, workspaceRef string) string {
 	return fmt.Sprintf("cmux new-surface --pane %s --workspace %s", paneRef, workspaceRef)
 }
 
+// GroupDryRunFormatter is optionally implemented by dry-run formatters whose
+// backend has sidebar groups. Restore detects it via type assertion, like
+// GroupManager on the backend; only CmuxDryRun implements it.
+type GroupDryRunFormatter interface {
+	FmtCreateGroup(name, anchorRef string) string
+	FmtSetGroupAnchor(groupRef, workspaceRef string) string
+	FmtNewWorkspaceInGroup(cwd, groupRef string) string
+	FmtCollapseGroup(groupRef string) string
+	FmtPinGroup(groupRef string) string
+	FmtSetGroupColor(groupRef, hex string) string
+	FmtSetGroupIcon(groupRef, symbol string) string
+}
+
+// The group commands below follow `cmux workspace-group --help`: some take
+// the group positionally, others through --group.
+var _ GroupDryRunFormatter = CmuxDryRun{}
+
+// FmtCreateGroup prints the create call that seeds a group from its anchor.
+// The name is quoted because group names often carry spaces and emoji.
+func (CmuxDryRun) FmtCreateGroup(name, anchorRef string) string {
+	return fmt.Sprintf("cmux workspace-group create --name %q --from %s", name, anchorRef)
+}
+
+// FmtSetGroupAnchor prints the call that hands the group to our own anchor.
+func (CmuxDryRun) FmtSetGroupAnchor(groupRef, workspaceRef string) string {
+	return fmt.Sprintf("cmux workspace-group set-anchor --group %s --workspace %s", groupRef, workspaceRef)
+}
+
+// FmtNewWorkspaceInGroup prints the creation of a member at the end of its
+// group, which is how restore keeps the saved member order.
+func (CmuxDryRun) FmtNewWorkspaceInGroup(cwd, groupRef string) string {
+	return fmt.Sprintf("cmux new-workspace --cwd %q --group %s --group-placement end", cwd, groupRef)
+}
+
+// FmtCollapseGroup prints the call that folds a group in the sidebar.
+func (CmuxDryRun) FmtCollapseGroup(groupRef string) string {
+	return fmt.Sprintf("cmux workspace-group collapse %s", groupRef)
+}
+
+// FmtPinGroup prints the call that pins a group to the top of the sidebar.
+func (CmuxDryRun) FmtPinGroup(groupRef string) string {
+	return fmt.Sprintf("cmux workspace-group pin %s", groupRef)
+}
+
+// FmtSetGroupColor prints the color call. The hex is quoted so the line can
+// be pasted into a shell, where an unquoted # would start a comment.
+func (CmuxDryRun) FmtSetGroupColor(groupRef, hex string) string {
+	return fmt.Sprintf("cmux workspace-group set-color %s --hex %q", groupRef, hex)
+}
+
+// FmtSetGroupIcon prints the icon call with its SF Symbol name.
+func (CmuxDryRun) FmtSetGroupIcon(groupRef, symbol string) string {
+	return fmt.Sprintf("cmux workspace-group set-icon %s --symbol %q", groupRef, symbol)
+}
+
 // GhosttyDryRun formats dry-run commands as Ghostty AppleScript snippets.
 type GhosttyDryRun struct{}
 

@@ -18,6 +18,10 @@ type CLIClient struct {
 	SessionDir string
 }
 
+// cmux is the only backend with sidebar groups; this fails the build if a
+// signature drifts from the interface that save and restore assert against.
+var _ GroupManager = (*CLIClient)(nil)
+
 // NewCLIClient creates a CLIClient with sensible defaults.
 func NewCLIClient() *CLIClient {
 	return &CLIClient{
@@ -125,6 +129,12 @@ func (c *CLIClient) createWorkspace(opts NewWorkspaceOpts, layoutJSON string) (s
 	if layoutJSON != "" {
 		args = append(args, "--layout", layoutJSON)
 	}
+
+	// Placement "end" keeps the saved member order. cmux's default,
+	// afterCurrent, would put each new member next to the focused workspace.
+	if opts.Group != "" {
+		args = append(args, "--group", opts.Group, "--group-placement", "end")
+	}
 	if _, err := c.run(args...); err != nil {
 		return "", err
 	}
@@ -153,6 +163,93 @@ func (c *CLIClient) createWorkspace(opts NewWorkspaceOpts, layoutJSON string) (s
 		return "", fmt.Errorf("new workspace created but could not determine ref")
 	}
 	return ref, nil
+}
+
+// runGroup runs one `cmux --json workspace-group <subcommand>`. --json goes
+// before the subcommand because that is the form verified against cmux
+// 0.64.22, and it keeps the output machine-readable for list and create.
+func (c *CLIClient) runGroup(subcommand string, args ...string) (string, error) {
+	fullArgs := append([]string{"--json", "workspace-group", subcommand}, args...)
+	return c.run(fullArgs...)
+}
+
+// ListGroups returns the sidebar groups of one window. Implements
+// GroupManager. Without --window cmux answers for the caller's window, which
+// is what windowRef "" asks for.
+func (c *CLIClient) ListGroups(windowRef string) ([]WorkspaceGroup, error) {
+	var args []string
+	if windowRef != "" {
+		args = append(args, "--window", windowRef)
+	}
+
+	out, err := c.runGroup("list", args...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseWorkspaceGroups(out)
+}
+
+// CreateGroup creates a group named name holding fromRefs. Implements
+// GroupManager. cmux always adds a brand-new anchor workspace on create, so
+// the caller reads the returned AnchorRef and decides what to do with it.
+func (c *CLIClient) CreateGroup(name string, fromRefs []string) (WorkspaceGroup, error) {
+	args := []string{"--name", name}
+	if len(fromRefs) > 0 {
+		args = append(args, "--from", strings.Join(fromRefs, ","))
+	}
+
+	out, err := c.runGroup("create", args...)
+	if err != nil {
+		return WorkspaceGroup{}, err
+	}
+	return ParseWorkspaceGroup(out)
+}
+
+// SetGroupAnchor makes workspaceRef the anchor of the group. Implements
+// GroupManager.
+func (c *CLIClient) SetGroupAnchor(groupRef, workspaceRef string) error {
+	_, err := c.runGroup("set-anchor", "--group", groupRef, "--workspace", workspaceRef)
+	return err
+}
+
+// AddToGroup moves an existing workspace to the end of the group. Implements
+// GroupManager.
+func (c *CLIClient) AddToGroup(groupRef, workspaceRef string) error {
+	_, err := c.runGroup("add", "--group", groupRef, "--workspace", workspaceRef)
+	return err
+}
+
+// RenameGroup renames the group. Implements GroupManager. Unlike set-anchor
+// and add, cmux takes the group positionally here.
+func (c *CLIClient) RenameGroup(groupRef, name string) error {
+	_, err := c.runGroup("rename", groupRef, "--name", name)
+	return err
+}
+
+// CollapseGroup folds the group in the sidebar. Implements GroupManager.
+func (c *CLIClient) CollapseGroup(groupRef string) error {
+	_, err := c.runGroup("collapse", groupRef)
+	return err
+}
+
+// PinGroup pins the group, which moves it to the top of the sidebar.
+// Implements GroupManager.
+func (c *CLIClient) PinGroup(groupRef string) error {
+	_, err := c.runGroup("pin", groupRef)
+	return err
+}
+
+// SetGroupColor sets the group color from "#RRGGBB". Implements GroupManager.
+func (c *CLIClient) SetGroupColor(groupRef, hex string) error {
+	_, err := c.runGroup("set-color", groupRef, "--hex", hex)
+	return err
+}
+
+// SetGroupIcon sets the group icon from an SF Symbol name. Implements
+// GroupManager.
+func (c *CLIClient) SetGroupIcon(groupRef, symbol string) error {
+	_, err := c.runGroup("set-icon", groupRef, "--symbol", symbol)
+	return err
 }
 
 // RenameSurface titles an individual surface/tab via `cmux rename-tab`. When
