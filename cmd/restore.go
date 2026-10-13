@@ -271,6 +271,7 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		}
 		fmt.Fprintln(os.Stderr)
 	}
+	printRestoreWarnings(result.Warnings)
 	return nil
 }
 
@@ -333,4 +334,19 @@ func countBlanks(cmds []string) int {
 		}
 	}
 	return n
+}
+
+// printRestoreWarnings lists what a restore wants the user to know without it
+// being an error, such as groups that came back as loose workspaces. Same
+// look as the error list, under its own label.
+func printRestoreWarnings(warnings []string) {
+	if len(warnings) == 0 {
+		return
+	}
+
+	fmt.Fprintf(os.Stderr, "%s\n", yellowStyle.Render("⚠️  Warnings:"))
+	for _, warning := range warnings {
+		fmt.Fprintf(os.Stderr, "  %s\n", dimStyle.Render("• "+warning))
+	}
+	fmt.Fprintln(os.Stderr)
 }

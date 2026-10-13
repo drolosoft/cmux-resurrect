@@ -194,6 +194,7 @@ func doRestore(name string) error {
 		}
 		fmt.Fprintln(os.Stderr)
 	}
+	printRestoreWarnings(result.Warnings)
 	return nil
 }
 
@@ -238,6 +239,7 @@ func doRestoreWorkspace(layoutName, workspaceTitle string) error {
 	fmt.Fprintf(os.Stderr, "  %s\n\n",
 		greenStyle.Render(fmt.Sprintf("✅ Restored %d/%d %s",
 			result.WorkspacesOK, result.WorkspacesTotal, unitName(result.WorkspacesTotal))))
+	printRestoreWarnings(result.Warnings)
 
 	// Focus the restored workspace so the user lands on it.
 	focusWorkspaceByTitle(cl, workspaceTitle)

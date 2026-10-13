@@ -3,6 +3,7 @@ package orchestrate
 import (
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -307,6 +308,10 @@ type RestoreResult struct {
 	Errors           []string
 	DryRun           bool
 	Commands         []string // populated in dry-run mode
+
+	// Warnings are things the user should know that did not stop anything,
+	// such as groups restored as loose workspaces on a backend without them.
+	Warnings []string
 }
 
 // Restore loads a layout and recreates it in cmux.
@@ -315,6 +320,16 @@ type RestoreResult struct {
 // When skipMatching is false (and mode is Replace), matching workspaces are also closed
 // and recreated from the layout — useful when the saved layout has commands (e.g. AI
 // resume) that the live tab no longer runs.
+//
+// Sidebar groups come back on backends that have them (client.GroupManager).
+// A workspace "already exists" only when both its title and its group match,
+// because every anchor is titled "Group N" and members can repeat titles
+// across groups. When the caller's window already has a group with the same
+// name, restored members join it instead of making a second one; that covers
+// add mode, skipMatching and a --workspace filter of one member. A filtered
+// member whose group is not open creates the group with itself as anchor.
+// Backends without groups restore every workspace loose and add one warning
+// to RestoreResult.Warnings, never an error.
 func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode, workspaceFilter string, skipMatching bool) (*RestoreResult, error) {
 	layout, err := r.Store.Load(name)
 	if err != nil {
@@ -372,35 +387,44 @@ func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode, workspace
 		DryRun:          dryRun,
 	}
 
-	// Build set of layout titles for sync comparison.
-	layoutTitles := make(map[string]bool, len(layout.Workspaces))
+	// Groups are worked out before anything is compared or closed: this
+	// lists the live groups and clears the Group of every workspace that
+	// will be restored loose, so from here on ws.Group is the real target.
+	groups := r.newGroupRestorer(layout, dryRun, result)
+
+	// Build set of layout workspaces for sync comparison. Titles alone are
+	// not unique once groups exist (every anchor is a "Group N"), so the
+	// key carries the group name too.
+	layoutKeys := make(map[restoreKey]bool, len(layout.Workspaces))
 	for _, ws := range layout.Workspaces {
-		layoutTitles[ws.Title] = true
+		layoutKeys[restoreKey{group: ws.Group, title: ws.Title}] = true
 	}
 
 	// Snapshot existing workspace state.
 	var callerRef string
-	existingTitles := make(map[string]bool)
+	existingKeys := make(map[restoreKey]bool)
 	if !dryRun {
 		if tree, err := r.Client.Tree(); err == nil && tree.Caller != nil {
 			callerRef = tree.Caller.WorkspaceRef
 		}
 		if existing, err := r.Client.ListWorkspaces(); err == nil {
 			for _, ws := range existing {
-				existingTitles[ws.Title] = true
+				key := restoreKey{group: groups.liveGroupOf(ws.Ref), title: ws.Title}
+				existingKeys[key] = true
 
 				if mode == RestoreModeReplace && ws.Ref != callerRef {
 					// Decide whether to close this workspace:
 					// - Not in layout → always close (stale)
 					// - In layout + skipMatching → keep (sync)
 					// - In layout + !skipMatching → close (fresh recreate)
-					shouldClose := !layoutTitles[ws.Title] || !skipMatching
+					shouldClose := !layoutKeys[key] || !skipMatching
 					if shouldClose {
 						_ = r.Client.UnpinWorkspace(ws.Ref)
 						if err := r.Client.CloseWorkspace(ws.Ref); err != nil {
 							result.Errors = append(result.Errors, fmt.Sprintf("close %s (%s): %v", ws.Ref, ws.Title, err))
 						} else {
 							result.WorkspacesClosed++
+							groups.forgetClosed(ws.Ref)
 						}
 						time.Sleep(DelayAfterClose)
 					}
@@ -438,14 +462,22 @@ func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode, workspace
 
 	// Create workspaces. Skip existing ones only when skipMatching is true.
 	for _, ws := range workspaces {
-		if !dryRun && skipMatching && existingTitles[ws.Title] {
+		// The group this workspace goes into, when it already exists: one
+		// created earlier in this restore or one already open in the window.
+		// Asking for it also marks a live group as joined.
+		groupRef := groups.refFor(ws)
+
+		if !dryRun && skipMatching && existingKeys[restoreKey{group: ws.Group, title: ws.Title}] {
 			if r.OnProgress != nil {
 				r.OnProgress(ws.Title, len(ws.Panes), fmt.Errorf("already open, skipped"))
 			}
 			continue
 		}
 
-		_, err := r.restoreWorkspace(ws, dryRun, result)
+		ref, err := r.restoreWorkspaceInGroup(ws, groupRef, dryRun, result)
+		if err == nil && groupRef == "" {
+			groups.anchorCreated(ws, ref, result)
+		}
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("workspace %q: %v", ws.Title, err))
 			if r.OnProgress != nil && !dryRun {
@@ -458,6 +490,10 @@ func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode, workspace
 			r.OnProgress(ws.Title, len(ws.Panes), nil)
 		}
 	}
+
+	// Collapse, color, icon and pin only once every member exists: creating
+	// members inside a folded group is not something to rely on.
+	groups.applyState(result)
 
 	// Return focus to the caller's workspace.
 	if callerRef != "" && !dryRun {
@@ -495,17 +531,375 @@ func layoutBrowserProfiles(workspaces []model.Workspace) []string {
 	return out
 }
 
-func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *RestoreResult) (string, error) {
-	if dryRun {
-		return r.dryRunWorkspace(ws, result)
+// restoreKey identifies a workspace in the sync comparison of Restore: its
+// title inside its group, where group "" holds the loose workspaces.
+type restoreKey struct {
+	group string
+	title string
+}
+
+// groupRestorer recreates the cmux sidebar groups of a layout while Restore
+// recreates its workspaces. cmux cannot create a group around an existing
+// workspace without adding a brand-new anchor of its own (verified live), so
+// the first member restored is made the anchor by hand and every later member
+// is created straight inside. When groups are off it only clears ws.Group, so
+// the rest of Restore sees loose workspaces exactly as before groups existed.
+type groupRestorer struct {
+	backend client.Backend
+	layout  *model.Layout
+	dryRun  bool
+
+	// manager is the backend's group API on a real run with groups on; nil
+	// otherwise.
+	manager client.GroupManager
+
+	// formatter prints the group commands of a dry run; nil otherwise.
+	formatter client.GroupDryRunFormatter
+
+	// live holds the caller window's groups by name, kept current while
+	// replace mode closes workspaces (closing every member removes a group).
+	live map[string]*client.WorkspaceGroup
+
+	// liveGroupNames maps each live workspace ref to its group's name.
+	liveGroupNames map[string]string
+
+	// refs maps each group this restore created or joined to its ref, which
+	// later members pass as NewWorkspaceOpts.Group.
+	refs map[string]string
+
+	// current is the state each group in refs had when restore took it, so
+	// applyState only sends what changes. A group created here starts blank.
+	current map[string]client.WorkspaceGroup
+
+	// failed marks groups whose creation failed; their other members are
+	// restored loose instead of failing once each.
+	failed map[string]bool
+}
+
+// groupStep is one state command applyState issues for a group.
+type groupStep struct {
+	action    string
+	groupName string
+	groupRef  string
+	value     string
+}
+
+// newGroupRestorer decides whether this restore can recreate groups and
+// prepares the layout for it. A layout whose restored workspaces name no
+// group gets no group work at all, not even a listing, so it runs exactly as
+// it did before groups existed. Otherwise a real run needs a GroupManager and
+// a dry run a GroupDryRunFormatter; without one, every workspace is restored
+// loose with a single warning. Workspaces naming a group the layout does not
+// define are restored loose with a warning each.
+func (r *Restorer) newGroupRestorer(layout *model.Layout, dryRun bool, result *RestoreResult) *groupRestorer {
+	groups := &groupRestorer{
+		backend:        r.Client,
+		layout:         layout,
+		dryRun:         dryRun,
+		live:           make(map[string]*client.WorkspaceGroup),
+		liveGroupNames: make(map[string]string),
+		refs:           make(map[string]string),
+		current:        make(map[string]client.WorkspaceGroup),
+		failed:         make(map[string]bool),
 	}
+
+	groupCount := countWorkspaceGroups(layout.Workspaces)
+	if groupCount == 0 {
+		return groups
+	}
+
+	if dryRun {
+		formatter, formatsGroups := r.Client.DryRunFormatter().(client.GroupDryRunFormatter)
+		if !formatsGroups {
+			result.Commands = append(result.Commands, "# workspace groups skipped: this backend has none")
+			groups.restoreLoose(looseGroupsWarning("this backend has no workspace groups", groupCount), result)
+			return groups
+		}
+		groups.formatter = formatter
+	} else {
+		manager, hasGroups := r.Client.(client.GroupManager)
+		if !hasGroups {
+			groups.restoreLoose(looseGroupsWarning("this backend has no workspace groups", groupCount), result)
+			return groups
+		}
+
+		// Groups are per window, and "" asks for the caller's window, which
+		// is where the restored workspaces appear.
+		liveGroups, err := manager.ListGroups("")
+		if err != nil {
+			groups.restoreLoose(looseGroupsWarning(fmt.Sprintf("list workspace groups: %v", err), groupCount), result)
+			return groups
+		}
+		groups.manager = manager
+		groups.rememberLive(liveGroups)
+	}
+
+	groups.dropUnknownGroups(result)
+	return groups
+}
+
+// countWorkspaceGroups returns how many distinct groups the workspaces name.
+func countWorkspaceGroups(workspaces []model.Workspace) int {
+	names := make(map[string]bool)
+	for _, ws := range workspaces {
+		if ws.Group != "" {
+			names[ws.Group] = true
+		}
+	}
+	return len(names)
+}
+
+// looseGroupsWarning words the single warning for a restore that could not
+// recreate groups, with the reason first.
+func looseGroupsWarning(reason string, groupCount int) string {
+	noun := "groups"
+	if groupCount == 1 {
+		noun = "group"
+	}
+	return fmt.Sprintf("%s; %d %s restored as loose workspaces", reason, groupCount, noun)
+}
+
+// restoreLoose turns group restore off: every workspace is restored loose
+// and the reason is reported once.
+func (g *groupRestorer) restoreLoose(warning string, result *RestoreResult) {
+	for index := range g.layout.Workspaces {
+		g.layout.Workspaces[index].Group = ""
+	}
+	result.Warnings = append(result.Warnings, warning)
+}
+
+// dropUnknownGroups restores loose the workspaces whose group the layout does
+// not define, since there is no name or state to create it from. That only
+// happens with a hand-edited layout.
+func (g *groupRestorer) dropUnknownGroups(result *RestoreResult) {
+	for index := range g.layout.Workspaces {
+		ws := &g.layout.Workspaces[index]
+		if ws.Group == "" || g.layout.GroupNamed(ws.Group) != nil {
+			continue
+		}
+		result.Warnings = append(result.Warnings,
+			fmt.Sprintf("workspace %q names group %q, which the layout does not define; restored loose", ws.Title, ws.Group))
+		ws.Group = ""
+	}
+}
+
+// rememberLive indexes the caller window's groups by name and by member. When
+// two live groups share a name, the first one in the sidebar is the one
+// restored members join.
+func (g *groupRestorer) rememberLive(liveGroups []client.WorkspaceGroup) {
+	for index := range liveGroups {
+		group := &liveGroups[index]
+		if _, seen := g.live[group.Name]; !seen {
+			g.live[group.Name] = group
+		}
+		for _, member := range group.MemberRefs {
+			g.liveGroupNames[member] = group.Name
+		}
+	}
+}
+
+// liveGroupOf returns the name of the live group holding the workspace, or ""
+// for a loose one (and always "" when groups are off).
+func (g *groupRestorer) liveGroupOf(workspaceRef string) string {
+	return g.liveGroupNames[workspaceRef]
+}
+
+// forgetClosed keeps the live groups in step with a workspace replace mode
+// just closed. cmux removes a group when its last member closes, and joining
+// that dead ref later would fail every member.
+func (g *groupRestorer) forgetClosed(workspaceRef string) {
+	name := g.liveGroupNames[workspaceRef]
+	delete(g.liveGroupNames, workspaceRef)
+
+	group := g.live[name]
+	if group == nil {
+		return
+	}
+
+	group.MemberRefs = slices.DeleteFunc(group.MemberRefs, func(member string) bool {
+		return member == workspaceRef
+	})
+	if len(group.MemberRefs) == 0 {
+		delete(g.live, name)
+	}
+}
+
+// refFor returns the ref of the group the workspace should be created in, or
+// "" when it is loose or its group does not exist yet (then this workspace
+// will create it). A live group with the same name is joined here, which also
+// signs it up for applyState.
+func (g *groupRestorer) refFor(ws model.Workspace) string {
+	if ws.Group == "" || g.failed[ws.Group] {
+		return ""
+	}
+	if groupRef, taken := g.refs[ws.Group]; taken {
+		return groupRef
+	}
+
+	live := g.live[ws.Group]
+	if live == nil {
+		return ""
+	}
+	g.refs[ws.Group] = live.Ref
+	g.current[ws.Group] = *live
+	return live.Ref
+}
+
+// anchorCreated makes a freshly restored workspace the anchor of its new
+// group. cmux always adds an anchor of its own on create (verified live), so
+// the group is handed to ours with set-anchor and the extra one is closed;
+// closing it leaves the group intact.
+func (g *groupRestorer) anchorCreated(ws model.Workspace, workspaceRef string, result *RestoreResult) {
+	if ws.Group == "" || g.failed[ws.Group] {
+		return
+	}
+	if _, taken := g.refs[ws.Group]; taken {
+		return
+	}
+
+	if g.dryRun {
+		groupRef := g.dryRunGroupRef(ws.Group)
+		result.Commands = append(result.Commands,
+			g.formatter.FmtCreateGroup(ws.Group, workspaceRef),
+			g.formatter.FmtSetGroupAnchor(groupRef, workspaceRef),
+			"# close the extra anchor workspace cmux adds to a new group")
+		g.refs[ws.Group] = groupRef
+		g.current[ws.Group] = client.WorkspaceGroup{Ref: groupRef, Name: ws.Group}
+		return
+	}
+
+	created, err := g.manager.CreateGroup(ws.Group, []string{workspaceRef})
+	if err != nil {
+		result.Errors = append(result.Errors, fmt.Sprintf("group %q: create: %v", ws.Group, err))
+		g.failed[ws.Group] = true
+		return
+	}
+	g.refs[ws.Group] = created.Ref
+	g.current[ws.Group] = created
+
+	if err := g.manager.SetGroupAnchor(created.Ref, workspaceRef); err != nil {
+		result.Errors = append(result.Errors, fmt.Sprintf("group %q: set anchor: %v", ws.Group, err))
+	}
+
+	// Close the extra anchor even when set-anchor failed: cmux promotes the
+	// next member, which is ours, so the group still ends up anchored on it.
+	if created.AnchorRef == "" || created.AnchorRef == workspaceRef {
+		return
+	}
+	if err := g.backend.CloseWorkspace(created.AnchorRef); err != nil {
+		result.Errors = append(result.Errors, fmt.Sprintf("group %q: close extra anchor %s: %v", ws.Group, created.AnchorRef, err))
+	}
+	time.Sleep(DelayAfterClose)
+}
+
+// dryRunGroupRef is the placeholder ref a dry run prints for a group, built
+// from its position in the layout like "workspace:new_N" for workspaces.
+func (g *groupRestorer) dryRunGroupRef(name string) string {
+	position := slices.IndexFunc(g.layout.Groups, func(group model.Group) bool {
+		return group.Name == name
+	})
+	return fmt.Sprintf("workspace_group:new_%d", position)
+}
+
+// applyState sets collapse, color, icon and pin on every group this restore
+// created or joined, skipping what the group already has: there is no
+// command to expand or unpin, and pinning twice would move the group again.
+// Pins go last and in reverse layout order, because each pin moves its group
+// to the top of the sidebar; the first group pinned ends up lowest.
+func (g *groupRestorer) applyState(result *RestoreResult) {
+	var steps []groupStep
+	var pins []groupStep
+
+	for _, want := range g.layout.Groups {
+		groupRef, taken := g.refs[want.Name]
+		if !taken {
+			continue
+		}
+		have := g.current[want.Name]
+
+		if want.Collapsed && !have.Collapsed {
+			steps = append(steps, groupStep{action: "collapse", groupName: want.Name, groupRef: groupRef})
+		}
+		if want.Color != "" && want.Color != have.Color {
+			steps = append(steps, groupStep{action: "set color", groupName: want.Name, groupRef: groupRef, value: want.Color})
+		}
+		if want.Icon != "" && want.Icon != have.Icon {
+			steps = append(steps, groupStep{action: "set icon", groupName: want.Name, groupRef: groupRef, value: want.Icon})
+		}
+		if want.Pinned && !have.Pinned {
+			pins = append(pins, groupStep{action: "pin", groupName: want.Name, groupRef: groupRef})
+		}
+	}
+
+	slices.Reverse(pins)
+	steps = append(steps, pins...)
+
+	if len(steps) > 0 && g.dryRun {
+		result.Commands = append(result.Commands, "", "# Workspace groups")
+	}
+	for _, step := range steps {
+		g.run(step, result)
+	}
+}
+
+// run issues one state command, or prints it in a dry run. A failure is an
+// error of that group only; the workspaces are already restored.
+func (g *groupRestorer) run(step groupStep, result *RestoreResult) {
+	if g.dryRun {
+		var command string
+		switch step.action {
+		case "collapse":
+			command = g.formatter.FmtCollapseGroup(step.groupRef)
+		case "set color":
+			command = g.formatter.FmtSetGroupColor(step.groupRef, step.value)
+		case "set icon":
+			command = g.formatter.FmtSetGroupIcon(step.groupRef, step.value)
+		case "pin":
+			command = g.formatter.FmtPinGroup(step.groupRef)
+		}
+		result.Commands = append(result.Commands, command)
+		return
+	}
+
+	var err error
+	switch step.action {
+	case "collapse":
+		err = g.manager.CollapseGroup(step.groupRef)
+	case "set color":
+		err = g.manager.SetGroupColor(step.groupRef, step.value)
+	case "set icon":
+		err = g.manager.SetGroupIcon(step.groupRef, step.value)
+	case "pin":
+		err = g.manager.PinGroup(step.groupRef)
+	}
+	if err != nil {
+		result.Errors = append(result.Errors, fmt.Sprintf("group %q: %s: %v", step.groupName, step.action, err))
+	}
+}
+
+// restoreWorkspace creates one loose workspace with its panes, commands,
+// title and pin. Ensure and the tests use it; Restore goes through
+// restoreWorkspaceInGroup to place members in their sidebar group.
+func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *RestoreResult) (string, error) {
+	return r.restoreWorkspaceInGroup(ws, "", dryRun, result)
+}
+
+// restoreWorkspaceInGroup is restoreWorkspace with a target group. A
+// non-empty groupRef creates the workspace straight inside that group, at its
+// end, on both creation paths; creating the group is the caller's business.
+func (r *Restorer) restoreWorkspaceInGroup(ws model.Workspace, groupRef string, dryRun bool, result *RestoreResult) (string, error) {
+	if dryRun {
+		return r.dryRunWorkspace(ws, groupRef, result)
+	}
+
+	createOpts := client.NewWorkspaceOpts{CWD: expandHome(ws.CWD), Group: groupRef}
 
 	// 1. Create workspace — atomically with the full split tree when the
 	// backend supports it (cmux `--layout`): per-surface cwds, names, urls,
 	// and focus land natively, with exact ratios and no typed `cd` per pane.
 	if lc, ok := r.Client.(client.LayoutWorkspaceCreator); ok {
 		if layoutJSON, visualIdx, buildable := buildCmuxLayout(ws); buildable {
-			lref, lerr := lc.NewWorkspaceLayout(client.NewWorkspaceOpts{CWD: expandHome(ws.CWD)}, layoutJSON)
+			lref, lerr := lc.NewWorkspaceLayout(createOpts, layoutJSON)
 			if lerr == nil {
 				time.Sleep(DelayAfterCreate)
 				if err := r.Client.SelectWorkspace(lref); err != nil {
@@ -532,7 +926,7 @@ func (r *Restorer) restoreWorkspace(ws model.Workspace, dryRun bool, result *Res
 		}
 	}
 
-	ref, err := r.Client.NewWorkspace(client.NewWorkspaceOpts{CWD: expandHome(ws.CWD)})
+	ref, err := r.Client.NewWorkspace(createOpts)
 	if err != nil {
 		return "", fmt.Errorf("new-workspace: %w", err)
 	}
@@ -812,13 +1206,22 @@ func absf(f float64) float64 {
 	return f
 }
 
-func (r *Restorer) dryRunWorkspace(ws model.Workspace, result *RestoreResult) (string, error) {
+// dryRunWorkspace prints the commands restoreWorkspace would run. A member
+// created inside an existing group prints the grouped new-workspace instead
+// of the plain one, when the formatter knows how to.
+func (r *Restorer) dryRunWorkspace(ws model.Workspace, groupRef string, result *RestoreResult) (string, error) {
 	ref := fmt.Sprintf("workspace:new_%d", ws.Index)
 	f := r.Client.DryRunFormatter()
 
 	result.Commands = append(result.Commands, "")
 	result.Commands = append(result.Commands, fmt.Sprintf("# %s", ws.Title))
-	result.Commands = append(result.Commands, f.FmtNewWorkspace(ws.CWD))
+
+	groupFormatter, formatsGroups := f.(client.GroupDryRunFormatter)
+	if groupRef != "" && formatsGroups {
+		result.Commands = append(result.Commands, groupFormatter.FmtNewWorkspaceInGroup(ws.CWD, groupRef))
+	} else {
+		result.Commands = append(result.Commands, f.FmtNewWorkspace(ws.CWD))
+	}
 	result.Commands = append(result.Commands, f.FmtRenameWorkspace(ref, ws.Title))
 
 	for i, pane := range ws.Panes {
