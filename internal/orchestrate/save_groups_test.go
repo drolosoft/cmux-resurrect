@@ -98,7 +98,11 @@ func captureStderr(t *testing.T, run func()) string {
 
 	run()
 
-	writer.Close()
+	// Closing the write end is what lets ReadAll see EOF; a failure here
+	// would make the read hang, so it fails the test instead.
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close pipe: %v", err)
+	}
 	printed, _ := io.ReadAll(reader)
 
 	return string(printed)
