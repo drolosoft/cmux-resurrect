@@ -105,4 +105,11 @@ type LayoutMeta struct {
 	WorkspacePanes     []int     `json:"workspace_panes"`
 	WorkspaceSummaries []string  `json:"workspace_summaries"`
 	FilePath           string    `json:"file_path"`
+
+	// Groups and Memberships carry the layout's sidebar groups so listings
+	// built from metadata can group workspaces like `crex show` does. Both
+	// stay empty for layouts without groups; Memberships lines up with
+	// WorkspaceTitles.
+	Groups      []Group      `json:"groups,omitempty"`
+	Memberships []Membership `json:"memberships,omitempty"`
 }

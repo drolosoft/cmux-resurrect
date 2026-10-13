@@ -118,6 +118,18 @@ func (s *FileStore) Load(name string) (*model.Layout, error) {
 	return &layout, nil
 }
 
+// layoutMemberships returns the group membership of every workspace, in the
+// same order as the workspaces, so pickers built from metadata can group them.
+// It returns nil for a layout without groups, which keeps the JSON of `crex
+// list --json` for those layouts exactly as it was.
+func layoutMemberships(layout *model.Layout) []model.Membership {
+	if len(layout.Groups) == 0 {
+		return nil
+	}
+
+	return layout.Memberships()
+}
+
 // List returns metadata for all saved layouts, sorted by name.
 func (s *FileStore) List() ([]model.LayoutMeta, error) {
 	entries, err := os.ReadDir(s.Dir)
@@ -155,6 +167,8 @@ func (s *FileStore) List() ([]model.LayoutMeta, error) {
 			WorkspacePanes:     panes,
 			WorkspaceSummaries: summaries,
 			FilePath:           s.Path(name),
+			Groups:             layout.Groups,
+			Memberships:        layoutMemberships(layout),
 		})
 	}
 	sort.Slice(metas, func(i, j int) bool {

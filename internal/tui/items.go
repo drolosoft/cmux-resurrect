@@ -26,6 +26,14 @@ type Item struct {
 	Icon        string
 	Category    string
 	SubItems    []Item
+
+	// Group is the sidebar group a workspace item belongs to, nil when it is
+	// loose. The browse view prints a header line above each run of items
+	// that share a group, so the picker groups workspaces like `crex show`.
+	Group *model.Group
+
+	// Anchor marks the workspace that is its group's header in cmux.
+	Anchor bool
 }
 
 // FilterValue returns the string used for fuzzy filtering.
@@ -71,22 +79,13 @@ func (i Item) Desc() string {
 func ItemsFromLayouts(metas []model.LayoutMeta) []Item {
 	items := make([]Item, len(metas))
 	for idx, m := range metas {
+		// Sub-items follow the same grouping as `crex show`; a layout without
+		// groups yields one loose section in file order, as before.
 		var subItems []Item
-		for i, title := range m.WorkspaceTitles {
-			panes := 0
-			if i < len(m.WorkspacePanes) {
-				panes = m.WorkspacePanes[i]
+		for _, section := range m.Sections() {
+			for _, i := range section.Members {
+				subItems = append(subItems, workspaceItem(m, i, section))
 			}
-			summary := ""
-			if i < len(m.WorkspaceSummaries) {
-				summary = m.WorkspaceSummaries[i]
-			}
-			subItems = append(subItems, Item{
-				Kind:        KindWorkspace,
-				Name:        title,
-				Description: summary,
-				Workspaces:  panes,
-			})
 		}
 		items[idx] = Item{
 			Kind:        KindLayout,
@@ -97,6 +96,29 @@ func ItemsFromLayouts(metas []model.LayoutMeta) []Item {
 		}
 	}
 	return items
+}
+
+// workspaceItem builds the picker row for the workspace at position i of the
+// layout metadata, tagged with the section it was grouped into.
+func workspaceItem(m model.LayoutMeta, i int, section model.Section) Item {
+	panes := 0
+	if i < len(m.WorkspacePanes) {
+		panes = m.WorkspacePanes[i]
+	}
+
+	summary := ""
+	if i < len(m.WorkspaceSummaries) {
+		summary = m.WorkspaceSummaries[i]
+	}
+
+	return Item{
+		Kind:        KindWorkspace,
+		Name:        m.WorkspaceTitles[i],
+		Description: summary,
+		Workspaces:  panes,
+		Group:       section.Group,
+		Anchor:      section.IsAnchor(i),
+	}
 }
 
 // ItemsFromTemplates converts a slice of Template pointers into TUI Items.

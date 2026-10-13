@@ -27,6 +27,10 @@ var (
 	yellowStyle  = lipgloss.NewStyle().Foreground(colorYellow)
 	greenStyle   = lipgloss.NewStyle().Foreground(colorGreen)
 	magentaStyle = lipgloss.NewStyle().Foreground(colorMagenta)
+
+	// groupStyle sets a workspace group header apart from the green
+	// workspace titles listed under it.
+	groupStyle = lipgloss.NewStyle().Bold(true).Foreground(colorMagenta)
 )
 
 // -- Template styles ---------------------------------------------------------

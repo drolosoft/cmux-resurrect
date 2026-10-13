@@ -273,14 +273,29 @@ func (bm BrowseModel) View() string {
 	}
 
 	for i, item := range bm.visible {
+		// A group header is a display-only line above the first row of each
+		// run of the same group; it takes no number, so digit keys and the
+		// cursor keep addressing workspaces exactly as before.
+		if item.Group != nil && (i == 0 || bm.visible[i-1].Group != item.Group) {
+			fmt.Fprintf(&b, "  %s\n", groupHeader(*item.Group))
+		}
+
 		idx := shellDimStyle.Render(fmt.Sprintf("[%d]", i+1))
 		name := item.Title()
 		desc := item.Desc()
+
+		// Members sit one step in from the loose rows, like in `crex show`.
+		if item.Group != nil {
+			idx += groupIndent
+		}
 
 		if i == bm.cursor {
 			fmt.Fprintf(&b, "  %s %s %s", shellCursorStyle.Render("▸"), idx, shellSuccessStyle.Render(name))
 		} else {
 			fmt.Fprintf(&b, "    %s %s", idx, name)
+		}
+		if item.Anchor {
+			b.WriteString(anchorTag())
 		}
 		if desc != "" {
 			b.WriteString("  ")

@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/drolosoft/cmux-resurrect/internal/client"
 	"github.com/drolosoft/cmux-resurrect/internal/gallery"
 	"github.com/drolosoft/cmux-resurrect/internal/mdfile"
 	"github.com/drolosoft/cmux-resurrect/internal/model"
@@ -41,43 +42,20 @@ func (m *ShellModel) execNow() {
 
 	total := 0
 	for _, win := range tree.Windows {
-		for _, ws := range win.Workspaces {
-			total++
-			// Indicator badges.
-			var badges []string
-			if ws.Pinned {
-				badges = append(badges, "📌")
-			}
-			if ws.Active || ws.Selected {
-				badges = append(badges, "●")
-			}
-			badgeStr := ""
-			if len(badges) > 0 {
-				badgeStr = " " + strings.Join(badges, " ")
+		total += len(win.Workspaces)
+
+		// Group each window like the cmux sidebar, with the same helper
+		// `crex now` uses; without group support it is one flat section.
+		for _, section := range orchestrate.LiveSections(m.client, win) {
+			indent := "  "
+			if section.Group != nil {
+				fmt.Fprintf(m.output, "  %s\n", groupHeader(*section.Group))
+				indent += groupIndent
 			}
 
-			// Title.
-			fmt.Fprintf(m.output, "  %s%s", shellSuccessStyle.Render(ws.Title), badgeStr)
-
-			// CWD from sidebar-state (best effort).
-			if ws.Ref != "" {
-				if sidebar, err := m.client.SidebarState(ws.Ref); err == nil && sidebar.CWD != "" {
-					cwd := sidebar.CWD
-					if home != "" {
-						cwd = strings.Replace(cwd, home, "~", 1)
-					}
-					m.output.WriteString("  ")
-					m.output.WriteString(shellDimStyle.Render(cwd))
-				}
+			for _, position := range section.Members {
+				m.nowWorkspace(win.Workspaces[position], indent, section.IsAnchor(position), home)
 			}
-
-			// Pane count.
-			if len(ws.Panes) > 0 {
-				m.output.WriteString("  ")
-				m.output.WriteString(shellDimStyle.Render(fmt.Sprintf("%d pane(s)", len(ws.Panes))))
-			}
-
-			m.output.WriteString("\n")
 		}
 	}
 
@@ -85,6 +63,49 @@ func (m *ShellModel) execNow() {
 		m.output.WriteString(shellDimStyle.Render(fmt.Sprintf("  No %s found.", label)))
 		m.output.WriteString("\n")
 	}
+	m.output.WriteString("\n")
+}
+
+// nowWorkspace writes one live workspace line of the now command: title,
+// badges, cwd and pane count, with the anchor tag the CLI uses.
+func (m *ShellModel) nowWorkspace(ws client.TreeWorkspace, indent string, isAnchor bool, home string) {
+	// Indicator badges.
+	var badges []string
+	if isAnchor {
+		badges = append(badges, shellDimStyle.Render("anchor"))
+	}
+	if ws.Pinned {
+		badges = append(badges, "📌")
+	}
+	if ws.Active || ws.Selected {
+		badges = append(badges, "●")
+	}
+	badgeStr := ""
+	if len(badges) > 0 {
+		badgeStr = " " + strings.Join(badges, " ")
+	}
+
+	// Title.
+	fmt.Fprintf(m.output, "%s%s%s", indent, shellSuccessStyle.Render(ws.Title), badgeStr)
+
+	// CWD from sidebar-state (best effort).
+	if ws.Ref != "" {
+		if sidebar, err := m.client.SidebarState(ws.Ref); err == nil && sidebar.CWD != "" {
+			cwd := sidebar.CWD
+			if home != "" {
+				cwd = strings.Replace(cwd, home, "~", 1)
+			}
+			m.output.WriteString("  ")
+			m.output.WriteString(shellDimStyle.Render(cwd))
+		}
+	}
+
+	// Pane count.
+	if len(ws.Panes) > 0 {
+		m.output.WriteString("  ")
+		m.output.WriteString(shellDimStyle.Render(fmt.Sprintf("%d pane(s)", len(ws.Panes))))
+	}
+
 	m.output.WriteString("\n")
 }
 
@@ -535,54 +556,75 @@ func (m *ShellModel) execShow(name string) {
 
 	home, _ := os.UserHomeDir()
 
-	for _, ws := range layout.Workspaces {
-		title := shellSuccessStyle.Render(ws.Title)
-		badges := ""
-		if ws.Pinned {
-			badges += " 📌"
+	// Workspaces sit under their group headers with the same helper `crex
+	// show` uses; a layout without groups is one loose section in file order.
+	for _, section := range layout.Sections() {
+		indent := "  "
+		if section.Group != nil {
+			fmt.Fprintf(m.output, "  %s\n", groupHeader(*section.Group))
+			indent += groupIndent
 		}
-		if ws.Active {
-			badges += " " + shellDimStyle.Render("◀ active")
+
+		for _, position := range section.Members {
+			m.showWorkspace(layout.Workspaces[position], indent, section.IsAnchor(position), home)
 		}
-		fmt.Fprintf(m.output, "  %s%s\n", title, badges)
-
-		// CWD.
-		cwd := ws.CWD
-		if home != "" {
-			cwd = strings.Replace(cwd, home, "~", 1)
-		}
-		fmt.Fprintf(m.output, "  %s\n", shellDimStyle.Render("cwd "+cwd))
-
-		// Pane tree.
-		for i, p := range ws.Panes {
-			isLast := i == len(ws.Panes)-1
-			prefix := "├──"
-			if isLast {
-				prefix = "└──"
-			}
-			prefix = shellDimStyle.Render(prefix)
-
-			var desc string
-			if p.Split != "" {
-				desc = shellFlameStyle.Render("→"+p.Split) + " "
-			}
-			if p.Command != "" {
-				cmd := p.Command
-				if len(cmd) > 50 {
-					cmd = cmd[:47] + "..."
-				}
-				desc += shellSuccessStyle.Render(cmd)
-			} else {
-				desc += shellDimStyle.Render("shell")
-			}
-			if p.Focus {
-				desc += " " + shellFlameStyle.Render("★")
-			}
-
-			fmt.Fprintf(m.output, "  %s %s\n", prefix, desc)
-		}
-		m.output.WriteString("\n")
 	}
+}
+
+// showWorkspace writes one workspace block of the show command: title and
+// badges, cwd and the pane tree. indent is two spaces for loose workspaces
+// and one step deeper inside a group; isAnchor tags the group's header
+// workspace the way the CLI does.
+func (m *ShellModel) showWorkspace(ws model.Workspace, indent string, isAnchor bool, home string) {
+	title := shellSuccessStyle.Render(ws.Title)
+	badges := ""
+	if isAnchor {
+		badges += anchorTag()
+	}
+	if ws.Pinned {
+		badges += " 📌"
+	}
+	if ws.Active {
+		badges += " " + shellDimStyle.Render("◀ active")
+	}
+	fmt.Fprintf(m.output, "%s%s%s\n", indent, title, badges)
+
+	// CWD.
+	cwd := ws.CWD
+	if home != "" {
+		cwd = strings.Replace(cwd, home, "~", 1)
+	}
+	fmt.Fprintf(m.output, "%s%s\n", indent, shellDimStyle.Render("cwd "+cwd))
+
+	// Pane tree.
+	for i, p := range ws.Panes {
+		isLast := i == len(ws.Panes)-1
+		prefix := "├──"
+		if isLast {
+			prefix = "└──"
+		}
+		prefix = shellDimStyle.Render(prefix)
+
+		var desc string
+		if p.Split != "" {
+			desc = shellFlameStyle.Render("→"+p.Split) + " "
+		}
+		if p.Command != "" {
+			cmd := p.Command
+			if len(cmd) > 50 {
+				cmd = cmd[:47] + "..."
+			}
+			desc += shellSuccessStyle.Render(cmd)
+		} else {
+			desc += shellDimStyle.Render("shell")
+		}
+		if p.Focus {
+			desc += " " + shellFlameStyle.Render("★")
+		}
+
+		fmt.Fprintf(m.output, "%s%s %s\n", indent, prefix, desc)
+	}
+	m.output.WriteString("\n")
 }
 
 // execEdit suspends the TUI and opens the layout file in $EDITOR.

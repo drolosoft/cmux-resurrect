@@ -4,10 +4,18 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/drolosoft/cmux-resurrect/internal/model"
 	"github.com/spf13/cobra"
 )
 
 var showRaw bool
+
+// showIndent is the left margin of every workspace block in `crex show`.
+const showIndent = "   "
+
+// showGroupIndent is the extra margin of a workspace inside a group, enough
+// to read it as nested under the header without wasting width.
+const showGroupIndent = "  "
 
 var showCmd = &cobra.Command{
 	Use:   "show <name>",
@@ -54,66 +62,104 @@ func runShow(cmd *cobra.Command, args []string) error {
 	o.f("   %s\n", dimStyle.Render(fmt.Sprintf("Saved %s · %d %s", saved, len(layout.Workspaces), unitName(len(layout.Workspaces)))))
 	o.ln()
 
-	for _, ws := range layout.Workspaces {
-		// Workspace title with badges
-		title := greenStyle.Render(ws.Title)
-		badges := ""
-		if ws.Pinned {
-			badges += " " + cyanStyle.Render("📌")
-		}
-		if ws.Active {
-			badges += " " + yellowStyle.Render("◀ active")
-		}
-		o.f("   %s%s\n", title, badges)
-		if ws.Description != "" {
-			o.f("   %s\n", dimStyle.Render(ws.Description))
+	// Workspaces sit under their group headers like in the cmux sidebar; a
+	// layout without groups comes back as one loose section, printed exactly
+	// as before groups existed.
+	for _, section := range layout.Sections() {
+		indent := showIndent
+		if section.Group != nil {
+			o.f("%s%s\n", showIndent, showGroupHeader(*section.Group))
+			indent = showIndent + showGroupIndent
 		}
 
-		// CWD
-		o.f("   %s\n", dimStyle.Render("cwd "+ws.CWD))
-
-		// Panes as a tree
-		for i, p := range ws.Panes {
-			isLast := i == len(ws.Panes)-1
-			prefix := "├──"
-			if isLast {
-				prefix = "└──"
-			}
-			prefix = dimStyle.Render(prefix)
-
-			// Build pane description
-			var desc string
-			if p.Split != "" {
-				desc = magentaStyle.Render("→"+p.Split) + " "
-			}
-			switch {
-			case p.Type == "browser":
-				url := p.URL
-				if len(url) > 50 {
-					url = url[:47] + "..."
-				}
-				if url != "" {
-					desc += cyanStyle.Render("🌐 " + url)
-				} else {
-					desc += dimStyle.Render("🌐 browser")
-				}
-			case p.Command != "":
-				cmd := p.Command
-				if len(cmd) > 50 {
-					cmd = cmd[:47] + "..."
-				}
-				desc += cyanStyle.Render(cmd)
-			default:
-				desc += dimStyle.Render("shell")
-			}
-			if p.Focus {
-				desc += " " + yellowStyle.Render("★")
-			}
-
-			o.f("   %s %s\n", prefix, desc)
+		for _, position := range section.Members {
+			showWorkspace(o, layout.Workspaces[position], indent, section.IsAnchor(position))
 		}
-		o.ln()
 	}
 
 	return nil
+}
+
+// showWorkspace prints one workspace block: title and badges, description,
+// cwd and the pane tree. indent is today's three spaces for loose workspaces
+// and one level deeper for group members, so a layout without groups prints
+// byte for byte what it printed before. isAnchor tags the workspace that is
+// its group's header in cmux, whose own title often differs from the group
+// name ("Group 7" heading "🎮 Cmux").
+func showWorkspace(o wf, ws model.Workspace, indent string, isAnchor bool) {
+	// Workspace title with badges
+	title := greenStyle.Render(ws.Title)
+	badges := ""
+	if isAnchor {
+		badges += " " + dimStyle.Render("anchor")
+	}
+	if ws.Pinned {
+		badges += " " + cyanStyle.Render("📌")
+	}
+	if ws.Active {
+		badges += " " + yellowStyle.Render("◀ active")
+	}
+	o.f("%s%s%s\n", indent, title, badges)
+	if ws.Description != "" {
+		o.f("%s%s\n", indent, dimStyle.Render(ws.Description))
+	}
+
+	// CWD
+	o.f("%s%s\n", indent, dimStyle.Render("cwd "+ws.CWD))
+
+	// Panes as a tree
+	for i, p := range ws.Panes {
+		isLast := i == len(ws.Panes)-1
+		prefix := "├──"
+		if isLast {
+			prefix = "└──"
+		}
+		prefix = dimStyle.Render(prefix)
+
+		// Build pane description
+		var desc string
+		if p.Split != "" {
+			desc = magentaStyle.Render("→"+p.Split) + " "
+		}
+		switch {
+		case p.Type == "browser":
+			url := p.URL
+			if len(url) > 50 {
+				url = url[:47] + "..."
+			}
+			if url != "" {
+				desc += cyanStyle.Render("🌐 " + url)
+			} else {
+				desc += dimStyle.Render("🌐 browser")
+			}
+		case p.Command != "":
+			cmd := p.Command
+			if len(cmd) > 50 {
+				cmd = cmd[:47] + "..."
+			}
+			desc += cyanStyle.Render(cmd)
+		default:
+			desc += dimStyle.Render("shell")
+		}
+		if p.Focus {
+			desc += " " + yellowStyle.Render("★")
+		}
+
+		o.f("%s%s %s\n", indent, prefix, desc)
+	}
+	o.ln()
+}
+
+// showGroupHeader renders a group's header line: its name and the same
+// badges `crex now` and the TUI use, pinned and collapsed.
+func showGroupHeader(group model.Group) string {
+	header := groupStyle.Render(group.Name)
+	if group.Pinned {
+		header += " " + cyanStyle.Render("📌")
+	}
+	if group.Collapsed {
+		header += " " + dimStyle.Render("▸ collapsed")
+	}
+
+	return header
 }
