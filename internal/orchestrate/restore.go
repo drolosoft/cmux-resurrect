@@ -326,8 +326,9 @@ type RestoreResult struct {
 // because every anchor is titled "Group N" and members can repeat titles
 // across groups. When the caller's window already has a group with the same
 // name, restored members join it instead of making a second one; that covers
-// add mode, skipMatching and a --workspace filter of one member. A filtered
-// member whose group is not open creates the group with itself as anchor.
+// add mode, skipMatching and a single-workspace filter (the second positional
+// argument of `crex restore`). A filtered member whose group is not open
+// creates the group with itself as anchor.
 // Backends without groups restore every workspace loose and add one warning
 // to RestoreResult.Warnings, never an error.
 func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode, workspaceFilter string, skipMatching bool) (*RestoreResult, error) {

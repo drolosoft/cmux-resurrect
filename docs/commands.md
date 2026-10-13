@@ -7,13 +7,13 @@
 | Command | Alias | Description |
 |---------|-------|-------------|
 | `crex setup` | | 🧙 First-run wizard — detect backend, create config |
-| `crex save [name]` | | 💾 Capture current layout to TOML |
-| `crex restore [name] [workspace]` | | 🔄 Recreate tabs, pane arrangements, and commands (optionally a single workspace) |
+| `crex save [name]` | | 💾 Capture current layout to TOML, including cmux workspace groups |
+| `crex restore [name] [workspace]` | | 🔄 Recreate tabs, pane arrangements, commands, and cmux workspace groups (optionally a single workspace) |
 | `crex pop [name]` | | ⚡ Quick-launch a layout (Ctrl+G picker, `--last`) |
-| `crex now` | | 👀 Show current live workspaces |
+| `crex now` | | 👀 Show current live workspaces, listed under their groups |
 | `crex rename <old> <new>` | `mv` | 🏷️ Rename a saved layout |
 | `crex list` | `ls` | 📋 List saved layouts (`--json`, `--alfred`) |
-| `crex show <name>` | | 🔍 Display layout details (`--raw` for TOML) |
+| `crex show <name>` | | 🔍 Display layout details, workspaces listed under their groups (`--raw` for TOML) |
 | `crex edit <name>` | | ✏️ Open layout in `$EDITOR` |
 | `crex delete <name>` | `rm` | 🗑️ Delete a saved layout |
 | `crex import-from-md` | | 📥 Create tabs from a Blueprint |
@@ -51,7 +51,20 @@ crex watch --daemon                                     # ⏱️ start backgroun
 crex watch --status                                     # ⏱️ check if daemon is running
 crex watch --stop                                       # ⏱️ stop the daemon
 crex watch --shell-hook                                 # ⏱️ print auto-start snippet for your shell
+crex restore my-day --mode add                          # ➕ keep open workspaces, add the missing ones
+crex restore my-day --mode replace                      # 🔄 close what the layout does not have
+crex restore my-day api                                 # 🎯 restore only the workspace titled "api"
 ```
+
+### Restore modes and workspace groups
+
+On cmux, restore recreates the sidebar groups saved in the layout. A workspace counts as already open only when both its title and its group match, so the same title can live in two groups without a clash.
+
+- `--mode add`: when the window already has a live group with the same name, restored members join it instead of creating a second group. Otherwise the group is created.
+- `--mode replace`: closes the open workspaces that are not in the layout, matching by group and title. Closing a group's anchor makes the next member the anchor, and closing every member removes the group (this is cmux behaviour).
+- Single workspace (`crex restore <name> <workspace>`): the filter still matches by title. A member of a group joins the live group of that name, or creates the group with itself as its only member.
+
+`--dry-run` prints the group commands too.
 
 ## Try It: the Demo Layout
 
@@ -224,6 +237,7 @@ crex targets full parity between cmux and Ghostty; where the platform APIs diffe
 | Sub-tabs within a pane (multi-surface) | ✅ | ⚠️ restored as splits⁵ |
 | Browser panes | ✅ | opens URL in default browser |
 | Browser profiles | ✅ saved per pane, reapplied on restore³ | — (no browser panes) |
+| Workspace groups | ✅ saved and recreated⁶ | ⚠️ restored as loose workspaces, with a warning |
 | AI session resume | ✅ per pane **and per tab**⁴ | ✅ per pane |
 
 ¹ Ghostty reports each terminal's directory via OSC 7 (shell integration). When a shell doesn't emit OSC 7, crex falls back to the terminal title (`user@host: ~/path`), accepted only if the directory exists. Restore always sends each pane's `cd`.
@@ -235,6 +249,8 @@ crex targets full parity between cmux and Ghostty; where the platform APIs diffe
 ⁴ Every tab gets its own resume command, matched on that tab's working directory first — so a workspace holding one tab per git worktree, each with its own Claude Code session, comes back with each tab on its own conversation. Nothing to configure: run `crex save <name>` while the sessions are running. Each detected session is claimed exactly once, so tabs never steal each other's conversation.
 
 ⁵ Ghostty has no sub-tabs, so a cmux pane holding several tabs restores them as splits beside that pane — each keeps its own folder and its own session command. The arrangement differs from the original, but nothing you were working on is dropped. Saving on Ghostty never produces sub-tabs, so this only applies to restoring a cmux-saved layout there.
+
+⁶ `crex save` reads the groups of the window it runs in and stores each one (name, collapsed, pinned, color, icon) with its members and anchor. Restore creates the anchor first, then the other members inside the group, then applies collapse, color, icon and pin. A layout without groups is written exactly as before, and an older crex ignores the group keys. On Ghostty, which has no groups, restore adds one line to its warnings and never fails.
 
 ## Common Recipes
 

@@ -49,6 +49,7 @@ How it works:
 - PID file at `~/.config/crex/crex.pid`
 - Logs to `~/.config/crex/watch.log` (1 MB rotation, one `.old` backup)
 - Content-hash deduplication (same as foreground mode) — identical layouts are never saved twice
+- cmux workspace groups are saved too, and a change only in groups (a rename, a fold, a workspace moved to another group) bumps the revision
 - Set `CREX_NO_WATCH=1` to prevent auto-start from shell hooks
 
 ### Shell Hook (auto-start on login)

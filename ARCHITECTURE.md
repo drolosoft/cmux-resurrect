@@ -154,9 +154,35 @@ type PaneGeometryProvider interface {
 type PaneResizer interface {
     ResizePane(opts ResizePaneOpts) error                    // apply saved split ratios on restore
 }
+
+// GroupManager reads and rebuilds cmux sidebar workspace groups (cmux 0.64
+// and later). Only CLIClient implements it; Ghostty has no groups.
+type GroupManager interface {
+    ListGroups(windowRef string) ([]WorkspaceGroup, error)
+    CreateGroup(name string, fromRefs []string) (WorkspaceGroup, error)
+    SetGroupAnchor(groupRef, workspaceRef string) error
+    AddToGroup(groupRef, workspaceRef string) error
+    RenameGroup(groupRef, name string) error
+    CollapseGroup(groupRef string) error
+    PinGroup(groupRef string) error
+    SetGroupColor(groupRef, hex string) error
+    SetGroupIcon(groupRef, symbol string) error
+}
 ```
 
 Implementations: `CLIClient` (cmux via exec) and `GhosttyClient` (Ghostty via AppleScript; also drives cmux-applescript). New backends can be added without touching business logic — implement the core interface and opt into the optional capabilities as needed.
+
+## Workspace Groups
+
+cmux 0.64 can group workspaces in the sidebar. A group owns no panes: its header is one of its member workspaces, the anchor. crex keeps groups only on cmux, through the optional `GroupManager` interface above, and detects it by type assertion. In dry-run mode the matching formatter is `GroupDryRunFormatter` in `internal/client/dryrun.go`, implemented only by `CmuxDryRun`.
+
+**Model.** `Layout.Groups` (`[[group]]` in TOML) lists the groups in sidebar order, each with `name`, `collapsed`, `pinned` and optional `color` (`"#RRGGBB"`) and `icon` (an SF Symbol name). Each workspace points back with `Workspace.Group` (`group`, empty for a loose workspace) and `Workspace.GroupAnchor` (`group_anchor = true` on the anchor). A layout without groups writes none of these keys, so it is identical to a layout saved before groups existed, and an older crex ignores them.
+
+**Save.** Save calls `ListGroups(win.Ref)` on the caller's window and marks every workspace with its group and its anchor. If two live groups share a name, the second is saved as `<name> (2)`. If listing groups fails, save prints a warning and keeps the groups of the existing layout. A change that touches only groups still raises the revision.
+
+**Restore.** Workspaces are created in index order. The first workspace of each group is its anchor: crex creates it with its panes, creates the group from it, sets it as the anchor and closes the extra anchor that `cmux workspace-group create --from` always adds. The other members are created inside the group with `--group <ref> --group-placement end`, and at the end crex applies collapse, color, icon and pin (pins in reverse order, because pinning moves a group to the top). On Ghostty the workspaces come back loose with one entry under "Warnings", never an error.
+
+**Display.** `crex show`, `crex now` and the TUI list workspaces under their group through one helper, `model.GroupSections` (reached through `Layout.Sections()`), so the CLI and the TUI cannot drift. For a live window, `orchestrate.LiveSections` in `internal/orchestrate/livesections.go` builds the same sections from `ListGroups` and falls back to the flat listing when the backend has no groups. The code is in `internal/model/sections.go`.
 
 ## Ref Detection Strategy
 

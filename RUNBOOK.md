@@ -412,10 +412,57 @@ pkill -f 'ttyd.*7682'
 
 ---
 
+## Test 15: workspace groups (cmux only)
+
+Use a new cmux window for this test, never the window you work in. Group commands and `crex save` act on the window of the shell that runs them, so run every step below from a shell inside the test window.
+
+```sh
+# In a new cmux window, build two groups in the sidebar (or with
+# cmux workspace-group create). Give one group a split member, and set
+# collapsed, color and icon on one and pinned on the other.
+cmux --json workspace-group list > /tmp/crex-test/groups-before.json
+
+crex save runbook-groups
+crex show runbook-groups
+# Expected: workspaces listed under their group, anchor first and marked
+# "anchor", the pinned group with 📌, the collapsed one with "▸ collapsed"
+```
+
+```sh
+# Dry-run from a shell in a second new cmux window
+crex restore runbook-groups --dry-run
+# Expected: cmux workspace-group create / set-anchor commands and
+# new-workspace ... --group ... --group-placement end for the members
+```
+
+```sh
+# Real restore, from the same second window
+crex restore runbook-groups --mode replace
+cmux --json workspace-group list > /tmp/crex-test/groups-after.json
+diff <(jq '[.groups[] | {name, is_collapsed, is_pinned, custom_color, icon_symbol}]' /tmp/crex-test/groups-before.json) \
+     <(jq '[.groups[] | {name, is_collapsed, is_pinned, custom_color, icon_symbol}]' /tmp/crex-test/groups-after.json)
+# Expected: no diff. Refs change between windows, so compare anchor and
+# member titles by eye in the sidebar or with cmux list-workspaces.
+```
+
+**Check:**
+- [ ] Same group names, in the same order
+- [ ] Same anchor workspace for each group
+- [ ] Same members in each group, in the same order
+- [ ] Collapsed, pinned, color and icon match
+- [ ] No stray "Group N" workspace outside the groups
+
+The automated version of this test is `TestCmux_GroupsSurviveSaveAndRestore` in `test/live/groups_test.go` (added in commit a86b9be). It runs as part of `make audit-cmux`, compares `cmux --json workspace-group list` before and after with member titles instead of refs, and closes its windows when it ends.
+
+---
+
 ## Cleanup
 
 ```sh
 rm -rf /tmp/crex-test
 crex delete runbook-test 2>/dev/null
 crex delete runbook-watch 2>/dev/null
+crex delete runbook-groups 2>/dev/null
 ```
+
+Close the two cmux windows used in Test 15 by hand.

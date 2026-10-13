@@ -23,7 +23,7 @@ crex saves and restores terminal workspaces — tabs, splits, per-pane working d
 
 ## Rules for agents
 
-1. **Always pass `--mode` when scripting a restore.** Without it, crex prompts interactively (replace vs add) and your command hangs. `add` is non-destructive: it syncs by workspace title — already-open workspaces are skipped, missing ones are created.
+1. **Always pass `--mode` when scripting a restore.** Without it, crex prompts interactively (replace vs add) and your command hangs. `add` is non-destructive and matches by group + title: already-open workspaces are skipped, missing ones are created, and a group already open in the window is reused, not duplicated.
 2. **Verify the layout exists first** — restoring a nonexistent name falls into an interactive picker (hangs scripts). Guard: `crex list --json | jq -e --arg n "NAME" 'map(.name) | index($n)'`. JSON fields: `name`, `description`, `saved_at`, `workspace_count`, `workspace_titles`, `workspace_summaries`, `file_path`. If the name is close-but-wrong, suggest the nearest existing name to the user — never guess.
 3. **Preview before mutating**: `--dry-run` prints the exact backend commands a restore would run, without executing. It does NOT skip the mode prompt — always pair it with `--mode`.
 4. **Snapshot-before-risk pattern**: `crex save pre-<task> -d "rollback point"` → do the risky thing → roll back with `crex restore pre-<task> --mode replace` if needed.
@@ -34,7 +34,7 @@ crex saves and restores terminal workspaces — tabs, splits, per-pane working d
 
 `crex save` detects running AI CLI sessions and stores their resume commands (e.g. `claude --resume <session-id>`). `crex restore` replays them — the session continues mid-conversation, not from scratch. To check what a layout will resume: `crex show <name>` lists each pane's command.
 
-`--mode add` skips workspaces that are already open (matched by title) — it won't repair a dead session inside an open workspace. For that, read the pane's resume command from `crex show <name>` and run it in that pane yourself (or ask the user).
+`--mode add` skips workspaces that are already open (matched by group + title), so it won't repair a dead session inside an open workspace. For that, read the pane's resume command from `crex show <name>` and run it in that pane yourself (or ask the user).
 
 ## Querying layout contents programmatically
 
@@ -42,6 +42,7 @@ crex saves and restores terminal workspaces — tabs, splits, per-pane working d
 - Paths are stored **absolute** (`/Users/x/...`) — grepping for `~/...` finds nothing.
 - Anchor path matches to the full quoted value (`cwd = '/exact/path'`) — substring greps false-positive on sibling dirs (`laporra` matches `laporra-go`).
 - Layout files live in `~/.config/crex/layouts/*.toml` (override: `--layouts-dir`).
+- cmux workspace groups: `[[group]]` tables (`name`, `collapsed`, `pinned`, `color`, `icon`) in sidebar order; each `[[workspace]]` has `group = '<name>'` (absent = loose) and `group_anchor = true` on the anchor. No groups, no group keys.
 
 ## Blueprints (Markdown workspace definitions)
 
@@ -49,7 +50,7 @@ A Blueprint is a Markdown file (Obsidian-compatible) declaring workspaces/tabs. 
 
 ## Backends
 
-cmux and Ghostty are auto-detected; force with `CREX_BACKEND=cmux|ghostty`. Split geometry restores pixel-exact on cmux; on Ghostty splits recreate as a right-chain (its API exposes no pane frames) but every pane's directory is preserved.
+cmux and Ghostty are auto-detected; force with `CREX_BACKEND=cmux|ghostty`. Split geometry restores pixel-exact on cmux; on Ghostty splits recreate as a right-chain (its API exposes no pane frames) but every pane's directory is preserved. Ghostty has no workspace groups: a layout with groups restores its workspaces loose, with one warning (not an error).
 
 ## Common mistakes
 
