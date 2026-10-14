@@ -23,9 +23,9 @@ Save layouts by name. Restore them anytime. Switch between them in seconds. Resu
 
 ### 🗂️ Workspace Groups
 
-On cmux, a restore brings the sidebar back exactly as it was: group names, emojis, order, and each group's state (collapsed, pinned, colour, icon). Before v1.28.0, restores came back flat, and the old group headers showed up as stray "Group 3", "Group 2", "Group 1" workspaces. The layout format is in [Workspace Groups: layout format](#workspace-groups-layout-format).
+On cmux, a restore brings the sidebar back exactly as it was: group names, emojis, order, and each group's state (collapsed, pinned, colour, icon). The layout format is in [Workspace Groups: layout format](#workspace-groups-layout-format).
 
-<p align="center"><img src="assets/groups-before-after.png" width="800" alt="The same restore in two cmux sidebars. Left, crex v1.27.2: a flat list where the group headers come back as loose workspaces named Group 3, Group 2 and Group 1. Right, crex v1.28.0: the groups research (pinned), hotfix (collapsed) and webapp (expanded) come back with their names, emojis and members, and notes stays outside any group."></p>
+<p align="center"><img src="assets/groups-sidebar.png" width="360" alt="A restored cmux sidebar with three named groups: research pinned at the top with notebooks and papers, hotfix collapsed with a flame icon, webapp expanded with api, frontend and worker, plus a notes workspace outside any group.">&nbsp;&nbsp;<img src="assets/groups-sidebar-2.png" width="360" alt="A second restored cmux sidebar: agents pinned with planner and reviewer, infra in blue with a server-rack icon holding terraform, k8s and grafana, docs collapsed, design expanded with tokens and storybook, plus a scratch workspace outside any group."></p>
 
 ---
 
@@ -159,8 +159,6 @@ Configure [auto-accept](docs/configuration.md#auto-accept-for-ai-agents) to skip
 ### Workspace Groups: layout format
 
 On cmux, `crex save` also captures the sidebar groups: each group's name, its members in sidebar order, which workspace is the group header (the anchor), and whether the group is collapsed or pinned, with its colour and icon. `crex restore` rebuilds the groups and puts each workspace back in its own.
-
-<p align="center"><img src="assets/groups-sidebar.png" width="280" alt="The cmux sidebar after a restore: three named groups, research pinned, hotfix collapsed and webapp expanded with its members, plus one workspace outside any group."></p>
 
 In the layout file (`~/.config/crex/layouts/<name>.toml`), each group is a `[[group]]` table and each member workspace names its group:
 
