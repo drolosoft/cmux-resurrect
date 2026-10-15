@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Save no longer drops a workspace that shares a title with another one** — two shells open in the same folder have the same title, and save kept only one of them, so that tab never came back on restore. Only a stale entry with no terminal behind it is dropped now, and only when a live workspace with the same group and title exists. Restore with `--mode add` also creates every same-title member the window is missing, and each one keeps its own saved commands
+- **crex never saves its own command** — the pane you typed `crex save` in was stored with `command = 'crex save …'`, so a restore typed it again and overwrote the layout halfway through. Save skips crex, and restore ignores any `crex …` command left in an older layout
+- **Group anchors are named after their group** — the workspace that heads a group kept the "Group 7" title cmux gives it, so save and restore listed "Group 2", "Group 1"… and never a group name. Save and restore now print each group as a header with its badges and its members under it, and the anchor shows as "(anchor)". Restore titles the anchor with the group name, renames a live anchor still called "Group N" when it joins that group, and expands or unpins a joined group when the layout says so. Save stores such an anchor under the group name; a title you chose yourself is kept. `crex show`, `crex now` and the TUI print anchors the same way
 - **Claude Code sessions in a custom config directory** — Claude Code sessions started with a custom `CLAUDE_CONFIG_DIR` are detected and resumed with the same config dir; two Claude sessions in one folder each keep their own conversation; project paths with dots are found (#10, thanks @amenophis)
 
 ---
