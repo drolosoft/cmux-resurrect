@@ -690,6 +690,73 @@ func TestMergeUserEdits_DuplicateTitlesAcrossGroupsKeepTheirOwnEdits(t *testing.
 	}
 }
 
+// TestMergeUserEdits_SameTitleInOneGroupPairsInFileOrder: two shells in the
+// same folder give two members of one group the same title. Each must take
+// the edits of its own stored workspace, in file order, never both the last
+// one's: a copied "claude --resume <id>" would open one session twice.
+func TestMergeUserEdits_SameTitleInOneGroupPairsInFileOrder(t *testing.T) {
+	livePanes := func() []model.Pane {
+		return []model.Pane{{Type: "terminal", Index: 0}}
+	}
+	live := &model.Layout{Workspaces: []model.Workspace{
+		{Title: "repo", Group: "Cmux", Panes: livePanes()},
+		{Title: "repo", Group: "Cmux", Panes: livePanes()},
+	}}
+	existing := &model.Layout{Workspaces: []model.Workspace{
+		{Title: "repo", Group: "Cmux", Description: "first", Panes: []model.Pane{{Type: "terminal", Index: 0, Command: "claude --resume aaa"}}},
+		{Title: "repo", Group: "Cmux", Description: "second", Panes: []model.Pane{{Type: "terminal", Index: 0, Command: "claude --resume bbb"}}},
+	}}
+
+	mergeUserEdits(live, existing, nil)
+
+	first := live.Workspaces[0]
+	if first.Description != "first" || first.Panes[0].Command != "claude --resume aaa" {
+		t.Errorf("first repo got the wrong edits: %+v", first)
+	}
+	second := live.Workspaces[1]
+	if second.Description != "second" || second.Panes[0].Command != "claude --resume bbb" {
+		t.Errorf("second repo got the wrong edits: %+v", second)
+	}
+}
+
+// TestMergeUserEdits_StoredWorkspaceIsUsedOnlyOnce: with one stored workspace
+// and two live ones sharing its title, only the first live one inherits the
+// edits; the other is new and starts clean, also through the title fallback.
+func TestMergeUserEdits_StoredWorkspaceIsUsedOnlyOnce(t *testing.T) {
+	livePanes := func() []model.Pane {
+		return []model.Pane{{Type: "terminal", Index: 0}}
+	}
+	cases := []struct {
+		name        string
+		storedGroup string
+	}{
+		{name: "same group", storedGroup: "Cmux"},
+		{name: "title fallback", storedGroup: ""},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			live := &model.Layout{Workspaces: []model.Workspace{
+				{Title: "repo", Group: "Cmux", Panes: livePanes()},
+				{Title: "repo", Group: "Cmux", Panes: livePanes()},
+			}}
+			existing := &model.Layout{Workspaces: []model.Workspace{
+				{Title: "repo", Group: testCase.storedGroup, Description: "saved", Panes: []model.Pane{{Type: "terminal", Index: 0, Command: "claude --resume aaa"}}},
+			}}
+
+			mergeUserEdits(live, existing, nil)
+
+			if live.Workspaces[0].Panes[0].Command != "claude --resume aaa" {
+				t.Errorf("first repo did not inherit the stored edits: %+v", live.Workspaces[0])
+			}
+			second := live.Workspaces[1]
+			if second.Description != "" || second.Panes[0].Command != "" {
+				t.Errorf("second repo inherited edits that belong to the first: %+v", second)
+			}
+		})
+	}
+}
+
 func TestMergeUserEdits_FallsBackToTitleForAWorkspaceThatJoinedAGroup(t *testing.T) {
 	live := &model.Layout{Workspaces: []model.Workspace{
 		{Title: "api", Group: "backend", Panes: []model.Pane{{Type: "terminal", Index: 0}}},

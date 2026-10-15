@@ -1041,8 +1041,10 @@ func layoutContentChanged(a, b *model.Layout) bool {
 // the default right-chain would otherwise clobber a hand-edited direction.
 //
 // Workspaces are matched by group and title, so two "api" workspaces in two
-// groups each keep their own edits. A workspace with no exact match falls
-// back to the title alone when exactly one stored workspace has it, which
+// groups each keep their own edits; when a group holds the same title twice,
+// they pair up in file order and each stored workspace is used only once. A
+// workspace with no exact match falls back to the title alone when exactly
+// one stored workspace has it and no other live workspace took it, which
 // covers a workspace that joined or left a group since the last save. Group
 // fields are never copied from the stored layout: the live sidebar owns them.
 func mergeUserEdits(live, existing *model.Layout, geoResolved map[int]bool) {
@@ -1052,25 +1054,40 @@ func mergeUserEdits(live, existing *model.Layout, geoResolved map[int]bool) {
 
 	// Build indexes of existing workspaces for matching: by group and title,
 	// and by title with a count so the fallback can refuse ambiguous titles.
-	existByKey := make(map[workspaceKey]*model.Workspace)
+	// A key can repeat (two shells in one folder inside one group), so each
+	// key holds its stored workspaces in file order and they pair up one to
+	// one with the live workspaces in theirs.
+	existByKey := make(map[workspaceKey][]*model.Workspace)
 	existByTitle := make(map[string]*model.Workspace)
 	titleCount := make(map[string]int)
 	for i := range existing.Workspaces {
 		ew := &existing.Workspaces[i]
-		existByKey[workspaceKey{group: ew.Group, title: ew.Title}] = ew
+		key := workspaceKey{group: ew.Group, title: ew.Title}
+		existByKey[key] = append(existByKey[key], ew)
 		existByTitle[ew.Title] = ew
 		titleCount[ew.Title]++
 	}
 
+	// Stored workspaces already given to a live one. Each is used at most
+	// once, or a copied "claude --resume <id>" would open one session in two
+	// tabs.
+	used := make(map[*model.Workspace]bool)
+
 	for i := range live.Workspaces {
 		lw := &live.Workspaces[i]
-		ew, ok := existByKey[workspaceKey{group: lw.Group, title: lw.Title}]
-		if !ok && titleCount[lw.Title] == 1 {
-			ew, ok = existByTitle[lw.Title]
+		key := workspaceKey{group: lw.Group, title: lw.Title}
+
+		var ew *model.Workspace
+		if pending := existByKey[key]; len(pending) > 0 {
+			ew = pending[0]
+			existByKey[key] = pending[1:]
+		} else if titleCount[lw.Title] == 1 && !used[existByTitle[lw.Title]] {
+			ew = existByTitle[lw.Title]
 		}
-		if !ok {
+		if ew == nil || used[ew] {
 			continue
 		}
+		used[ew] = true
 		// Preserve user-set workspace description (live tree doesn't expose it).
 		if lw.Description == "" && ew.Description != "" {
 			lw.Description = ew.Description
