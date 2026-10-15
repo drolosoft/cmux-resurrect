@@ -1222,3 +1222,30 @@ func TestRestoreGroups_CreatedGroupNeverExpandedOrUnpinned(t *testing.T) {
 		t.Errorf("unexpected calls on a new group: %v", calls)
 	}
 }
+
+// TestRestoreGroups_FilterByStoredPlaceholderTitle: the TUI and Alfred pick a
+// workspace by the title stored in the file, which for a v1.28.0 anchor is
+// "Group 2". Renaming the anchor after its group must not make that pick fail.
+func TestRestoreGroups_FilterByStoredPlaceholderTitle(t *testing.T) {
+	t.Parallel()
+
+	fake := newRestoreGroupFake()
+	restorer := &Restorer{Client: fake, Store: storeRestoreLayout(t, restorePlaceholderAnchorLayout()), SkipPing: true}
+
+	result, err := restorer.Restore("placeholder-anchor", false, RestoreModeAdd, "Group 2", true)
+	if err != nil {
+		t.Fatalf("restore filtered by the stored title: %v", err)
+	}
+	assertRestoreNoErrors(t, result)
+
+	if result.WorkspacesOK != 1 {
+		t.Errorf("WorkspacesOK = %d, want only the anchor", result.WorkspacesOK)
+	}
+	group := fake.groupNamed("Backend")
+	if group == nil {
+		t.Fatal("group Backend does not exist after restore")
+	}
+	if title := fake.titleOf(group.AnchorRef); title != "Backend" {
+		t.Errorf("anchor %s is titled %q, want the group name", group.AnchorRef, title)
+	}
+}

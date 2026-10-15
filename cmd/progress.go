@@ -92,15 +92,11 @@ func workspaceLabel(ws model.Workspace, inGroup bool) string {
 		return padTitle(ws.Title)
 	}
 
-	if inGroup && ws.Group != "" && ws.Title == ws.Group {
+	if inGroup && model.AnchorShownAsGroup(ws.Title, ws.Group) {
 		return dimStyle.Render("(anchor)")
 	}
 
 	if model.IsDefaultGroupTitle(ws.Title) {
-		if inGroup {
-			return dimStyle.Render("(anchor)")
-		}
-
 		return dimStyle.Render("(group anchor)")
 	}
 

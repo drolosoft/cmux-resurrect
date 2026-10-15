@@ -30,6 +30,14 @@ func AnchorTitle(title, groupName string) string {
 	return title
 }
 
+// AnchorShownAsGroup reports whether an anchor listed under its group's
+// header reads better as "(anchor)": its title is the group name, or still
+// cmux's "Group N" placeholder, so the header already says what it is.
+// save, restore, show, now and the TUI all print anchors by this rule.
+func AnchorShownAsGroup(title, groupName string) bool {
+	return groupName != "" && AnchorTitle(title, groupName) == groupName
+}
+
 // EffectiveTitle is the title crex saves, restores and matches the workspace
 // by. Only a group's anchor can differ from Title, as AnchorTitle explains;
 // every other workspace keeps its own title, placeholder-looking or not.

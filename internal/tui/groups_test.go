@@ -93,7 +93,7 @@ func TestShellShow_GroupedLayout(t *testing.T) {
 	assertLinesInOrder(t, m.output.String(), []string{
 		"  inbox",
 		"  🎮 Cmux 📌 ▸ collapsed",
-		"    Group 7 anchor",
+		"    (anchor)",
 		"    cwd /src",
 		"    └── shell",
 		"    crex",
@@ -151,7 +151,7 @@ func TestShellNow_GroupedLikeCLI(t *testing.T) {
 	assertLinesInOrder(t, m.output.String(), []string{
 		"  inbox 📌  1 pane(s)",
 		"  🎮 Cmux 📌 ▸ collapsed",
-		"    Group 7 anchor ●  1 pane(s)",
+		"    (anchor) ●  1 pane(s)",
 		"    crex  1 pane(s)",
 	})
 }
@@ -199,12 +199,12 @@ func TestBrowseDetail_ShowsGroupHeaders(t *testing.T) {
 
 	// Headers are display-only lines: the numbering keeps counting the
 	// pickable rows, so [2] is still the first workspace after "All".
-	for _, want := range []string{"🎮 Cmux 📌 ▸ collapsed", "[3]   Group 7 anchor", "[4]   crex", "Docs", "[5]   manual anchor"} {
+	for _, want := range []string{"🎮 Cmux 📌 ▸ collapsed", "[3]   (anchor)", "[4]   crex", "Docs", "[5]   manual anchor"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("detail view missing %q:\n%s", want, view)
 		}
 	}
-	if strings.Index(view, "🎮 Cmux") > strings.Index(view, "Group 7") {
+	if strings.Index(view, "🎮 Cmux") > strings.Index(view, "(anchor)") {
 		t.Error("the group header must come before its anchor")
 	}
 

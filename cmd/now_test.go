@@ -121,7 +121,7 @@ func TestNow_GroupedLikeShow(t *testing.T) {
 	want := "                    \n  Current Workspaces\n" +
 		"  inbox 📌  1 pane(s)\n" +
 		"  🎮 Cmux 📌 ▸ collapsed\n" +
-		"    Group 7 anchor ●  1 pane(s)\n" +
+		"    (anchor) ●  1 pane(s)\n" +
 		"    crex  1 pane(s)\n" +
 		"\n"
 

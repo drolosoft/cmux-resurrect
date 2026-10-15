@@ -109,7 +109,7 @@ func TestShow_GroupedLayout(t *testing.T) {
 	wantLines := []string{
 		"   inbox",
 		"   🎮 Cmux 📌 ▸ collapsed",
-		"     Group 7 anchor",
+		"     (anchor)",
 		"     cwd /src",
 		"     └── shell",
 		"     crex",

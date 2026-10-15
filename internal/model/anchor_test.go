@@ -82,3 +82,26 @@ func TestNameAnchorsAfterGroups(t *testing.T) {
 		}
 	}
 }
+
+func TestAnchorShownAsGroup(t *testing.T) {
+	cases := []struct {
+		name      string
+		title     string
+		groupName string
+		want      bool
+	}{
+		{"named after its group", "🎮 Cmux", "🎮 Cmux", true},
+		{"cmux placeholder", "Group 7", "🎮 Cmux", true},
+		{"no title", "", "🎮 Cmux", true},
+		{"title chosen by the user", "manual", "Docs", false},
+		{"no group to name it", "Group 7", "", false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := AnchorShownAsGroup(tc.title, tc.groupName); got != tc.want {
+				t.Errorf("AnchorShownAsGroup(%q, %q) = %v, want %v", tc.title, tc.groupName, got, tc.want)
+			}
+		})
+	}
+}

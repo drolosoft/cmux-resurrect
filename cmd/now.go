@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/drolosoft/cmux-resurrect/internal/client"
+	"github.com/drolosoft/cmux-resurrect/internal/model"
 	"github.com/drolosoft/cmux-resurrect/internal/orchestrate"
 	"github.com/spf13/cobra"
 )
@@ -59,7 +60,11 @@ func renderNow(w io.Writer, cl client.Backend) error {
 		}
 
 		for _, position := range section.Members {
-			nowWorkspace(o, cl, win.Workspaces[position], indent, section.IsAnchor(position), home)
+			anchorOf := ""
+			if section.IsAnchor(position) {
+				anchorOf = section.Group.Name
+			}
+			nowWorkspace(o, cl, win.Workspaces[position], indent, anchorOf, home)
 		}
 	}
 
@@ -71,11 +76,16 @@ func renderNow(w io.Writer, cl client.Backend) error {
 }
 
 // nowWorkspace prints one live workspace on a single line: title, badges,
-// cwd and pane count. isAnchor adds the same "anchor" tag `crex show` uses,
-// because the anchor's own title rarely matches its group's name.
-func nowWorkspace(o wf, cl client.Backend, ws client.TreeWorkspace, indent string, isAnchor bool, home string) {
+// cwd and pane count. anchorOf is the name of the group the workspace heads,
+// "" for any other workspace: such an anchor prints as "(anchor)" when the
+// header already names it, and with the "anchor" tag `crex show` uses when
+// the user gave it a title of its own.
+func nowWorkspace(o wf, cl client.Backend, ws client.TreeWorkspace, indent string, anchorOf string, home string) {
+	title := greenStyle.Render(ws.Title)
 	var badges []string
-	if isAnchor {
+	if anchorOf != "" && model.AnchorShownAsGroup(ws.Title, anchorOf) {
+		title = dimStyle.Render("(anchor)")
+	} else if anchorOf != "" {
 		badges = append(badges, dimStyle.Render("anchor"))
 	}
 	if ws.Pinned {
@@ -88,7 +98,7 @@ func nowWorkspace(o wf, cl client.Backend, ws client.TreeWorkspace, indent strin
 	if len(badges) > 0 {
 		badgeStr = " " + strings.Join(badges, " ")
 	}
-	o.f("%s%s%s", indent, greenStyle.Render(ws.Title), badgeStr)
+	o.f("%s%s%s", indent, title, badgeStr)
 
 	// CWD from sidebar-state (best effort).
 	if ws.Ref != "" {

@@ -368,6 +368,14 @@ func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode, workspace
 	// (GitHub #8). Repair those before anything is recreated.
 	sanitizeLayoutCommands(layout)
 
+	// The TUI and Alfred pick a workspace by the title stored in the file,
+	// which for a v1.28.0 anchor is still "Group 2", so the filter below also
+	// accepts these titles after the anchors are renamed.
+	storedTitles := make([]string, len(layout.Workspaces))
+	for index, ws := range layout.Workspaces {
+		storedTitles[index] = strings.ToLower(ws.Title)
+	}
+
 	// Layouts saved by v1.28.0 stored an anchor under cmux's "Group N"
 	// placeholder. Naming it after its group here means the anchor is created,
 	// matched, filtered and reported under that name from now on.
@@ -381,7 +389,7 @@ func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode, workspace
 
 		for i, ws := range layout.Workspaces {
 			titleLower := strings.ToLower(ws.Title)
-			if titleLower == filterLower {
+			if titleLower == filterLower || storedTitles[i] == filterLower {
 				exactMatch = &layout.Workspaces[i]
 				break
 			}

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/drolosoft/cmux-resurrect/internal/model"
 )
 
 // BrowseModel handles arrow-key navigation on a listing.
@@ -284,6 +285,14 @@ func (bm BrowseModel) View() string {
 		name := item.Title()
 		desc := item.Desc()
 
+		// An anchor its header already names reads "(anchor)", as in `crex
+		// show`; picking it still restores it by its stored title.
+		anchorTagged := item.Anchor
+		if item.Anchor && item.Group != nil && model.AnchorShownAsGroup(item.Name, item.Group.Name) {
+			name = "(anchor)"
+			anchorTagged = false
+		}
+
 		// Members sit one step in from the loose rows, like in `crex show`.
 		if item.Group != nil {
 			idx += groupIndent
@@ -294,7 +303,7 @@ func (bm BrowseModel) View() string {
 		} else {
 			fmt.Fprintf(&b, "    %s %s", idx, name)
 		}
-		if item.Anchor {
+		if anchorTagged {
 			b.WriteString(anchorTag())
 		}
 		if desc != "" {

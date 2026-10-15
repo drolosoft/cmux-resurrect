@@ -54,7 +54,11 @@ func (m *ShellModel) execNow() {
 			}
 
 			for _, position := range section.Members {
-				m.nowWorkspace(win.Workspaces[position], indent, section.IsAnchor(position), home)
+				anchorOf := ""
+				if section.IsAnchor(position) {
+					anchorOf = section.Group.Name
+				}
+				m.nowWorkspace(win.Workspaces[position], indent, anchorOf, home)
 			}
 		}
 	}
@@ -68,10 +72,14 @@ func (m *ShellModel) execNow() {
 
 // nowWorkspace writes one live workspace line of the now command: title,
 // badges, cwd and pane count, with the anchor tag the CLI uses.
-func (m *ShellModel) nowWorkspace(ws client.TreeWorkspace, indent string, isAnchor bool, home string) {
-	// Indicator badges.
+// anchorOf is the name of the group the workspace heads, "" otherwise.
+func (m *ShellModel) nowWorkspace(ws client.TreeWorkspace, indent string, anchorOf string, home string) {
+	// An anchor the group header already names prints as "(anchor)".
+	title := shellSuccessStyle.Render(ws.Title)
 	var badges []string
-	if isAnchor {
+	if anchorOf != "" && model.AnchorShownAsGroup(ws.Title, anchorOf) {
+		title = shellDimStyle.Render("(anchor)")
+	} else if anchorOf != "" {
 		badges = append(badges, shellDimStyle.Render("anchor"))
 	}
 	if ws.Pinned {
@@ -86,7 +94,7 @@ func (m *ShellModel) nowWorkspace(ws client.TreeWorkspace, indent string, isAnch
 	}
 
 	// Title.
-	fmt.Fprintf(m.output, "%s%s%s", indent, shellSuccessStyle.Render(ws.Title), badgeStr)
+	fmt.Fprintf(m.output, "%s%s%s", indent, title, badgeStr)
 
 	// CWD from sidebar-state (best effort).
 	if ws.Ref != "" {
@@ -578,7 +586,12 @@ func (m *ShellModel) execShow(name string) {
 func (m *ShellModel) showWorkspace(ws model.Workspace, indent string, isAnchor bool, home string) {
 	title := shellSuccessStyle.Render(ws.Title)
 	badges := ""
-	if isAnchor {
+
+	// An anchor the group header already names prints as "(anchor)", like
+	// the CLI; one the user titled keeps its title and the tag.
+	if isAnchor && model.AnchorShownAsGroup(ws.Title, ws.Group) {
+		title = shellDimStyle.Render("(anchor)")
+	} else if isAnchor {
 		badges += anchorTag()
 	}
 	if ws.Pinned {

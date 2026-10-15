@@ -91,7 +91,12 @@ func showWorkspace(o wf, ws model.Workspace, indent string, isAnchor bool) {
 	// Workspace title with badges
 	title := greenStyle.Render(ws.Title)
 	badges := ""
-	if isAnchor {
+
+	// An anchor the group header already names prints as "(anchor)", the
+	// way save and restore list it; one the user titled keeps its title.
+	if isAnchor && model.AnchorShownAsGroup(ws.Title, ws.Group) {
+		title = dimStyle.Render("(anchor)")
+	} else if isAnchor {
 		badges += " " + dimStyle.Render("anchor")
 	}
 	if ws.Pinned {
