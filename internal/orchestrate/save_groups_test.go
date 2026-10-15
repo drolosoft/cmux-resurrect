@@ -463,6 +463,72 @@ func TestDeduplicateWorkspaces_NilMembershipBehavesAsBefore(t *testing.T) {
 	}
 }
 
+// keptRefs joins the refs of the workspaces dedupe kept, in order.
+func keptRefs(kept []client.TreeWorkspace) string {
+	var refs []string
+	for _, workspace := range kept {
+		refs = append(refs, workspace.Ref)
+	}
+	return strings.Join(refs, ",")
+}
+
+// TestDeduplicateWorkspaces_KeepsLiveWorkspacesThatShareATitle: two shells in
+// the same folder give two members of one group the same title. Both have a
+// tty, so both are real and both must be saved.
+func TestDeduplicateWorkspaces_KeepsLiveWorkspacesThatShareATitle(t *testing.T) {
+	anchor := groupTestWorkspace("workspace:1", "Group 1", 0)
+	anchor.Panes[0].Surfaces[0].TTY = "/dev/ttys001"
+	firstShell := groupTestWorkspace("workspace:2", "txeo@Mac: ~/src/repo", 1)
+	firstShell.Panes[0].Surfaces[0].TTY = "/dev/ttys002"
+	secondShell := groupTestWorkspace("workspace:3", "txeo@Mac: ~/src/repo", 2)
+	secondShell.Panes[0].Surfaces[0].TTY = "/dev/ttys003"
+
+	membership := map[string]groupMembership{
+		"workspace:1": {name: "Cmux", anchor: true},
+		"workspace:2": {name: "Cmux"},
+		"workspace:3": {name: "Cmux"},
+	}
+
+	kept := deduplicateWorkspaces([]client.TreeWorkspace{anchor, firstShell, secondShell}, membership)
+
+	got := keptRefs(kept)
+	if got != "workspace:1,workspace:2,workspace:3" {
+		t.Errorf("kept = %s, want every workspace: all of them have a tty", got)
+	}
+}
+
+// TestDeduplicateWorkspaces_DropsGhostWithLiveSibling: a workspace without a
+// tty is only a ghost when a sibling with the same key is alive.
+func TestDeduplicateWorkspaces_DropsGhostWithLiveSibling(t *testing.T) {
+	firstShell := groupTestWorkspace("workspace:1", "repo", 0)
+	firstShell.Panes[0].Surfaces[0].TTY = "/dev/ttys001"
+	ghost := groupTestWorkspace("workspace:2", "repo", 1)
+	secondShell := groupTestWorkspace("workspace:3", "repo", 2)
+	secondShell.Panes[0].Surfaces[0].TTY = "/dev/ttys003"
+
+	kept := deduplicateWorkspaces([]client.TreeWorkspace{firstShell, ghost, secondShell}, nil)
+
+	got := keptRefs(kept)
+	if got != "workspace:1,workspace:3" {
+		t.Errorf("kept = %s, want both live workspaces and no ghost", got)
+	}
+}
+
+// TestDeduplicateWorkspaces_KeepsOneOfSeveralGhosts: with no live sibling
+// there is nothing better to save, so the first ghost stays and the rest go.
+func TestDeduplicateWorkspaces_KeepsOneOfSeveralGhosts(t *testing.T) {
+	firstGhost := groupTestWorkspace("workspace:1", "repo", 0)
+	secondGhost := groupTestWorkspace("workspace:2", "repo", 1)
+	other := groupTestWorkspace("workspace:3", "notes", 2)
+
+	kept := deduplicateWorkspaces([]client.TreeWorkspace{firstGhost, secondGhost, other}, nil)
+
+	got := keptRefs(kept)
+	if got != "workspace:1,workspace:3" {
+		t.Errorf("kept = %s, want the first ghost and the unrelated workspace", got)
+	}
+}
+
 // groupedLayout is a small layout with one group, for the change detector.
 func groupedLayout() *model.Layout {
 	layout := baseLayout()

@@ -401,9 +401,11 @@ func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode, workspace
 		layoutKeys[restoreKey{group: ws.Group, title: ws.Title}] = true
 	}
 
-	// Snapshot existing workspace state.
+	// Snapshot existing workspace state. Live workspaces are counted per key,
+	// not just marked: two members of one group can share a title, and one of
+	// them open must not make both look already open.
 	var callerRef string
-	existingKeys := make(map[restoreKey]bool)
+	existingCounts := make(map[restoreKey]int)
 	if !dryRun {
 		if tree, err := r.Client.Tree(); err == nil && tree.Caller != nil {
 			callerRef = tree.Caller.WorkspaceRef
@@ -411,7 +413,7 @@ func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode, workspace
 		if existing, err := r.Client.ListWorkspaces(); err == nil {
 			for _, ws := range existing {
 				key := restoreKey{group: groups.liveGroupOf(ws.Ref), title: ws.Title}
-				existingKeys[key] = true
+				existingCounts[key]++
 
 				if mode == RestoreModeReplace && ws.Ref != callerRef {
 					// Decide whether to close this workspace:
@@ -468,7 +470,12 @@ func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode, workspace
 		// Asking for it also marks a live group as joined.
 		groupRef := groups.refFor(ws)
 
-		if !dryRun && skipMatching && existingKeys[restoreKey{group: ws.Group, title: ws.Title}] {
+		// Each skip uses up one live workspace of the key, so a layout with
+		// more same-title members than are open still creates the rest.
+		key := restoreKey{group: ws.Group, title: ws.Title}
+		if !dryRun && skipMatching && existingCounts[key] > 0 {
+			existingCounts[key]--
+
 			if r.OnProgress != nil {
 				r.OnProgress(ws.Title, len(ws.Panes), fmt.Errorf("already open, skipped"))
 			}

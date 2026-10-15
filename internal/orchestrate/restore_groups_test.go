@@ -681,6 +681,85 @@ func TestRestoreGroups_SkipMatchingKeysOnGroupAndTitle(t *testing.T) {
 	}
 }
 
+// restoreSameTitleLayout is a group "Cmux" with its anchor and two members
+// that share a title, as two shells in the same folder do.
+func restoreSameTitleLayout() *model.Layout {
+	return &model.Layout{
+		Name:   "same-title-members",
+		Groups: []model.Group{{Name: "Cmux"}},
+		Workspaces: []model.Workspace{
+			{Title: "Group 1", CWD: "/w/anchor", Index: 0, Group: "Cmux", GroupAnchor: true, Panes: restoreSinglePane()},
+			{Title: "txeo@Mac: ~/repo", CWD: "/w/one", Index: 1, Group: "Cmux", Panes: restoreSinglePane()},
+			{Title: "txeo@Mac: ~/repo", CWD: "/w/two", Index: 2, Group: "Cmux", Panes: restoreSinglePane()},
+		},
+	}
+}
+
+// TestRestoreGroups_SameTitleMembersBothCreated: the second member with the
+// same title is not "already open" just because the first one was created a
+// moment ago in this same restore.
+func TestRestoreGroups_SameTitleMembersBothCreated(t *testing.T) {
+	t.Parallel()
+
+	fake := newRestoreGroupFake()
+	restorer := &Restorer{Client: fake, Store: storeRestoreLayout(t, restoreSameTitleLayout()), SkipPing: true}
+
+	result, err := restorer.Restore("same-title-members", false, RestoreModeAdd, "", true)
+	if err != nil {
+		t.Fatalf("restore: %v", err)
+	}
+	assertRestoreNoErrors(t, result)
+
+	got := fake.callsWith("new-workspace", "create-group")
+	want := []string{
+		"new-workspace /w/anchor group=",
+		"create-group Cmux from=workspace:1",
+		"new-workspace /w/one group=workspace_group:1",
+		"new-workspace /w/two group=workspace_group:1",
+	}
+	assertRestoreCalls(t, got, want)
+
+	group := fake.groupNamed("Cmux")
+	if group == nil {
+		t.Fatal("group Cmux does not exist after restore")
+	}
+	if !reflect.DeepEqual(group.MemberRefs, []string{"workspace:1", "workspace:3", "workspace:4"}) {
+		t.Errorf("members = %v, want the anchor and both same-title members", group.MemberRefs)
+	}
+}
+
+// TestRestoreGroups_SkipMatchingCountsSameTitleMembers: with one of the two
+// same-title members already open in its group, add mode skips that one and
+// still creates the other, instead of letting one live workspace stand for
+// both.
+func TestRestoreGroups_SkipMatchingCountsSameTitleMembers(t *testing.T) {
+	t.Parallel()
+
+	fake := newRestoreGroupFake()
+	fake.livePreset(nil, map[string][]string{"Cmux": {"Group 1", "txeo@Mac: ~/repo"}}, []string{"Cmux"})
+	restorer := &Restorer{Client: fake, Store: storeRestoreLayout(t, restoreSameTitleLayout()), SkipPing: true}
+
+	result, err := restorer.Restore("same-title-members", false, RestoreModeAdd, "", true)
+	if err != nil {
+		t.Fatalf("restore: %v", err)
+	}
+	assertRestoreNoErrors(t, result)
+
+	got := fake.callsWith("new-workspace", "create-group")
+	want := []string{
+		"new-workspace /w/two group=workspace_group:1",
+	}
+	assertRestoreCalls(t, got, want)
+
+	group := fake.groupNamed("Cmux")
+	if group == nil {
+		t.Fatal("group Cmux is gone")
+	}
+	if len(group.MemberRefs) != 3 {
+		t.Errorf("members = %v, want the live anchor, the live member and one new member", group.MemberRefs)
+	}
+}
+
 // restoreReplaceLive seeds the window used by the replace-mode tests: the caller
 // (loose), a loose "notes", group Backend with a kept anchor and a stale
 // member, and group Old that the layout no longer has.

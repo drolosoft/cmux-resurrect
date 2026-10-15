@@ -51,9 +51,9 @@ func (s *Saver) Save(name, description string) (*model.Layout, error) {
 		fmt.Fprintf(os.Stderr, "  warning: workspace groups: %v (keeping the groups of the saved layout)\n", groupErr)
 	}
 
-	// Deduplicate workspaces with the same title in the same group. cmux can
-	// report ghost workspaces (stale refs with no tty). When duplicates
-	// exist, keep the one with the most panes that have ttys.
+	// Drop ghost workspaces: cmux can report stale refs with no tty next to
+	// the real workspace of the same title and group. Real workspaces that
+	// share a title are all kept.
 	workspaces := deduplicateWorkspaces(win.Workspaces, groups.membership)
 
 	// Per-surface data the tree can't report, gathered once per save.
@@ -618,53 +618,65 @@ type workspaceKey struct {
 	title string
 }
 
-// deduplicateWorkspaces removes ghost workspaces that share a title with a
-// real workspace in the same group (or both loose). When duplicates exist,
-// the workspace with the most panes that have ttys wins. Ghost workspaces in
-// cmux are stale refs that appear in the tree but have no active terminals.
+// deduplicateWorkspaces removes ghost workspaces: stale refs cmux can report
+// in the tree with no active terminal. A workspace is only a ghost when it has
+// no tty AND another workspace with the same title in the same group (or both
+// loose) has one. A title alone proves nothing: two shells in the same folder
+// give two real workspaces the same title, and both must be saved. When every
+// workspace of a key is a ghost, the first one is kept so the save still
+// remembers it. The original order is preserved.
 // membership maps tree refs to groups and may be nil: then every workspace
 // counts as loose, which is how dedupe behaved before groups.
 func deduplicateWorkspaces(workspaces []client.TreeWorkspace, membership map[string]groupMembership) []client.TreeWorkspace {
-	type candidate struct {
-		index    int
-		ttyCount int
+	keys := make([]workspaceKey, len(workspaces))
+	live := make([]bool, len(workspaces))
+
+	// Keys that have at least one workspace with a terminal behind it.
+	keyHasLive := make(map[workspaceKey]bool)
+	for index, ws := range workspaces {
+		keys[index] = workspaceKey{group: membership[ws.Ref].name, title: ws.Title}
+		live[index] = hasTTY(ws)
+
+		if live[index] {
+			keyHasLive[keys[index]] = true
+		}
 	}
 
-	// Best candidate per group and title.
-	best := make(map[workspaceKey]candidate)
-	for i, ws := range workspaces {
-		ttys := 0
-		for _, p := range ws.Panes {
-			for _, s := range p.Surfaces {
-				if s.TTY != "" {
-					ttys++
-				}
+	// Ghosts already kept for a key with no live workspace, so only the first
+	// one of them survives.
+	ghostKept := make(map[workspaceKey]bool)
+
+	var result []client.TreeWorkspace
+	for index, ws := range workspaces {
+		key := keys[index]
+
+		if live[index] {
+			result = append(result, ws)
+			continue
+		}
+
+		if keyHasLive[key] || ghostKept[key] {
+			continue
+		}
+
+		ghostKept[key] = true
+		result = append(result, ws)
+	}
+
+	return result
+}
+
+// hasTTY reports whether any surface of the workspace has a terminal device,
+// which is what tells a real workspace from a ghost.
+func hasTTY(ws client.TreeWorkspace) bool {
+	for _, pane := range ws.Panes {
+		for _, surface := range pane.Surfaces {
+			if surface.TTY != "" {
+				return true
 			}
 		}
-		key := workspaceKey{group: membership[ws.Ref].name, title: ws.Title}
-		prev, exists := best[key]
-		if !exists || ttys > prev.ttyCount {
-			best[key] = candidate{index: i, ttyCount: ttys}
-		}
 	}
-
-	// If no duplicates found, return as-is (fast path).
-	if len(best) == len(workspaces) {
-		return workspaces
-	}
-
-	// Build deduplicated list preserving original order.
-	kept := make(map[int]bool, len(best))
-	for _, c := range best {
-		kept[c.index] = true
-	}
-	var result []client.TreeWorkspace
-	for i, ws := range workspaces {
-		if kept[i] {
-			result = append(result, ws)
-		}
-	}
-	return result
+	return false
 }
 
 // debugDetection prints detection diagnostics when CREX_DEBUG is set.
