@@ -76,10 +76,17 @@ func sanitizeLayoutCommands(layout *model.Layout) {
 	for i := range layout.Workspaces {
 		for j := range layout.Workspaces[i].Panes {
 			p := &layout.Workspaces[i].Panes[j]
-			p.Command = typeSafeCommand(p.Command)
+			p.Command = sanitizeCommand(p.Command)
 			for k := range p.Surfaces {
-				p.Surfaces[k].Command = typeSafeCommand(p.Surfaces[k].Command)
+				p.Surfaces[k].Command = sanitizeCommand(p.Surfaces[k].Command)
 			}
 		}
 	}
+}
+
+// sanitizeCommand is the repair applied to each saved command: crex's own
+// invocations are dropped (an older save recorded the pane it ran in), and
+// whatever remains is made safe to type.
+func sanitizeCommand(command string) string {
+	return typeSafeCommand(withoutCrexCommand(command))
 }

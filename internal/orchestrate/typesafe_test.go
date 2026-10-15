@@ -78,3 +78,34 @@ func TestSanitizeLayoutCommands_CoversPanesAndTabs(t *testing.T) {
 		t.Errorf("safe tab command was altered: %q", pane.Surfaces[1].Command)
 	}
 }
+
+// TestSanitizeLayoutCommands_DropsCrexInvocations: layouts saved before crex
+// learnt to skip itself hold `crex save now` and the like. Restore must never
+// type them, but a command that only mentions crex is the user's own.
+func TestSanitizeLayoutCommands_DropsCrexInvocations(t *testing.T) {
+	layout := &model.Layout{
+		Workspaces: []model.Workspace{{
+			Title: "proj",
+			Panes: []model.Pane{{
+				Type: "terminal", Command: "crex save now",
+				Surfaces: []model.Surface{
+					{Type: "terminal", Command: "FOO=1 crex restore now"},
+					{Type: "terminal", Command: "vim crex.toml"},
+				},
+			}},
+		}},
+	}
+
+	sanitizeLayoutCommands(layout)
+
+	pane := layout.Workspaces[0].Panes[0]
+	if pane.Command != "" {
+		t.Errorf("pane command = %q, want it dropped", pane.Command)
+	}
+	if pane.Surfaces[0].Command != "" {
+		t.Errorf("tab command = %q, want it dropped", pane.Surfaces[0].Command)
+	}
+	if pane.Surfaces[1].Command != "vim crex.toml" {
+		t.Errorf("command that only mentions crex was altered: %q", pane.Surfaces[1].Command)
+	}
+}

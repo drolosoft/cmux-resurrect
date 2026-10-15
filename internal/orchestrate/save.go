@@ -101,6 +101,7 @@ func (s *Saver) Save(name, description string) (*model.Layout, error) {
 			keepExistingGroups(layout, existing)
 		}
 		mergeUserEdits(layout, existing, geoResolved)
+		dropCrexCommands(layout)
 	}
 
 	// Clear all auto-detected commands before re-detection. Each save is
@@ -325,7 +326,7 @@ func (s *Saver) buildWorkspace(tw client.TreeWorkspace, extras liveExtras) (*mod
 			}
 			if surf.Type == "terminal" {
 				if surf.TTY != "" {
-					if cmd := detect.ForegroundCommand(surf.TTY); cmd != "" {
+					if cmd := savedForegroundCommand(surf.TTY); cmd != "" {
 						pane.Command = cmd
 					}
 				}
@@ -353,7 +354,7 @@ func (s *Saver) buildWorkspace(tw client.TreeWorkspace, extras liveExtras) (*mod
 				}
 				if extra.Type == "terminal" {
 					if extra.TTY != "" {
-						if cmd := detect.ForegroundCommand(extra.TTY); cmd != "" {
+						if cmd := savedForegroundCommand(extra.TTY); cmd != "" {
 							es.Command = cmd
 						}
 					}
