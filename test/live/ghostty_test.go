@@ -462,3 +462,112 @@ func expandFixtureHome(p string) string {
 	}
 	return p
 }
+
+// TestGhostty_TabsSharingATitleAreAllSaved: two Ghostty tabs in the same
+// folder show the same title. Ghostty reports no tty, and dedupe used to take
+// every such tab for a stale cmux ref, so save kept one of them (GitHub #11:
+// 3 tabs, 2 saved). Save must keep all three, and restoring the saved layout
+// must bring the three tabs back, each in its folder.
+func TestGhostty_TabsSharingATitleAreAllSaved(t *testing.T) {
+	requireGhostty(t)
+	layouts := t.TempDir()
+	// Shells report their cwd with symlinks resolved (/private/var), so the
+	// folders are resolved up front to compare like with like.
+	twinDir, _ := filepath.EvalSymlinks(t.TempDir())
+	otherDir, _ := filepath.EvalSymlinks(t.TempDir())
+	dirs := []string{twinDir, twinDir, otherDir}
+
+	// Restore titles each tab after its workspace, so the twins share one
+	// title, as two shells in one folder do.
+	titles := []string{"audit-gtwin-twin", "audit-gtwin-twin", "audit-gtwin-other"}
+	layout := &model.Layout{Name: "audit-gtwin", Version: 1, SavedAt: time.Now()}
+	for index, dir := range dirs {
+		layout.Workspaces = append(layout.Workspaces, singlePaneWorkspace(titles[index], dir, index))
+	}
+	writeLayout(t, layouts, layout)
+
+	baseTabs := tabCount(t)
+	before := zshPids(t)
+	env := crexEnv("CREX_BACKEND=ghostty")
+	if _, err := runCrex(t, layouts, env, "restore", "audit-gtwin", "--mode", "add"); err != nil {
+		t.Fatalf("restore: %v", err)
+	}
+	t.Cleanup(func() { closeTabsFrom(t, baseTabs+1) })
+	if got := waitAuditShellCWDs(t, before, dirs); !multisetEqual(got, dirs) {
+		t.Fatalf("tabs did not open in their folders: want %v, got %v", dirs, got)
+	}
+
+	// The twins must show the same title before saving, or the test would
+	// pass without ever reaching the case it is about.
+	twinTitle := fmt.Sprintf(`tell application "Ghostty" to name of tab %d of front window`, baseTabs+1)
+	nextTitle := fmt.Sprintf(`tell application "Ghostty" to name of tab %d of front window`, baseTabs+2)
+	if !waitFor(15*time.Second, 500*time.Millisecond, func() bool { return osa(t, twinTitle) == osa(t, nextTitle) }) {
+		t.Fatalf("twin tabs never shared a title: %q vs %q", osa(t, twinTitle), osa(t, nextTitle))
+	}
+
+	if _, err := runCrex(t, layouts, env, "save", "audit-gtwin-back"); err != nil {
+		t.Fatalf("save-back: %v", err)
+	}
+	saved := loadLayout(t, layouts, "audit-gtwin-back")
+	var savedDirs []string
+	for _, ws := range saved.Workspaces {
+		dir := canonPath(expandFixtureHome(ws.CWD))
+		if dir == twinDir || dir == otherDir {
+			savedDirs = append(savedDirs, dir)
+		}
+	}
+	if !multisetEqual(savedDirs, dirs) {
+		t.Fatalf("save kept %v of the audit tabs, want %v", savedDirs, dirs)
+	}
+
+	// Close the audit tabs, restore the saved layout's audit tabs and
+	// require three new shells, each in its folder. Add mode skips a tab
+	// whose title is already open, so the originals must be gone first.
+	closeTabsFrom(t, baseTabs+1)
+	saved.Name = "audit-gtwin-again"
+	var auditOnly []model.Workspace
+	for _, ws := range saved.Workspaces {
+		dir := canonPath(expandFixtureHome(ws.CWD))
+		if dir == twinDir || dir == otherDir {
+			auditOnly = append(auditOnly, ws)
+		}
+	}
+	saved.Workspaces = auditOnly
+	writeLayout(t, layouts, saved)
+
+	again := zshPids(t)
+	if _, err := runCrex(t, layouts, env, "restore", "audit-gtwin-again", "--mode", "add"); err != nil {
+		t.Fatalf("restore of the saved layout: %v", err)
+	}
+	if got := waitAuditShellCWDs(t, again, dirs); !multisetEqual(got, dirs) {
+		t.Fatalf("restored tabs are not in their folders: want %v, got %v", dirs, got)
+	}
+}
+
+// waitAuditShellCWDs is waitShellCWDs restricted to the test's own folders:
+// any other shell that starts meanwhile (a cmux tab, the user's terminal)
+// would otherwise break the exact multiset comparison.
+func waitAuditShellCWDs(t *testing.T, before map[string]bool, want []string) []string {
+	t.Helper()
+
+	wanted := make(map[string]bool, len(want))
+	for _, dir := range want {
+		wanted[dir] = true
+	}
+
+	var got []string
+	waitFor(90*time.Second, time.Second, func() bool {
+		got = got[:0]
+		for pid := range zshPids(t) {
+			if before[pid] {
+				continue
+			}
+			if cwd := lsofCWD(t, pid); wanted[cwd] {
+				got = append(got, cwd)
+			}
+		}
+		return multisetEqual(got, want)
+	})
+
+	return got
+}
