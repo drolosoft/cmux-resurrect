@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- **Claude Code sessions in a custom config directory** — Claude Code sessions started with a custom `CLAUDE_CONFIG_DIR` are detected and resumed with the same config dir; two Claude sessions in one folder each keep their own conversation; project paths with dots are found (#10, thanks @amenophis)
+
+---
+
 ## [v1.28.0] — 2026-10-14
 
 ### Added
