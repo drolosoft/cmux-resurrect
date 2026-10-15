@@ -141,28 +141,33 @@ func openAuditWindow(t *testing.T) (windowRef, surfaceRef string) {
 	return windowRef, surfaceRef
 }
 
-// runInWindow types a script into a window's shell and waits for its marker
-// file. Group commands act on the CALLER's window and the caller cannot be
-// faked, so every step that must land in the audit window runs from inside it.
-func runInWindow(t *testing.T, surfaceRef, script string, timeout time.Duration) {
+// runInWindow types a script into a window's shell, waits for its marker
+// file and returns everything the script printed. Group commands act on the
+// CALLER's window and the caller cannot be faked, so every step that must
+// land in the audit window runs from inside it.
+func runInWindow(t *testing.T, surfaceRef, script string, timeout time.Duration) string {
 	t.Helper()
 
 	dir := t.TempDir()
 	marker := filepath.Join(dir, "done")
 	path := filepath.Join(dir, "step.sh")
+	logPath := filepath.Join(dir, "log")
 	body := "#!/bin/bash\nexport CMUX_QUIET=1\n" + script + "\ntouch " + marker + "\n"
 	if err := os.WriteFile(path, []byte(body), 0o755); err != nil {
 		t.Fatal(err)
 	}
 
-	_, _ = cmuxRun(t, "send", "--surface", surfaceRef, path+" >"+filepath.Join(dir, "log")+" 2>&1\n")
+	_, _ = cmuxRun(t, "send", "--surface", surfaceRef, path+" >"+logPath+" 2>&1\n")
 	if !waitFor(timeout, time.Second, func() bool {
 		_, err := os.Stat(marker)
 		return err == nil
 	}) {
-		log, _ := os.ReadFile(filepath.Join(dir, "log"))
+		log, _ := os.ReadFile(logPath)
 		t.Fatalf("step in the audit window never finished:\n%s\n--- log ---\n%s", script, log)
 	}
+
+	log, _ := os.ReadFile(logPath)
+	return string(log)
 }
 
 // TestCmux_GroupsSurviveSaveAndRestore builds two sidebar groups in a fresh
