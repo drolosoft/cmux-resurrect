@@ -1249,3 +1249,35 @@ func TestRestoreGroups_FilterByStoredPlaceholderTitle(t *testing.T) {
 		t.Errorf("anchor %s is titled %q, want the group name", group.AnchorRef, title)
 	}
 }
+
+// TestRestore_AddCreatesTheMissingLooseTwin: Ghostty has no groups, so two
+// tabs in the same folder are two loose workspaces with one title. With one
+// of them open, add mode must still create the other.
+func TestRestore_AddCreatesTheMissingLooseTwin(t *testing.T) {
+	t.Parallel()
+
+	layout := &model.Layout{
+		Name: "loose-twins",
+		Workspaces: []model.Workspace{
+			{Title: "txeo@Mac: ~/ghtest-a", CWD: "/w/a", Index: 0, Panes: restoreSinglePane()},
+			{Title: "txeo@Mac: ~/ghtest-a", CWD: "/w/a", Index: 1, Panes: restoreSinglePane()},
+			{Title: "txeo@Mac: ~/ghtest-b", CWD: "/w/b", Index: 2, Panes: restoreSinglePane()},
+		},
+	}
+	fake := newRestoreGroupFake()
+	fake.livePreset([]string{"txeo@Mac: ~/ghtest-a"}, nil, nil)
+	restorer := &Restorer{Client: fake, Store: storeRestoreLayout(t, layout), SkipPing: true}
+
+	result, err := restorer.Restore("loose-twins", false, RestoreModeAdd, "", true)
+	if err != nil {
+		t.Fatalf("restore: %v", err)
+	}
+	assertRestoreNoErrors(t, result)
+
+	got := fake.callsWith("new-workspace")
+	want := []string{
+		"new-workspace /w/a group=",
+		"new-workspace /w/b group=",
+	}
+	assertRestoreCalls(t, got, want)
+}

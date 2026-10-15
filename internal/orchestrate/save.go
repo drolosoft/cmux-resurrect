@@ -3,6 +3,7 @@ package orchestrate
 import (
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -669,9 +670,17 @@ type workspaceKey struct {
 // give two real workspaces the same title, and both must be saved. When every
 // workspace of a key is a ghost, the first one is kept so the save still
 // remembers it. The original order is preserved.
+// Ghosts are a cmux thing: only cmux reports ttys. Ghostty never fills one
+// in, so on a tree where no surface has a tty nothing tells a ghost from a
+// real tab, and every workspace is kept: two Ghostty tabs in the same folder
+// share a title and are both real.
 // membership maps tree refs to groups and may be nil: then every workspace
 // counts as loose, which is how dedupe behaved before groups.
 func deduplicateWorkspaces(workspaces []client.TreeWorkspace, membership map[string]groupMembership) []client.TreeWorkspace {
+	if !slices.ContainsFunc(workspaces, hasTTY) {
+		return workspaces
+	}
+
 	keys := make([]workspaceKey, len(workspaces))
 	live := make([]bool, len(workspaces))
 

@@ -622,6 +622,10 @@ func TestDeduplicateWorkspaces_KeepsOneOfSeveralGhosts(t *testing.T) {
 	secondGhost := groupTestWorkspace("workspace:2", "repo", 1)
 	other := groupTestWorkspace("workspace:3", "notes", 2)
 
+	// A tty elsewhere in the window marks the tree as cmux's, the only
+	// backend that reports ttys and so the only one with ghosts.
+	other.Panes[0].Surfaces[0].TTY = "/dev/ttys003"
+
 	kept := deduplicateWorkspaces([]client.TreeWorkspace{firstGhost, secondGhost, other}, nil)
 
 	got := keptRefs(kept)
@@ -874,5 +878,22 @@ func TestMergeUserEdits_FallsBackToTitleForAWorkspaceThatJoinedAGroup(t *testing
 	}
 	if merged.Group != "backend" || merged.GroupAnchor {
 		t.Errorf("merge touched the live group data: %+v", merged)
+	}
+}
+
+// TestDeduplicateWorkspaces_KeepsEveryTabWhenNoTTYIsReported: Ghostty never
+// reports a tty, so a tab without one is not a ghost there. Two tabs in the
+// same folder share a title and both must be saved (GitHub: 8 live tabs, 7
+// saved).
+func TestDeduplicateWorkspaces_KeepsEveryTabWhenNoTTYIsReported(t *testing.T) {
+	firstTab := groupTestWorkspace("tab:1", "txeo@Mac: ~/ghtest-a", 0)
+	secondTab := groupTestWorkspace("tab:2", "txeo@Mac: ~/ghtest-a", 1)
+	otherTab := groupTestWorkspace("tab:3", "txeo@Mac: ~/ghtest-b", 2)
+
+	kept := deduplicateWorkspaces([]client.TreeWorkspace{firstTab, secondTab, otherTab}, nil)
+
+	got := keptRefs(kept)
+	if got != "tab:1,tab:2,tab:3" {
+		t.Errorf("kept = %s, want all three tabs", got)
 	}
 }
