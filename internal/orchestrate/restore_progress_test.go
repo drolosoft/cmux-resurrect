@@ -35,8 +35,10 @@ func TestRestoreProgress_ReportsGroupAndAnchor(t *testing.T) {
 	}
 
 	anchor := reported[0]
-	if anchor.Workspace.Title != "Group 1" || !anchor.Workspace.GroupAnchor {
-		t.Errorf("first report = %+v, want the Group 1 anchor", anchor.Workspace)
+	// The layout stores the anchor as "Group 1"; it is reported under the
+	// group name it was restored with.
+	if anchor.Workspace.Title != "Backend" || !anchor.Workspace.GroupAnchor {
+		t.Errorf("first report = %+v, want the anchor named Backend", anchor.Workspace)
 	}
 	if anchor.Group == nil || anchor.Group.Name != "Backend" {
 		t.Errorf("anchor group = %+v, want Backend", anchor.Group)

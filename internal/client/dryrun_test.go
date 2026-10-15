@@ -38,6 +38,16 @@ func TestCmuxDryRun_GroupCommands(t *testing.T) {
 			want: "cmux workspace-group pin workspace_group:16",
 		},
 		{
+			name: "expand",
+			got:  formatter.FmtExpandGroup("workspace_group:16"),
+			want: "cmux workspace-group expand workspace_group:16",
+		},
+		{
+			name: "unpin",
+			got:  formatter.FmtUnpinGroup("workspace_group:16"),
+			want: "cmux workspace-group unpin workspace_group:16",
+		},
+		{
 			name: "set-color",
 			got:  formatter.FmtSetGroupColor("workspace_group:16", "#FF8800"),
 			want: `cmux workspace-group set-color workspace_group:16 --hex "#FF8800"`,

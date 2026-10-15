@@ -302,6 +302,16 @@ func (f restoreGroupFake) PinGroup(groupRef string) error {
 	return f.updateGroup(groupRef, func(group *client.WorkspaceGroup) { group.Pinned = true })
 }
 
+func (f restoreGroupFake) ExpandGroup(groupRef string) error {
+	f.record("expand %s", groupRef)
+	return f.updateGroup(groupRef, func(group *client.WorkspaceGroup) { group.Collapsed = false })
+}
+
+func (f restoreGroupFake) UnpinGroup(groupRef string) error {
+	f.record("unpin %s", groupRef)
+	return f.updateGroup(groupRef, func(group *client.WorkspaceGroup) { group.Pinned = false })
+}
+
 func (f restoreGroupFake) SetGroupColor(groupRef, hex string) error {
 	f.record("color %s %s", groupRef, hex)
 	return f.updateGroup(groupRef, func(group *client.WorkspaceGroup) { group.Color = hex })
@@ -440,7 +450,7 @@ func TestRestoreGroups_AnchorFirstThenMembersInside(t *testing.T) {
 	got := fake.callsWith("new-workspace", "rename ", "create-group", "set-anchor", "close")
 	want := []string{
 		"new-workspace /w/anchor group=",
-		"rename workspace:1 Group 1",
+		"rename workspace:1 Backend",
 		"create-group Backend from=workspace:1",
 		"set-anchor workspace_group:1 workspace:1",
 		"close workspace:2",
@@ -456,7 +466,7 @@ func TestRestoreGroups_AnchorFirstThenMembersInside(t *testing.T) {
 		t.Fatal("group Backend does not exist after restore")
 	}
 	if group.AnchorRef != "workspace:1" {
-		t.Errorf("anchor = %s, want the restored Group 1 (workspace:1)", group.AnchorRef)
+		t.Errorf("anchor = %s, want the restored anchor (workspace:1)", group.AnchorRef)
 	}
 	if !reflect.DeepEqual(group.MemberRefs, []string{"workspace:1", "workspace:3"}) {
 		t.Errorf("members = %v, want [workspace:1 workspace:3]", group.MemberRefs)
@@ -840,8 +850,8 @@ func TestRestoreGroups_ReplaceRecreatesClosedGroup(t *testing.T) {
 	if backend.Name != "Backend" || len(backend.MemberRefs) != 2 {
 		t.Fatalf("group = %+v, want Backend with anchor and api", backend)
 	}
-	if fake.titleOf(backend.AnchorRef) != "Group 1" {
-		t.Errorf("anchor %s is titled %q, want the restored Group 1", backend.AnchorRef, fake.titleOf(backend.AnchorRef))
+	if fake.titleOf(backend.AnchorRef) != "Backend" {
+		t.Errorf("anchor %s is titled %q, want the restored anchor named Backend", backend.AnchorRef, fake.titleOf(backend.AnchorRef))
 	}
 	if fake.titleOf(backend.MemberRefs[1]) != "api" {
 		t.Errorf("second member is %q, want api", fake.titleOf(backend.MemberRefs[1]))
@@ -1049,5 +1059,166 @@ func TestRestoreGroups_DryRunWithoutGroupFormatter(t *testing.T) {
 	}
 	if skipped != 1 {
 		t.Errorf("found %d group comments, want exactly one\n%s", skipped, strings.Join(result.Commands, "\n"))
+	}
+}
+
+// restorePlaceholderAnchorLayout is a layout as v1.28.0 saved it: the anchor
+// of group "Backend" still stored under cmux's placeholder "Group 2".
+func restorePlaceholderAnchorLayout() *model.Layout {
+	return &model.Layout{
+		Name:   "placeholder-anchor",
+		Groups: []model.Group{{Name: "Backend"}},
+		Workspaces: []model.Workspace{
+			{Title: "Group 2", CWD: "/w/anchor", Index: 0, Group: "Backend", GroupAnchor: true, Panes: restoreSinglePane()},
+			{Title: "api", CWD: "/w/api", Index: 1, Group: "Backend", Panes: restoreSinglePane()},
+		},
+	}
+}
+
+// TestRestoreGroups_AnchorNamedAfterItsGroup: the anchor of an old layout
+// comes back titled with the group name, so the palette, the window title
+// and `cmux list` stop showing "Group 2".
+func TestRestoreGroups_AnchorNamedAfterItsGroup(t *testing.T) {
+	t.Parallel()
+
+	fake := newRestoreGroupFake()
+	restorer := &Restorer{Client: fake, Store: storeRestoreLayout(t, restorePlaceholderAnchorLayout()), SkipPing: true}
+
+	result, err := restorer.Restore("placeholder-anchor", false, RestoreModeAdd, "", true)
+	if err != nil {
+		t.Fatalf("restore: %v", err)
+	}
+	assertRestoreNoErrors(t, result)
+
+	group := fake.groupNamed("Backend")
+	if group == nil {
+		t.Fatal("group Backend does not exist after restore")
+	}
+	if title := fake.titleOf(group.AnchorRef); title != "Backend" {
+		t.Errorf("anchor %s is titled %q, want the group name", group.AnchorRef, title)
+	}
+	for _, call := range fake.callsWith("rename ") {
+		if strings.Contains(call, "Group 2") {
+			t.Errorf("%q still names the anchor after the placeholder", call)
+		}
+	}
+}
+
+// TestRestoreGroups_DryRunNeverPrintsThePlaceholder: the dry run shows the
+// same anchor title a real run would set.
+func TestRestoreGroups_DryRunNeverPrintsThePlaceholder(t *testing.T) {
+	t.Parallel()
+
+	fake := &restoreFake{}
+	restorer := &Restorer{Client: fake, Store: storeRestoreLayout(t, restorePlaceholderAnchorLayout())}
+
+	result, err := restorer.Restore("placeholder-anchor", true, RestoreModeAdd, "", true)
+	if err != nil {
+		t.Fatalf("restore: %v", err)
+	}
+
+	printed := strings.Join(result.Commands, "\n")
+	if strings.Contains(printed, "Group 2") {
+		t.Errorf("dry run prints the placeholder:\n%s", printed)
+	}
+
+	format := client.CmuxDryRun{}
+	if !slices.Contains(result.Commands, format.FmtRenameWorkspace("workspace:new_0", "Backend")) {
+		t.Errorf("dry run does not rename the anchor after its group:\n%s", printed)
+	}
+}
+
+// TestRestoreGroups_AddModeMatchesLivePlaceholderAnchor: the window already
+// has group Backend, whose anchor cmux titled "Group 5". Add mode must take
+// that anchor for the layout's one instead of creating a second anchor, and
+// name it after the group while joining.
+func TestRestoreGroups_AddModeMatchesLivePlaceholderAnchor(t *testing.T) {
+	t.Parallel()
+
+	fake := newRestoreGroupFake()
+	fake.livePreset(nil, map[string][]string{"Backend": {"Group 5"}}, []string{"Backend"})
+	liveAnchor := fake.groups[0].AnchorRef
+
+	restorer := &Restorer{Client: fake, Store: storeRestoreLayout(t, restorePlaceholderAnchorLayout()), SkipPing: true}
+	result, err := restorer.Restore("placeholder-anchor", false, RestoreModeAdd, "", true)
+	if err != nil {
+		t.Fatalf("restore: %v", err)
+	}
+	assertRestoreNoErrors(t, result)
+
+	got := fake.callsWith("new-workspace", "create-group")
+	assertRestoreCalls(t, got, []string{"new-workspace /w/api group=workspace_group:1"})
+
+	if title := fake.titleOf(liveAnchor); title != "Backend" {
+		t.Errorf("live anchor %s is titled %q, want it renamed to the group name", liveAnchor, title)
+	}
+	if len(fake.groups[0].MemberRefs) != 2 {
+		t.Errorf("members = %v, want the live anchor and the new api only", fake.groups[0].MemberRefs)
+	}
+}
+
+// TestRestoreGroups_JoinKeepsAnchorTheUserNamed: a live anchor the user
+// renamed is not renamed again when restore joins its group.
+func TestRestoreGroups_JoinKeepsAnchorTheUserNamed(t *testing.T) {
+	t.Parallel()
+
+	fake := newRestoreGroupFake()
+	fake.livePreset(nil, map[string][]string{"Backend": {"Mine"}}, []string{"Backend"})
+	liveAnchor := fake.groups[0].AnchorRef
+
+	restorer := &Restorer{Client: fake, Store: storeRestoreLayout(t, restorePlaceholderAnchorLayout()), SkipPing: true}
+	result, err := restorer.Restore("placeholder-anchor", false, RestoreModeAdd, "", true)
+	if err != nil {
+		t.Fatalf("restore: %v", err)
+	}
+	assertRestoreNoErrors(t, result)
+
+	if title := fake.titleOf(liveAnchor); title != "Mine" {
+		t.Errorf("live anchor is titled %q, want the user's title kept", title)
+	}
+}
+
+// TestRestoreGroups_JoinedGroupExpandedAndUnpinned: a live group that is
+// collapsed and pinned while the layout has it open and unpinned is expanded
+// and unpinned, now that cmux has commands for both.
+func TestRestoreGroups_JoinedGroupExpandedAndUnpinned(t *testing.T) {
+	t.Parallel()
+
+	fake := newRestoreGroupFake()
+	fake.livePreset(nil, map[string][]string{"Backend": {"Group 1"}}, []string{"Backend"})
+	fake.groups[0].Collapsed = true
+	fake.groups[0].Pinned = true
+
+	restorer := &Restorer{Client: fake, Store: storeRestoreLayout(t, restoreOneGroupLayout()), SkipPing: true}
+	result, err := restorer.Restore("one-group", false, RestoreModeAdd, "", true)
+	if err != nil {
+		t.Fatalf("restore: %v", err)
+	}
+	assertRestoreNoErrors(t, result)
+
+	got := fake.callsWith("collapse", "expand", "pin ", "unpin")
+	assertRestoreCalls(t, got, []string{"expand workspace_group:1", "unpin workspace_group:1"})
+
+	if fake.groups[0].Collapsed || fake.groups[0].Pinned {
+		t.Errorf("group = %+v, want it open and unpinned like the layout", fake.groups[0])
+	}
+}
+
+// TestRestoreGroups_CreatedGroupNeverExpandedOrUnpinned: a group restore
+// creates starts open and unpinned, so it gets neither command.
+func TestRestoreGroups_CreatedGroupNeverExpandedOrUnpinned(t *testing.T) {
+	t.Parallel()
+
+	fake := newRestoreGroupFake()
+	restorer := &Restorer{Client: fake, Store: storeRestoreLayout(t, restoreOneGroupLayout()), SkipPing: true}
+
+	result, err := restorer.Restore("one-group", false, RestoreModeAdd, "", true)
+	if err != nil {
+		t.Fatalf("restore: %v", err)
+	}
+	assertRestoreNoErrors(t, result)
+
+	if calls := fake.callsWith("expand", "unpin "); len(calls) > 0 {
+		t.Errorf("unexpected calls on a new group: %v", calls)
 	}
 }

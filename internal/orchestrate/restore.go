@@ -347,8 +347,10 @@ type RestoreResult struct {
 //
 // Sidebar groups come back on backends that have them (client.GroupManager).
 // A workspace "already exists" only when both its title and its group match,
-// because every anchor is titled "Group N" and members can repeat titles
-// across groups. When the caller's window already has a group with the same
+// because members can repeat titles across groups. An anchor is matched by
+// its effective title (model.AnchorTitle), on the layout side and the live
+// side alike, so a live "Group 5" anchor stands for the layout's anchor of
+// that group. When the caller's window already has a group with the same
 // name, restored members join it instead of making a second one; that covers
 // add mode, skipMatching and a single-workspace filter (the second positional
 // argument of `crex restore`). A filtered member whose group is not open
@@ -365,6 +367,11 @@ func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode, workspace
 	// mid-argument; typed back it breaks the pane instead of restoring it
 	// (GitHub #8). Repair those before anything is recreated.
 	sanitizeLayoutCommands(layout)
+
+	// Layouts saved by v1.28.0 stored an anchor under cmux's "Group N"
+	// placeholder. Naming it after its group here means the anchor is created,
+	// matched, filtered and reported under that name from now on.
+	layout.NameAnchorsAfterGroups()
 
 	if workspaceFilter != "" {
 		// Try exact match first (case-insensitive).
@@ -418,8 +425,8 @@ func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode, workspace
 	groups := r.newGroupRestorer(layout, dryRun, result)
 
 	// Build set of layout workspaces for sync comparison. Titles alone are
-	// not unique once groups exist (every anchor is a "Group N"), so the
-	// key carries the group name too.
+	// not unique once groups exist (two groups may each hold an "api"), so
+	// the key carries the group name too.
 	layoutKeys := make(map[restoreKey]bool, len(layout.Workspaces))
 	for _, ws := range layout.Workspaces {
 		layoutKeys[restoreKey{group: ws.Group, title: ws.Title}] = true
@@ -436,7 +443,7 @@ func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode, workspace
 		}
 		if existing, err := r.Client.ListWorkspaces(); err == nil {
 			for _, ws := range existing {
-				key := restoreKey{group: groups.liveGroupOf(ws.Ref), title: ws.Title}
+				key := groups.liveKey(ws)
 				existingCounts[key]++
 
 				if mode == RestoreModeReplace && ws.Ref != callerRef {
@@ -492,7 +499,7 @@ func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode, workspace
 		// The group this workspace goes into, when it already exists: one
 		// created earlier in this restore or one already open in the window.
 		// Asking for it also marks a live group as joined.
-		groupRef := groups.refFor(ws)
+		groupRef := groups.refFor(ws, result)
 
 		// Each skip uses up one live workspace of the key, so a layout with
 		// more same-title members than are open still creates the rest.
@@ -616,6 +623,14 @@ type groupRestorer struct {
 	// liveGroupNames maps each live workspace ref to its group's name.
 	liveGroupNames map[string]string
 
+	// liveAnchors marks the live workspaces that head a group, which are the
+	// only ones whose "Group N" title stands for the group name.
+	liveAnchors map[string]bool
+
+	// liveTitles holds the title of each live workspace liveKey has seen, so
+	// joining a group can tell whether its anchor still has the placeholder.
+	liveTitles map[string]string
+
 	// refs maps each group this restore created or joined to its ref, which
 	// later members pass as NewWorkspaceOpts.Group.
 	refs map[string]string
@@ -651,6 +666,8 @@ func (r *Restorer) newGroupRestorer(layout *model.Layout, dryRun bool, result *R
 		dryRun:         dryRun,
 		live:           make(map[string]*client.WorkspaceGroup),
 		liveGroupNames: make(map[string]string),
+		liveAnchors:    make(map[string]bool),
+		liveTitles:     make(map[string]string),
 		refs:           make(map[string]string),
 		current:        make(map[string]client.WorkspaceGroup),
 		failed:         make(map[string]bool),
@@ -748,13 +765,27 @@ func (g *groupRestorer) rememberLive(liveGroups []client.WorkspaceGroup) {
 		for _, member := range group.MemberRefs {
 			g.liveGroupNames[member] = group.Name
 		}
+		if group.AnchorRef != "" {
+			g.liveAnchors[group.AnchorRef] = true
+		}
 	}
 }
 
-// liveGroupOf returns the name of the live group holding the workspace, or ""
-// for a loose one (and always "" when groups are off).
-func (g *groupRestorer) liveGroupOf(workspaceRef string) string {
-	return g.liveGroupNames[workspaceRef]
+// liveKey is the restoreKey of a live workspace: its group, or "" when loose
+// (always "" with groups off), and its title. A live anchor still titled
+// "Group N" counts under its group's name, the title the layout gives it;
+// otherwise add mode would not see it and would create a second anchor. It
+// also remembers the title for nameLiveAnchor.
+func (g *groupRestorer) liveKey(ws client.WorkspaceInfo) restoreKey {
+	g.liveTitles[ws.Ref] = ws.Title
+
+	groupName := g.liveGroupNames[ws.Ref]
+	title := ws.Title
+	if g.liveAnchors[ws.Ref] {
+		title = model.AnchorTitle(ws.Title, groupName)
+	}
+
+	return restoreKey{group: groupName, title: title}
 }
 
 // forgetClosed keeps the live groups in step with a workspace replace mode
@@ -774,14 +805,22 @@ func (g *groupRestorer) forgetClosed(workspaceRef string) {
 	})
 	if len(group.MemberRefs) == 0 {
 		delete(g.live, name)
+		return
+	}
+
+	// cmux hands the group to the next member when its anchor closes, and
+	// nameLiveAnchor must look at that one, not at a workspace that is gone.
+	if group.AnchorRef == workspaceRef {
+		group.AnchorRef = group.MemberRefs[0]
+		g.liveAnchors[group.AnchorRef] = true
 	}
 }
 
 // refFor returns the ref of the group the workspace should be created in, or
 // "" when it is loose or its group does not exist yet (then this workspace
 // will create it). A live group with the same name is joined here, which also
-// signs it up for applyState.
-func (g *groupRestorer) refFor(ws model.Workspace) string {
+// signs it up for applyState and names its anchor after it.
+func (g *groupRestorer) refFor(ws model.Workspace, result *RestoreResult) string {
 	if ws.Group == "" || g.failed[ws.Group] {
 		return ""
 	}
@@ -795,7 +834,31 @@ func (g *groupRestorer) refFor(ws model.Workspace) string {
 	}
 	g.refs[ws.Group] = live.Ref
 	g.current[ws.Group] = *live
+	g.nameLiveAnchor(live, result)
+
 	return live.Ref
+}
+
+// nameLiveAnchor renames the anchor of a live group being joined to the
+// group name while it still has cmux's "Group N" placeholder, so the group
+// reads the same as one restore creates. An anchor the user named keeps its
+// title, and one whose title was never listed is left alone rather than
+// renamed blind.
+func (g *groupRestorer) nameLiveAnchor(live *client.WorkspaceGroup, result *RestoreResult) {
+	title, listed := g.liveTitles[live.AnchorRef]
+	if !listed {
+		return
+	}
+
+	if model.AnchorTitle(title, live.Name) == title {
+		return
+	}
+
+	if err := g.backend.RenameWorkspace(live.AnchorRef, live.Name); err != nil {
+		result.Errors = append(result.Errors, fmt.Sprintf("group %q: rename anchor %s: %v", live.Name, live.AnchorRef, err))
+		return
+	}
+	g.liveTitles[live.AnchorRef] = live.Name
 }
 
 // anchorCreated makes a freshly restored workspace the anchor of its new
@@ -854,11 +917,13 @@ func (g *groupRestorer) dryRunGroupRef(name string) string {
 	return fmt.Sprintf("workspace_group:new_%d", position)
 }
 
-// applyState sets collapse, color, icon and pin on every group this restore
-// created or joined, skipping what the group already has: there is no
-// command to expand or unpin, and pinning twice would move the group again.
-// Pins go last and in reverse layout order, because each pin moves its group
-// to the top of the sidebar; the first group pinned ends up lowest.
+// applyState makes every group this restore created or joined match the
+// layout: collapsed or expanded, pinned or unpinned, color and icon. Only
+// what differs from the group's current state is sent, because pinning twice
+// would move the group again. A group created here starts expanded and
+// unpinned, so only a joined live group can need expand or unpin. Pins go
+// last and in reverse layout order, because each pin moves its group to the
+// top of the sidebar; the first group pinned ends up lowest.
 func (g *groupRestorer) applyState(result *RestoreResult) {
 	var steps []groupStep
 	var pins []groupStep
@@ -872,6 +937,12 @@ func (g *groupRestorer) applyState(result *RestoreResult) {
 
 		if want.Collapsed && !have.Collapsed {
 			steps = append(steps, groupStep{action: "collapse", groupName: want.Name, groupRef: groupRef})
+		}
+		if !want.Collapsed && have.Collapsed {
+			steps = append(steps, groupStep{action: "expand", groupName: want.Name, groupRef: groupRef})
+		}
+		if !want.Pinned && have.Pinned {
+			steps = append(steps, groupStep{action: "unpin", groupName: want.Name, groupRef: groupRef})
 		}
 		if want.Color != "" && want.Color != have.Color {
 			steps = append(steps, groupStep{action: "set color", groupName: want.Name, groupRef: groupRef, value: want.Color})
@@ -903,6 +974,10 @@ func (g *groupRestorer) run(step groupStep, result *RestoreResult) {
 		switch step.action {
 		case "collapse":
 			command = g.formatter.FmtCollapseGroup(step.groupRef)
+		case "expand":
+			command = g.formatter.FmtExpandGroup(step.groupRef)
+		case "unpin":
+			command = g.formatter.FmtUnpinGroup(step.groupRef)
 		case "set color":
 			command = g.formatter.FmtSetGroupColor(step.groupRef, step.value)
 		case "set icon":
@@ -918,6 +993,10 @@ func (g *groupRestorer) run(step groupStep, result *RestoreResult) {
 	switch step.action {
 	case "collapse":
 		err = g.manager.CollapseGroup(step.groupRef)
+	case "expand":
+		err = g.manager.ExpandGroup(step.groupRef)
+	case "unpin":
+		err = g.manager.UnpinGroup(step.groupRef)
 	case "set color":
 		err = g.manager.SetGroupColor(step.groupRef, step.value)
 	case "set icon":
@@ -1260,10 +1339,10 @@ func absf(f float64) float64 {
 }
 
 // dryRunHeading is the comment above a workspace's dry-run commands. An
-// anchor still titled with cmux's "Group N" placeholder is named after its
-// group, since the placeholder does not say which group it heads.
+// anchor named after its group is marked as the anchor, so the heading does
+// not read like an ordinary workspace that happens to share the group name.
 func dryRunHeading(ws model.Workspace) string {
-	if ws.GroupAnchor && ws.Group != "" && model.IsDefaultGroupTitle(ws.Title) {
+	if ws.GroupAnchor && ws.Group != "" && ws.EffectiveTitle() == ws.Group {
 		return ws.Group + " (anchor)"
 	}
 

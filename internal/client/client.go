@@ -131,6 +131,12 @@ type GroupManager interface {
 	// sidebar. The pinned flag of its workspaces does not change.
 	PinGroup(groupRef string) error
 
+	// ExpandGroup unfolds a collapsed group in the sidebar.
+	ExpandGroup(groupRef string) error
+
+	// UnpinGroup unpins the group, letting it leave the top of the sidebar.
+	UnpinGroup(groupRef string) error
+
 	// SetGroupColor sets the group color from a "#RRGGBB" value.
 	SetGroupColor(groupRef, hex string) error
 

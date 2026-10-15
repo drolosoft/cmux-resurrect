@@ -119,6 +119,14 @@ func (s *Saver) Save(name, description string) (*model.Layout, error) {
 	}
 	applyDetectedSessions(layout, win.Workspaces, detected)
 
+	// An anchor still carrying cmux's "Group N" placeholder, or no title, is
+	// stored under its group's name; one the user named keeps that name. The
+	// group name rather than an empty title keeps `crex restore <layout>
+	// <workspace>` and v1.28.0 readers working. It runs only now because
+	// dedupe, the merge and AI detection pair workspaces with the live tree,
+	// which still has the placeholder.
+	layout.NameAnchorsAfterGroups()
+
 	// Track revision: increment if content changed, preserve if identical.
 	if loadErr == nil && existing != nil {
 		if layoutContentChanged(layout, existing) {
@@ -581,6 +589,12 @@ func (g liveGroups) savedGroups(workspaces []model.Workspace) []model.Group {
 // than silently dropping every group from the file, the last known grouping
 // is kept. Workspaces pair up by title, in file order when a title repeats,
 // and only groups that still have a member are kept.
+//
+// Without the group list a live anchor shows only cmux's placeholder, while
+// the file names it after its group (or holds another placeholder number), so
+// titles cannot pair them. The live workspaces with a placeholder or empty
+// title that are left over then take the stored anchors named after their
+// group, both in sidebar order.
 func keepExistingGroups(live, existing *model.Layout) {
 	pendingByTitle := make(map[string][]*model.Workspace)
 	for i := range existing.Workspaces {
@@ -588,17 +602,39 @@ func keepExistingGroups(live, existing *model.Layout) {
 		pendingByTitle[ew.Title] = append(pendingByTitle[ew.Title], ew)
 	}
 
-	referenced := make(map[string]bool)
+	used := make(map[*model.Workspace]bool)
+	var placeholders []*model.Workspace
 	for i := range live.Workspaces {
 		lw := &live.Workspaces[i]
 		pending := pendingByTitle[lw.Title]
 		if len(pending) == 0 {
+			if lw.Title == "" || model.IsDefaultGroupTitle(lw.Title) {
+				placeholders = append(placeholders, lw)
+			}
 			continue
 		}
 
-		lw.Group = pending[0].Group
-		lw.GroupAnchor = pending[0].GroupAnchor
+		copyGroupFields(lw, pending[0])
+		used[pending[0]] = true
 		pendingByTitle[lw.Title] = pending[1:]
+	}
+
+	for i := range existing.Workspaces {
+		ew := &existing.Workspaces[i]
+		if len(placeholders) == 0 {
+			break
+		}
+		if used[ew] || !ew.GroupAnchor || ew.EffectiveTitle() != ew.Group {
+			continue
+		}
+
+		copyGroupFields(placeholders[0], ew)
+		used[ew] = true
+		placeholders = placeholders[1:]
+	}
+
+	referenced := make(map[string]bool)
+	for _, lw := range live.Workspaces {
 		if lw.Group != "" {
 			referenced[lw.Group] = true
 		}
@@ -610,6 +646,13 @@ func keepExistingGroups(live, existing *model.Layout) {
 			live.Groups = append(live.Groups, group)
 		}
 	}
+}
+
+// copyGroupFields gives a live workspace the group data of the stored one it
+// was paired with in keepExistingGroups.
+func copyGroupFields(lw, stored *model.Workspace) {
+	lw.Group = stored.Group
+	lw.GroupAnchor = stored.GroupAnchor
 }
 
 // workspaceKey identifies a workspace within one layout. A title alone is not
@@ -1058,15 +1101,20 @@ func mergeUserEdits(live, existing *model.Layout, geoResolved map[int]bool) {
 	// A key can repeat (two shells in one folder inside one group), so each
 	// key holds its stored workspaces in file order and they pair up one to
 	// one with the live workspaces in theirs.
+	//
+	// Both sides are keyed by effective title: an anchor is "Backend" whether
+	// the file says "Group 2" (v1.28.0) or "Backend", and whether the live
+	// sidebar says "Group 5" or "Backend".
 	existByKey := make(map[workspaceKey][]*model.Workspace)
 	existByTitle := make(map[string]*model.Workspace)
 	titleCount := make(map[string]int)
 	for i := range existing.Workspaces {
 		ew := &existing.Workspaces[i]
-		key := workspaceKey{group: ew.Group, title: ew.Title}
+		title := ew.EffectiveTitle()
+		key := workspaceKey{group: ew.Group, title: title}
 		existByKey[key] = append(existByKey[key], ew)
-		existByTitle[ew.Title] = ew
-		titleCount[ew.Title]++
+		existByTitle[title] = ew
+		titleCount[title]++
 	}
 
 	// Stored workspaces already given to a live one. Each is used at most
@@ -1076,14 +1124,15 @@ func mergeUserEdits(live, existing *model.Layout, geoResolved map[int]bool) {
 
 	for i := range live.Workspaces {
 		lw := &live.Workspaces[i]
-		key := workspaceKey{group: lw.Group, title: lw.Title}
+		title := lw.EffectiveTitle()
+		key := workspaceKey{group: lw.Group, title: title}
 
 		var ew *model.Workspace
 		if pending := existByKey[key]; len(pending) > 0 {
 			ew = pending[0]
 			existByKey[key] = pending[1:]
-		} else if titleCount[lw.Title] == 1 && !used[existByTitle[lw.Title]] {
-			ew = existByTitle[lw.Title]
+		} else if titleCount[title] == 1 && !used[existByTitle[title]] {
+			ew = existByTitle[title]
 		}
 		if ew == nil || used[ew] {
 			continue

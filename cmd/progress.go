@@ -81,15 +81,19 @@ func countBrowserPanes(ws model.Workspace) int {
 	return count
 }
 
-// workspaceLabel is how a save or restore line names a workspace. An anchor
-// still carrying cmux's "Group N" placeholder is printed as "(anchor)" under
-// its group header, because the placeholder's number has nothing to do with
-// the group and only confuses; restored loose, it reads "(group anchor)". An
-// anchor the user renamed keeps its title with the dim "anchor" tag `crex
-// show` uses.
+// workspaceLabel is how a save or restore line names a workspace. Under its
+// group header, an anchor named after the group, or one still carrying cmux's
+// "Group N" placeholder, is printed as "(anchor)": the header already says
+// the name, and the placeholder's number has nothing to do with the group.
+// Restored loose, a placeholder anchor reads "(group anchor)". Any other
+// anchor keeps its title with the dim "anchor" tag `crex show` uses.
 func workspaceLabel(ws model.Workspace, inGroup bool) string {
 	if !ws.GroupAnchor {
 		return padTitle(ws.Title)
+	}
+
+	if inGroup && ws.Group != "" && ws.Title == ws.Group {
+		return dimStyle.Render("(anchor)")
 	}
 
 	if model.IsDefaultGroupTitle(ws.Title) {

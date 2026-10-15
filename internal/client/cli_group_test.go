@@ -225,6 +225,20 @@ func TestGroupMutations_Argv(t *testing.T) {
 			want: []string{"--json", "workspace-group", "pin", "workspace_group:16"},
 		},
 		{
+			name: "ExpandGroup",
+			call: func(manager GroupManager) error {
+				return manager.ExpandGroup("workspace_group:16")
+			},
+			want: []string{"--json", "workspace-group", "expand", "workspace_group:16"},
+		},
+		{
+			name: "UnpinGroup",
+			call: func(manager GroupManager) error {
+				return manager.UnpinGroup("workspace_group:16")
+			},
+			want: []string{"--json", "workspace-group", "unpin", "workspace_group:16"},
+		},
+		{
 			name: "SetGroupColor",
 			call: func(manager GroupManager) error {
 				return manager.SetGroupColor("workspace_group:16", "#FF8800")

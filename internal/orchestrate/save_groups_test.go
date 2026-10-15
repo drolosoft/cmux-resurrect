@@ -45,6 +45,8 @@ func (c *groupSaveClient) AddToGroup(groupRef, workspaceRef string) error     { 
 func (c *groupSaveClient) RenameGroup(groupRef, name string) error            { return nil }
 func (c *groupSaveClient) CollapseGroup(groupRef string) error                { return nil }
 func (c *groupSaveClient) PinGroup(groupRef string) error                     { return nil }
+func (c *groupSaveClient) ExpandGroup(groupRef string) error                  { return nil }
+func (c *groupSaveClient) UnpinGroup(groupRef string) error                   { return nil }
 func (c *groupSaveClient) SetGroupColor(groupRef, hex string) error           { return nil }
 func (c *groupSaveClient) SetGroupIcon(groupRef, symbol string) error         { return nil }
 
@@ -182,13 +184,112 @@ func TestSaveGroups_MarksMembersAndTheAnchor(t *testing.T) {
 	if loose.GroupAnchor {
 		t.Error("a loose workspace must not be an anchor")
 	}
-	anchor := workspaceTitled(t, layout, "backend", "Group 7")
+	anchor := workspaceTitled(t, layout, "backend", "backend")
 	if !anchor.GroupAnchor {
 		t.Error("the group's anchor lost GroupAnchor")
 	}
 	member := workspaceTitled(t, layout, "backend", "api")
 	if member.GroupAnchor {
 		t.Error("a plain member was marked as anchor")
+	}
+}
+
+// TestSaveGroups_AnchorTitles: an anchor still carrying cmux's placeholder,
+// or no title at all, is stored under its group's name, so the file, `crex
+// show` and a title filter on restore all speak of the group the user named.
+// An anchor the user renamed keeps that name.
+func TestSaveGroups_AnchorTitles(t *testing.T) {
+	cases := []struct {
+		name      string
+		liveTitle string
+		want      string
+	}{
+		{"placeholder", "Group 3", "Backend"},
+		{"empty", "", "Backend"},
+		{"chosen by the user", "API gateway", "API gateway"},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			tree := groupTestTree(
+				groupTestWorkspace("workspace:1", testCase.liveTitle, 0),
+				groupTestWorkspace("workspace:2", "api", 1),
+			)
+			backend := &groupSaveClient{
+				mockClient: &mockClient{treeResp: tree},
+				groups: []client.WorkspaceGroup{{
+					Ref:        "workspace_group:1",
+					Name:       "Backend",
+					AnchorRef:  "workspace:1",
+					MemberRefs: []string{"workspace:1", "workspace:2"},
+				}},
+			}
+			saver, store := newGroupSaver(t, backend)
+
+			if _, err := saver.Save("anchor-title", ""); err != nil {
+				t.Fatalf("save: %v", err)
+			}
+
+			stored, err := store.Load("anchor-title")
+			if err != nil {
+				t.Fatalf("load: %v", err)
+			}
+			anchor := workspaceTitled(t, stored, "Backend", testCase.want)
+			if !anchor.GroupAnchor {
+				t.Error("the stored anchor lost GroupAnchor")
+			}
+		})
+	}
+}
+
+// TestSaveGroups_ReSaveOverOldPlaceholderAnchorKeepsItsEdits: a layout saved
+// by v1.28.0 stored the anchor as "Group 2". Re-saving it now, with the live
+// anchor at another placeholder number, must still pair the two and carry the
+// anchor's description and command over, while the title becomes the group
+// name.
+func TestSaveGroups_ReSaveOverOldPlaceholderAnchorKeepsItsEdits(t *testing.T) {
+	tree := groupTestTree(
+		groupTestWorkspace("workspace:1", "Group 5", 0),
+		groupTestWorkspace("workspace:2", "api", 1),
+	)
+	backend := &groupSaveClient{
+		mockClient: &mockClient{treeResp: tree},
+		groups: []client.WorkspaceGroup{{
+			Ref:        "workspace_group:1",
+			Name:       "Backend",
+			AnchorRef:  "workspace:1",
+			MemberRefs: []string{"workspace:1", "workspace:2"},
+		}},
+	}
+	saver, store := newGroupSaver(t, backend)
+
+	old := &model.Layout{
+		Name:    "old-anchor",
+		Version: 1,
+		Groups:  []model.Group{{Name: "Backend"}},
+		Workspaces: []model.Workspace{
+			{
+				Title: "Group 2", Description: "the anchor", Group: "Backend", GroupAnchor: true,
+				Panes: []model.Pane{{Type: "terminal", Index: 0, Command: "make watch"}},
+			},
+			{Title: "api", Index: 1, Group: "Backend", Panes: []model.Pane{{Type: "terminal", Index: 0}}},
+		},
+	}
+	if err := store.Save("old-anchor", old); err != nil {
+		t.Fatalf("store: %v", err)
+	}
+
+	layout, err := saver.Save("old-anchor", "")
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+
+	anchor := workspaceTitled(t, layout, "Backend", "Backend")
+	if anchor.Description != "the anchor" {
+		t.Errorf("anchor description = %q, want the saved one", anchor.Description)
+	}
+	if anchor.Panes[0].Command != "make watch" {
+		t.Errorf("anchor command = %q, want the saved one", anchor.Panes[0].Command)
 	}
 }
 
@@ -315,7 +416,7 @@ func TestSaveGroups_ListErrorKeepsTheExistingGroups(t *testing.T) {
 	if !layout.Groups[0].Collapsed {
 		t.Error("the kept group lost its collapsed state")
 	}
-	if !workspaceTitled(t, layout, "backend", "Group 7").GroupAnchor {
+	if !workspaceTitled(t, layout, "backend", "backend").GroupAnchor {
 		t.Error("the kept anchor lost GroupAnchor")
 	}
 	workspaceTitled(t, layout, "backend", "api")

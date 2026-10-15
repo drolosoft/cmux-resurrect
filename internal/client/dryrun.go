@@ -66,6 +66,8 @@ type GroupDryRunFormatter interface {
 	FmtNewWorkspaceInGroup(cwd, groupRef string) string
 	FmtCollapseGroup(groupRef string) string
 	FmtPinGroup(groupRef string) string
+	FmtExpandGroup(groupRef string) string
+	FmtUnpinGroup(groupRef string) string
 	FmtSetGroupColor(groupRef, hex string) string
 	FmtSetGroupIcon(groupRef, symbol string) string
 }
@@ -99,6 +101,16 @@ func (CmuxDryRun) FmtCollapseGroup(groupRef string) string {
 // FmtPinGroup prints the call that pins a group to the top of the sidebar.
 func (CmuxDryRun) FmtPinGroup(groupRef string) string {
 	return fmt.Sprintf("cmux workspace-group pin %s", groupRef)
+}
+
+// FmtExpandGroup prints the call that unfolds a group in the sidebar.
+func (CmuxDryRun) FmtExpandGroup(groupRef string) string {
+	return fmt.Sprintf("cmux workspace-group expand %s", groupRef)
+}
+
+// FmtUnpinGroup prints the call that unpins a group.
+func (CmuxDryRun) FmtUnpinGroup(groupRef string) string {
+	return fmt.Sprintf("cmux workspace-group unpin %s", groupRef)
 }
 
 // FmtSetGroupColor prints the color call. The hex is quoted so the line can

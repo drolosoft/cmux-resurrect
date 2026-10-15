@@ -66,6 +66,48 @@ func TestSaveSummary_GroupedLayout(t *testing.T) {
 	assertNoDefaultGroupTitle(t, out.String())
 }
 
+// TestAnchorNamedAfterGroup_PrintsOnce: save and restore now name a
+// placeholder anchor after its group, and printing that name under a header
+// carrying the same name would only repeat it, so it reads "(anchor)".
+func TestAnchorNamedAfterGroup_PrintsOnce(t *testing.T) {
+	useCmuxUnits(t)
+	layout := &model.Layout{
+		Name:   "named",
+		Groups: []model.Group{{Name: "Backend"}},
+		Workspaces: []model.Workspace{
+			{Title: "Backend", Index: 0, Group: "Backend", GroupAnchor: true, Panes: []model.Pane{{Type: "terminal"}}},
+			{Title: "api", Index: 1, Group: "Backend", Panes: []model.Pane{{Type: "terminal"}}},
+		},
+	}
+
+	var saved bytes.Buffer
+	renderSaveSummary(&saved, layout, "/layouts/named.toml")
+
+	wantSaved := "\n" +
+		"  Backend\n" +
+		"    OK  (anchor)\n" +
+		"    OK  api\n" +
+		"\n" +
+		"✅ Saved 2 workspaces to /layouts/named.toml\n" +
+		"\n"
+	if saved.String() != wantSaved {
+		t.Errorf("save summary:\n%s\nwant\n%s", saved.String(), wantSaved)
+	}
+
+	var restored bytes.Buffer
+	progress := newRestoreProgress(&restored)
+	progress.workspace(progressEvent(layout, "Backend", nil, false))
+	progress.workspace(progressEvent(layout, "api", nil, false))
+
+	wantRestored := "" +
+		"  Backend\n" +
+		"    OK  (anchor) (1 panes)\n" +
+		"    OK  api (1 panes)\n"
+	if restored.String() != wantRestored {
+		t.Errorf("restore progress:\n%s\nwant\n%s", restored.String(), wantRestored)
+	}
+}
+
 // TestSaveSummary_NoGroupsIsUnchanged pins the flat list a layout without
 // groups printed before groups existed, in slice order.
 func TestSaveSummary_NoGroupsIsUnchanged(t *testing.T) {

@@ -239,6 +239,18 @@ func (c *CLIClient) PinGroup(groupRef string) error {
 	return err
 }
 
+// ExpandGroup unfolds the group in the sidebar. Implements GroupManager.
+func (c *CLIClient) ExpandGroup(groupRef string) error {
+	_, err := c.runGroup("expand", groupRef)
+	return err
+}
+
+// UnpinGroup unpins the group. Implements GroupManager.
+func (c *CLIClient) UnpinGroup(groupRef string) error {
+	_, err := c.runGroup("unpin", groupRef)
+	return err
+}
+
 // SetGroupColor sets the group color from "#RRGGBB". Implements GroupManager.
 func (c *CLIClient) SetGroupColor(groupRef, hex string) error {
 	_, err := c.runGroup("set-color", groupRef, "--hex", hex)
