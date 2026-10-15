@@ -158,20 +158,10 @@ func doRestore(name string) error {
 		Client:     cl,
 		Store:      store,
 		AutoAccept: cfg.AutoAccept,
-		OnProgress: func(title string, panes int, err error) {
-			t := padTitle(title)
-			if err != nil {
-				errMsg := err.Error()
-				if strings.Contains(errMsg, "skipped") {
-					fmt.Fprintf(os.Stderr, "  %s  %s %s\n", dimStyle.Render("SKIP"), t, dimStyle.Render("("+errMsg+")"))
-				} else {
-					fmt.Fprintf(os.Stderr, "  %s  %s: %v\n", yellowStyle.Render("FAIL"), t, err)
-				}
-			} else {
-				fmt.Fprintf(os.Stderr, "  %s  %s (%d panes)\n", greenStyle.Render("OK"), t, panes)
-			}
-		},
 	}
+
+	// Each workspace is listed under its group header, like `crex show`.
+	newRestoreProgress(os.Stderr).attach(restorer)
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintf(os.Stderr, "%s %s\n", yellowStyle.Render("➕ Syncing (add)"), greenStyle.Render(name))
@@ -210,19 +200,10 @@ func doRestoreWorkspace(layoutName, workspaceTitle string) error {
 		Client:     cl,
 		Store:      store,
 		AutoAccept: cfg.AutoAccept,
-		OnProgress: func(title string, panes int, err error) {
-			t := padTitle(title)
-			if err != nil {
-				if strings.Contains(err.Error(), "skipped") {
-					fmt.Fprintf(os.Stderr, "  %s  %s %s\n", dimStyle.Render("SKIP"), t, dimStyle.Render("("+err.Error()+")"))
-					return
-				}
-				fmt.Fprintf(os.Stderr, "  %s  %s: %v\n", yellowStyle.Render("FAIL"), t, err)
-			} else {
-				fmt.Fprintf(os.Stderr, "  %s  %s (%d panes)\n", greenStyle.Render("OK"), t, panes)
-			}
-		},
 	}
+
+	// The single workspace still gets its group header, like `crex show`.
+	newRestoreProgress(os.Stderr).attach(restorer)
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintf(os.Stderr, "%s %s > %s\n",

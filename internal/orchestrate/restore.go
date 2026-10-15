@@ -1,6 +1,7 @@
 package orchestrate
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"slices"
@@ -30,6 +31,29 @@ type Restorer struct {
 	AutoAccept []string                                 // tool names or ["all"] for auto-accept injection
 	SkipPing   bool                                     // skip backend ping check (for external apps like Alfred)
 	OnProgress func(title string, panes int, err error) // called after each workspace
+
+	// OnWorkspace, when set, receives each workspace Restore has restored,
+	// skipped or failed, together with its group, so a caller can list it
+	// under its group header. Those workspaces then no longer reach
+	// OnProgress, which keeps carrying the notices only.
+	OnWorkspace func(progress WorkspaceProgress)
+}
+
+// WorkspaceProgress reports one workspace that Restore has just handled.
+type WorkspaceProgress struct {
+	// Workspace is the workspace as restored. Its Group is "" when it went in
+	// loose, even if the layout put it in a group the backend cannot create.
+	Workspace model.Workspace
+
+	// Group is the group the workspace was restored into, nil when loose.
+	Group *model.Group
+
+	// Err is why the workspace was skipped or failed, nil on success.
+	Err error
+
+	// Skipped marks a workspace left alone because it is already open, so
+	// callers do not have to read that out of Err.
+	Skipped bool
 }
 
 // restoreSurfaces recreates a pane's extra tabs and sends their commands.
@@ -476,9 +500,7 @@ func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode, workspace
 		if !dryRun && skipMatching && existingCounts[key] > 0 {
 			existingCounts[key]--
 
-			if r.OnProgress != nil {
-				r.OnProgress(ws.Title, len(ws.Panes), fmt.Errorf("already open, skipped"))
-			}
+			r.reportWorkspace(layout, ws, errAlreadyOpen, true)
 			continue
 		}
 
@@ -488,14 +510,14 @@ func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode, workspace
 		}
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("workspace %q: %v", ws.Title, err))
-			if r.OnProgress != nil && !dryRun {
-				r.OnProgress(ws.Title, len(ws.Panes), err)
+			if !dryRun {
+				r.reportWorkspace(layout, ws, err, false)
 			}
 			continue
 		}
 		result.WorkspacesOK++
-		if r.OnProgress != nil && !dryRun {
-			r.OnProgress(ws.Title, len(ws.Panes), nil)
+		if !dryRun {
+			r.reportWorkspace(layout, ws, nil, false)
 		}
 	}
 
@@ -513,6 +535,29 @@ func (r *Restorer) Restore(name string, dryRun bool, mode RestoreMode, workspace
 	}
 
 	return result, nil
+}
+
+// errAlreadyOpen is the reason reported for a workspace that is skipped
+// because the window already has it.
+var errAlreadyOpen = errors.New("already open, skipped")
+
+// reportWorkspace tells the caller about one handled workspace: through
+// OnWorkspace with its group when the caller listens there, or through
+// OnProgress as before otherwise.
+func (r *Restorer) reportWorkspace(layout *model.Layout, ws model.Workspace, err error, skipped bool) {
+	if r.OnWorkspace != nil {
+		r.OnWorkspace(WorkspaceProgress{
+			Workspace: ws,
+			Group:     layout.GroupNamed(ws.Group),
+			Err:       err,
+			Skipped:   skipped,
+		})
+		return
+	}
+
+	if r.OnProgress != nil {
+		r.OnProgress(ws.Title, len(ws.Panes), err)
+	}
 }
 
 // layoutBrowserProfiles returns the distinct browser profile slugs referenced
@@ -1214,6 +1259,17 @@ func absf(f float64) float64 {
 	return f
 }
 
+// dryRunHeading is the comment above a workspace's dry-run commands. An
+// anchor still titled with cmux's "Group N" placeholder is named after its
+// group, since the placeholder does not say which group it heads.
+func dryRunHeading(ws model.Workspace) string {
+	if ws.GroupAnchor && ws.Group != "" && model.IsDefaultGroupTitle(ws.Title) {
+		return ws.Group + " (anchor)"
+	}
+
+	return ws.Title
+}
+
 // dryRunWorkspace prints the commands restoreWorkspace would run. A member
 // created inside an existing group prints the grouped new-workspace instead
 // of the plain one, when the formatter knows how to.
@@ -1222,7 +1278,7 @@ func (r *Restorer) dryRunWorkspace(ws model.Workspace, groupRef string, result *
 	f := r.Client.DryRunFormatter()
 
 	result.Commands = append(result.Commands, "")
-	result.Commands = append(result.Commands, fmt.Sprintf("# %s", ws.Title))
+	result.Commands = append(result.Commands, "# "+dryRunHeading(ws))
 
 	groupFormatter, formatsGroups := f.(client.GroupDryRunFormatter)
 	if groupRef != "" && formatsGroups {

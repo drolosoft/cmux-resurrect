@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/drolosoft/cmux-resurrect/internal/model"
 	"github.com/spf13/cobra"
 )
@@ -151,7 +152,8 @@ func showWorkspace(o wf, ws model.Workspace, indent string, isAnchor bool) {
 }
 
 // showGroupHeader renders a group's header line: its name and the same
-// badges `crex now` and the TUI use, pinned and collapsed.
+// badges the TUI uses, pinned, collapsed, colour and icon. `crex show`,
+// `crex now`, `crex save` and `crex restore` all print it.
 func showGroupHeader(group model.Group) string {
 	header := groupStyle.Render(group.Name)
 	if group.Pinned {
@@ -159,6 +161,19 @@ func showGroupHeader(group model.Group) string {
 	}
 	if group.Collapsed {
 		header += " " + dimStyle.Render("▸ collapsed")
+	}
+
+	// The swatch is painted in the group's own colour; the hex code next to
+	// it keeps the colour readable where the terminal shows no colour.
+	if group.Color != "" {
+		swatch := lipgloss.NewStyle().Foreground(lipgloss.Color(group.Color)).Render("■")
+		header += " " + swatch + " " + dimStyle.Render(group.Color)
+	}
+
+	// The icon is an SF Symbol name, which a terminal cannot draw, so it is
+	// spelled out.
+	if group.Icon != "" {
+		header += " " + dimStyle.Render("icon "+group.Icon)
 	}
 
 	return header

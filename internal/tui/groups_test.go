@@ -231,3 +231,16 @@ func TestBrowseDetail_NoGroupsUnchanged(t *testing.T) {
 		t.Errorf("plain detail view changed:\n%q", view)
 	}
 }
+
+// TestGroupHeader_ColourAndIcon keeps the TUI header in step with the CLI's
+// showGroupHeader, which prints the same badges in the same order.
+func TestGroupHeader_ColourAndIcon(t *testing.T) {
+	group := model.Group{Name: "🎮 Cmux", Pinned: true, Collapsed: true, Color: "#FF8800", Icon: "flame"}
+
+	got := groupHeader(group)
+
+	want := "🎮 Cmux 📌 ▸ collapsed ■ #FF8800 icon flame"
+	if got != want {
+		t.Errorf("groupHeader = %q, want %q", got, want)
+	}
+}

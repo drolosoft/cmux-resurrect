@@ -1,14 +1,17 @@
 package tui
 
-import "github.com/drolosoft/cmux-resurrect/internal/model"
+import (
+	"github.com/charmbracelet/lipgloss"
+	"github.com/drolosoft/cmux-resurrect/internal/model"
+)
 
 // groupIndent is the extra margin of a workspace listed inside a group, the
 // same step the CLI uses in `crex show` and `crex now`.
 const groupIndent = "  "
 
 // groupHeader renders a workspace group's header line with the badges the
-// CLI prints for it, pinned and collapsed, so a group reads the same in the
-// shell and on the command line.
+// CLI prints for it, pinned, collapsed, colour and icon, so a group reads the
+// same in the shell and on the command line.
 func groupHeader(group model.Group) string {
 	header := shellGroupStyle.Render(group.Name)
 	if group.Pinned {
@@ -16,6 +19,19 @@ func groupHeader(group model.Group) string {
 	}
 	if group.Collapsed {
 		header += " " + shellDimStyle.Render("▸ collapsed")
+	}
+
+	// The swatch is painted in the group's own colour; the hex code next to
+	// it keeps the colour readable where the terminal shows no colour.
+	if group.Color != "" {
+		swatch := lipgloss.NewStyle().Foreground(lipgloss.Color(group.Color)).Render("■")
+		header += " " + swatch + " " + shellDimStyle.Render(group.Color)
+	}
+
+	// The icon is an SF Symbol name, which a terminal cannot draw, so it is
+	// spelled out.
+	if group.Icon != "" {
+		header += " " + shellDimStyle.Render("icon "+group.Icon)
 	}
 
 	return header

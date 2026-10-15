@@ -121,20 +121,10 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		Store:      store,
 		AutoAccept: cfg.AutoAccept,
 		SkipPing:   os.Getenv("CREX_BACKEND") != "",
-		OnProgress: func(title string, panes int, err error) {
-			t := padTitle(title)
-			if err != nil {
-				errMsg := err.Error()
-				if strings.Contains(errMsg, "skipped") {
-					fmt.Fprintf(os.Stderr, "  %s  %s %s\n", dimStyle.Render("SKIP"), t, dimStyle.Render("("+errMsg+")"))
-				} else {
-					fmt.Fprintf(os.Stderr, "  %s  %s: %v\n", yellowStyle.Render("FAIL"), t, err)
-				}
-			} else {
-				fmt.Fprintf(os.Stderr, "  %s  %s (%d panes)\n", greenStyle.Render("OK"), t, panes)
-			}
-		},
 	}
+
+	// Each workspace is listed under its group header, like `crex show`.
+	newRestoreProgress(os.Stderr).attach(restorer)
 
 	// Determine restore mode.
 	var mode orchestrate.RestoreMode

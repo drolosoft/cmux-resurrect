@@ -46,35 +46,6 @@ func runSave(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Fprintln(os.Stderr)
-	browserCount := 0
-	for _, ws := range layout.Workspaces {
-		pin := ""
-		if ws.Pinned {
-			pin = " 📌"
-		}
-		panes := ""
-		if len(ws.Panes) > 1 {
-			panes = fmt.Sprintf(" (%d panes)", len(ws.Panes))
-		}
-		fmt.Fprintf(os.Stderr, "  %s  %s%s%s\n",
-			greenStyle.Render("OK"),
-			padTitle(ws.Title),
-			dimStyle.Render(panes),
-			pin)
-		for _, p := range ws.Panes {
-			if p.Type == "browser" {
-				browserCount++
-			}
-		}
-	}
-
-	successMsg := fmt.Sprintf("✅ Saved %d %s to %s", len(layout.Workspaces), unitName(len(layout.Workspaces)), store.Path(name))
-	if browserCount > 0 {
-		successMsg += fmt.Sprintf(" (%d browser)", browserCount)
-	}
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintf(os.Stderr, "%s\n", greenStyle.Render(successMsg))
-	fmt.Fprintln(os.Stderr)
+	renderSaveSummary(os.Stderr, layout, store.Path(name))
 	return nil
 }
