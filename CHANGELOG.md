@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [v1.28.1] — 2026-10-19
 
 ### Fixed
 - **Save no longer drops a workspace that shares a title with another one** — two shells open in the same folder have the same title, and save kept only one of them, so that tab never came back on restore. Only a stale entry with no terminal behind it is dropped now, and only when a live workspace with the same group and title exists. Restore with `--mode add` also creates every same-title member the window is missing, and each one keeps its own saved commands
@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **crex never saves its own command** — the pane you typed `crex save` in was stored with `command = 'crex save …'`, so a restore typed it again and overwrote the layout halfway through. Save skips crex, and restore ignores any `crex …` command left in an older layout
 - **Group anchors are named after their group** — the workspace that heads a group kept the "Group 7" title cmux gives it, so save and restore listed "Group 2", "Group 1"… and never a group name. Save and restore now print each group as a header with its badges and its members under it, and the anchor shows as "(anchor)". Restore titles the anchor with the group name, renames a live anchor still called "Group N" when it joins that group, and expands or unpins a joined group when the layout says so. Save stores such an anchor under the group name; a title you chose yourself is kept. `crex show`, `crex now` and the TUI print anchors the same way
 - **Claude Code sessions in a custom config directory** — Claude Code sessions started with a custom `CLAUDE_CONFIG_DIR` are detected and resumed with the same config dir; two Claude sessions in one folder each keep their own conversation; project paths with dots are found (#10, thanks @amenophis)
+
+### Compatibility
+- **No breaking changes.** No command, flag or config key changed, and the layout format is the same: layouts saved by v1.28.0 load and restore as before, and v1.28.0 reads layouts saved by this version
+- **Visible differences, all additive:** save and restore list workspaces under a header per group, with the anchor shown as "(anchor)" (restore notices such as auto-accept now print as `INFO` lines instead of `OK … (0 panes)`); an anchor still titled "Group N" is saved under its group's name, so the first save of a v1.28.0 layout bumps its revision once; `--mode add` renames a live "Group N" anchor to its group's name and creates every same-title workspace the window is missing; restore never types a `crex …` command left in an older layout; picking a v1.28.0 anchor by its stored "Group 2" title (as the TUI and Alfred do) still works
+- **Verified on cmux 0.64.22 and Ghostty:** the live matrix, plus new live tests for group names, same-title members, a save typed from a crex pane, a v1.28.0 layout with a "Group 2" anchor, and Ghostty tabs that share a title
 
 ---
 
@@ -671,6 +676,7 @@ Initial public release.
 [v1.22.2]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.22.2
 [v1.23.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.23.0
 [v1.24.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.24.0
+[v1.28.1]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.28.1
 [v1.28.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.28.0
 [v1.27.2]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.27.2
 [v1.27.1]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.27.1
