@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Added
+- **Every layout keeps its previous version** — before a save replaces `<name>.toml` with different content, the old file is copied to `<name>.toml.prev` (one level, mode 0600), and `crex delete` moves the file there instead of removing it; `crex rename` moves the copy along. A save that changes nothing (an identical autosave included) leaves the copy alone, so a second identical save never pushes the good version out. `crex list` never shows these copies. To undo: `cp <name>.toml.prev <name>.toml`
+
 ## [v1.28.1] — 2026-10-19
 
 ### Fixed

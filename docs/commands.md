@@ -288,6 +288,12 @@ crex restore autosave               # if using default watch name
 crex restore my-project             # if using a custom name
 ```
 
+### Undo a save or a delete
+Each layout keeps one earlier version next to it as `<name>.toml.prev`. A save that changes the layout (autosave included) writes the old file there first, and `crex delete` moves the file there instead of removing it. To go back, copy it over the layout:
+```sh
+cp ~/.config/crex/layouts/my-project.toml.prev ~/.config/crex/layouts/my-project.toml
+```
+
 ### Auto-start daemon on shell login
 ```sh
 crex watch --shell-hook >> ~/.zshrc  # zsh

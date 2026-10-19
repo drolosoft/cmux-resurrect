@@ -41,7 +41,7 @@ crex saves and restores terminal workspaces — tabs, splits, per-pane working d
 `list --json` does NOT include directories. For contents, parse the TOML: `crex show <name> --raw`. Traps:
 - Paths are stored **absolute** (`/Users/x/...`) — grepping for `~/...` finds nothing.
 - Anchor path matches to the full quoted value (`cwd = '/exact/path'`) — substring greps false-positive on sibling dirs (`laporra` matches `laporra-go`).
-- Layout files live in `~/.config/crex/layouts/*.toml` (override: `--layouts-dir`).
+- Layout files live in `~/.config/crex/layouts/*.toml` (override: `--layouts-dir`). `<name>.toml.prev` beside one is its previous version (left by a save that changed it, or by `crex delete`); it is not a layout and `list` skips it. Undo with `cp <name>.toml.prev <name>.toml`.
 - cmux workspace groups: `[[group]]` tables (`name`, `collapsed`, `pinned`, `color`, `icon`) in sidebar order; each `[[workspace]]` has `group = '<name>'` (absent = loose) and `group_anchor = true` on the anchor, whose `title` is the group name unless the user gave it its own (cmux's "Group N" is never stored). No groups, no group keys.
 
 ## Blueprints (Markdown workspace definitions)
