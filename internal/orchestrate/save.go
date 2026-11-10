@@ -779,6 +779,15 @@ var aiResumePatterns = []string{
 	"codebuddy --resume ",
 	"droid --resume ",
 	"qoder --resume ",
+	"qwen --resume ",
+	"goose session --resume ",
+	"crush --session ",
+	"kiro-cli chat --resume",
+	"agy --conversation ",
+	"cline --id ",
+	"vibe --resume ",
+	"omp --resume ",
+	"kimi --session ",
 }
 
 // clearAutoDetectedCommands removes all AI resume commands from the layout.

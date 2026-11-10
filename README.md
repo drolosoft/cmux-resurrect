@@ -48,13 +48,13 @@ Obsidian-compatible, version-controlled, shareable workspace definitions.
 <td width="50%" valign="top">
 
 **🤖 [AI Auto-Detection](docs/commands.md#ai-session-auto-detection)**<br>
-15 AI tools detected, and all 15 resume their conversation. How far each one has been tested against the real tool varies.
+24 AI tools detected, and all 24 resume their conversation. How far each one has been tested against the real tool varies.
 
 **🔍 [Alfred Integration](docs/alfred.md)** <sup>NEW</sup><br>
 Search and launch any workspace from Alfred with one keystroke.
 
 **⚡ [Auto-Accept](docs/configuration.md#auto-accept-for-ai-agents)** <sup>NEW</sup><br>
-Skip permission prompts on restore for Claude, Codex, OpenCode, and 11 more.
+Skip permission prompts on restore for Claude, Codex, OpenCode, and 18 more.
 
 </td>
 </tr>
@@ -138,7 +138,7 @@ crex❯ save my-day
    └── →right 🌐 http://localhost:3000/
 ```
 
-15 tools supported: Claude Code, OpenCode, Codex, Amp, Gemini CLI, Copilot, Grok, Cursor, Aider, and more. Any foreground process (npm, nvim, htop) is also detected and restored.
+24 tools supported: Claude Code, OpenCode, Codex, Amp, Gemini CLI, Copilot, Grok, Cursor, Aider, and more. Any foreground process (npm, nvim, htop) is also detected and restored.
 
 And it works both ways — `crex skill install` teaches Claude Code and Codex to drive crex themselves: snapshot before risky changes, restore layouts non-interactively, resume sessions. See [crex skill](docs/commands.md#crex-skill--teach-your-ai-agents-to-drive-crex).
 

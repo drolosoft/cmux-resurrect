@@ -109,6 +109,15 @@ The list takes the agent names below. The flag goes right after the command that
 | codebuddy | `codebuddy` | `--dangerously-skip-permissions` |
 | factory | `droid` | `--skip-permissions-unsafe` |
 | qoder | `qoder` | `--yolo` |
+| qwen | `qwen` | `--yolo` |
+| goose | `goose` | none (Goose approves tool calls by default) |
+| crush | `crush` | `--yolo` |
+| kiro | `kiro-cli` | `--trust-all-tools` |
+| antigravity | `agy` | `--dangerously-skip-permissions` |
+| cline | `cline` | none (Cline approves tool calls by default) |
+| vibe | `vibe` | `--auto-approve` |
+| omp | `omp` | `--yolo` |
+| kimi | `kimi` | `--auto` |
 
 OpenCode releases older than the ones that document `--auto` (1.14.48, for example) reject any flag they do not know and will not start. Leave `opencode` out of the list on those versions.
 

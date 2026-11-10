@@ -198,6 +198,91 @@ var registry = []detector{
 		AutoAcceptFlag: "--yolo",
 		Detect:         detectQoder,
 	},
+	{
+		Name:         "qwen",
+		ProcessNames: []string{"qwen"},
+		// An untitled session shows "Qwen - <folder>". Once it has a name
+		// the title is only that name, and the process has to identify it.
+		TitlePatterns:  []string{"Qwen - "},
+		AutoAcceptFlag: "--yolo",
+		Detect:         detectQwen,
+	},
+	{
+		Name:         "goose",
+		ProcessNames: []string{"goose"},
+		// Goose titles the terminal "🪿 <dir>". It has no flag: its default
+		// mode already approves tool calls.
+		TitlePatterns: []string{"🪿 "},
+		Detect:        detectGoose,
+	},
+	{
+		Name:           "crush",
+		ProcessNames:   []string{"crush"},
+		TitlePatterns:  []string{"crush "},
+		AutoAcceptFlag: "--yolo",
+		Detect:         detectCrush,
+	},
+	{
+		Name: "kiro",
+		// Kiro CLI 3 is one kiro-cli binary; the 2.x releases ran the chat
+		// as kiro-cli-chat.
+		ProcessNames:   []string{"kiro-cli", "kiro-cli-chat"},
+		Command:        "kiro-cli",
+		TitlePatterns:  []string{"Kiro"},
+		AutoAcceptFlag: "--trust-all-tools",
+		Detect:         detectKiro,
+	},
+	{
+		Name: "antigravity",
+		// agy leaves the window title alone unless the user configures a
+		// title command, so in practice the process identifies it. The
+		// pattern only helps a title that names the tool.
+		ProcessNames:   []string{"agy"},
+		Command:        "agy",
+		TitlePatterns:  []string{"Antigravity"},
+		AutoAcceptFlag: "--dangerously-skip-permissions",
+		Detect:         detectAntigravity,
+	},
+	{
+		Name: "cline",
+		// npm installs a Node wrapper that runs the compiled binary
+		// bin/.cline, so ps shows both. Cline approves tool calls by
+		// default; its --yolo is a separate mode for unattended runs, so
+		// crex adds no flag.
+		ProcessNames:  []string{"cline", ".cline"},
+		TitlePatterns: []string{"Cline"},
+		Detect:        detectCline,
+	},
+	{
+		Name: "vibe",
+		// Vibe 3 replaces the Python launcher with the bundled vibe-rs
+		// program; Vibe 2 stays a Python script called vibe. The title is
+		// "Vibe" only until the session gets a name of its own.
+		ProcessNames:   []string{"vibe-rs", "vibe"},
+		TitlePatterns:  []string{"Vibe"},
+		AutoAcceptFlag: "--auto-approve",
+		Detect:         detectVibe,
+	},
+	{
+		Name:         "omp",
+		ProcessNames: []string{"omp"},
+		// oh-my-pi titles the terminal "π > label" when idle, "π ! label"
+		// when it needs the user and "π : label" or "π: label" otherwise.
+		// Pi itself uses "π - ".
+		TitlePatterns:  []string{"π > ", "π ! ", "π : ", "π: "},
+		AutoAcceptFlag: "--yolo",
+		Detect:         detectOmp,
+	},
+	{
+		Name: "kimi",
+		// Kimi Code renames its process to kimi-code, which is what ps
+		// shows as arguments for the npm build.
+		ProcessNames:  []string{"kimi", "kimi-code"},
+		TitlePatterns: []string{"Kimi Code"},
+		// --yolo still asks before risky actions; --auto never asks.
+		AutoAcceptFlag: "--auto",
+		Detect:         detectKimi,
+	},
 }
 
 // BareCommands returns every command a pane can hold that only says which AI
