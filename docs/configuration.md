@@ -107,7 +107,7 @@ The list takes the agent names below. The flag goes right after the command that
 | rovo | `acli rovodev run` | `--yolo` |
 | hermes | `hermes` | `--yolo` |
 | codebuddy | `codebuddy` | `--dangerously-skip-permissions` |
-| factory | `droid` | `--skip-permissions-unsafe` |
+| factory | `droid` | `--auto high` |
 | qoder | `qoder` | `--yolo` |
 | qwen | `qwen` | `--yolo` |
 | goose | `goose` | none (Goose approves tool calls by default) |

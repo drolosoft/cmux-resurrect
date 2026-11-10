@@ -148,7 +148,7 @@ func TestInjectAutoAccept_EnvPrefix(t *testing.T) {
 // Factory's binary is droid; auto_accept still lists the tool by its name.
 func TestInjectAutoAccept_LaunchCommandNotNamedAfterTool(t *testing.T) {
 	cmd, tool := InjectAutoAccept("droid", []string{"factory"})
-	if cmd != "droid --skip-permissions-unsafe" {
+	if cmd != "droid --auto high" {
 		t.Errorf("got %q", cmd)
 	}
 	if tool != "factory" {
@@ -156,8 +156,30 @@ func TestInjectAutoAccept_LaunchCommandNotNamedAfterTool(t *testing.T) {
 	}
 
 	cmd, tool = InjectAutoAccept("droid", []string{"all"})
-	if cmd != "droid --skip-permissions-unsafe" || tool != "factory" {
+	if cmd != "droid --auto high" || tool != "factory" {
 		t.Errorf("with all: got (%q, %q)", cmd, tool)
+	}
+}
+
+// TestInjectAutoAccept_DroidInteractiveFlag: --skip-permissions-unsafe
+// exists only on `droid exec`. The interactive droid ignores options it does
+// not know, so the old flag started a session that still asked. --auto is a
+// root option, and `droid --auto high --resume <id> --version` prints the
+// version, which droid does only when every option before it parsed.
+func TestInjectAutoAccept_DroidInteractiveFlag(t *testing.T) {
+	tests := []struct {
+		command string
+		want    string
+	}{
+		{"droid --resume 7f8e2a10-0000-4000-8000-000000000001", "droid --auto high --resume 7f8e2a10-0000-4000-8000-000000000001"},
+		{"FACTORY_HOME_OVERRIDE=/Users/me/work droid --resume abc123", "FACTORY_HOME_OVERRIDE=/Users/me/work droid --auto high --resume abc123"},
+		{"droid --auto high --resume abc123", "droid --auto high --resume abc123"},
+	}
+	for _, tt := range tests {
+		cmd, _ := InjectAutoAccept(tt.command, []string{"factory"})
+		if cmd != tt.want {
+			t.Errorf("InjectAutoAccept(%q) = %q, want %q", tt.command, cmd, tt.want)
+		}
 	}
 }
 

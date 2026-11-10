@@ -145,7 +145,7 @@ var wantRegistry = map[string]registryRow{
 	"rovo":        {[]string{"atlassian_cli_rovodev"}, "acli rovodev run", "--yolo"},
 	"hermes":      {[]string{"hermes"}, "hermes", "--yolo"},
 	"codebuddy":   {[]string{"codebuddy", "cbc"}, "codebuddy", "--dangerously-skip-permissions"},
-	"factory":     {[]string{"droid"}, "droid", "--skip-permissions-unsafe"},
+	"factory":     {[]string{"droid"}, "droid", "--auto high"},
 	"qoder":       {[]string{"qoder", "qodercli"}, "qoder", "--yolo"},
 	"qwen":        {[]string{"qwen"}, "qwen", "--yolo"},
 	"goose":       {[]string{"goose"}, "goose", ""},

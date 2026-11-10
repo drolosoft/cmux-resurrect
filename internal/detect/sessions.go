@@ -198,11 +198,14 @@ var registry = []detector{
 		Detect:         detectCodeBuddy,
 	},
 	{
-		Name:           "factory",
-		ProcessNames:   []string{"droid"},
-		Command:        "droid",
-		TitlePatterns:  []string{"Factory", "factory"},
-		AutoAcceptFlag: "--skip-permissions-unsafe",
+		Name:          "factory",
+		ProcessNames:  []string{"droid"},
+		Command:       "droid",
+		TitlePatterns: []string{"Factory", "factory"},
+		// --skip-permissions-unsafe belongs to `droid exec` only. The
+		// interactive droid ignores options it does not know, so it would
+		// start a session that still asks; --auto high is its own level.
+		AutoAcceptFlag: "--auto high",
 		Detect:         detectDroid,
 	},
 	{
