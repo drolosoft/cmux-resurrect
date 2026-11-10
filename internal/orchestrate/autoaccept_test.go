@@ -178,6 +178,45 @@ func TestInjectAutoAccept_StaleRegistryName(t *testing.T) {
 	}
 }
 
+// TestInjectAutoAccept_KiroFlagAfterChat: kiro-cli accepts --trust-all-tools
+// only after its chat subcommand. `kiro-cli --trust-all-tools chat …` exits
+// with status 2 ("unexpected argument '--trust-all-tools' found"), so the
+// pane would never start. A command without chat gets it, since bare kiro-cli
+// opens a chat anyway.
+func TestInjectAutoAccept_KiroFlagAfterChat(t *testing.T) {
+	tests := []struct {
+		command string
+		want    string
+	}{
+		{"kiro-cli chat --resume-id 00000000-0000-0000-0000-000000000000", "kiro-cli chat --trust-all-tools --resume-id 00000000-0000-0000-0000-000000000000"},
+		{"kiro-cli chat --resume", "kiro-cli chat --trust-all-tools --resume"},
+		{"kiro-cli chat", "kiro-cli chat --trust-all-tools"},
+		{"kiro-cli", "kiro-cli chat --trust-all-tools"},
+		{"kiro-cli --resume-id sess_0001", "kiro-cli chat --trust-all-tools --resume-id sess_0001"},
+		{"KIRO_LOG_LEVEL=debug kiro-cli chat --resume", "KIRO_LOG_LEVEL=debug kiro-cli chat --trust-all-tools --resume"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.command, func(t *testing.T) {
+			cmd, tool := InjectAutoAccept(tt.command, []string{"kiro"})
+			if cmd != tt.want || tool != "kiro" {
+				t.Errorf("got (%q, %q), want (%q, kiro)", cmd, tool, tt.want)
+			}
+		})
+	}
+}
+
+// TestInjectAutoAccept_KiroOtherSubcommand: a kiro-cli command that runs
+// another subcommand has no chat to trust tools in, and putting chat in front
+// of it would turn the subcommand into a prompt.
+func TestInjectAutoAccept_KiroOtherSubcommand(t *testing.T) {
+	for _, command := range []string{"kiro-cli login", "kiro-cli settings list", "kiro-cli chatty", "kiro-cli chat --trust-all-tools --resume"} {
+		cmd, tool := InjectAutoAccept(command, []string{"all"})
+		if cmd != command || tool != "" {
+			t.Errorf("InjectAutoAccept(%q) = (%q, %q), want it unchanged", command, cmd, tool)
+		}
+	}
+}
+
 // TestInjectAutoAccept_HermesResumeKeepsItsMode checks that a resumed Hermes
 // session is left alone: Hermes exits with an error when --resume carries a
 // --yolo the session was not created with.

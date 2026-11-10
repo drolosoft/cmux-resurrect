@@ -12,6 +12,10 @@ var autoAcceptCache = detect.AutoAcceptFlags()
 // flagOnFreshOnly lists the tools that reject their flag on a resumed session.
 var flagOnFreshOnly = detect.FlagOnFreshOnlyTools()
 
+// flagSubcommands names the subcommand each tool's flag has to follow, for
+// the tools whose top level rejects the flag.
+var flagSubcommands = detect.FlagSubcommands()
+
 // resumeArguments are the arguments that make a command continue an earlier
 // session instead of starting a new one.
 var resumeArguments = map[string]bool{
@@ -86,6 +90,34 @@ func InjectAutoAccept(command string, autoAccept []string) (string, string) {
 		return command, ""
 	}
 
+	// A tool whose top level rejects the flag takes it after its subcommand.
+	if subcommand := flagSubcommands[toolName]; subcommand != "" {
+		var placed bool
+		launch, rest, placed = withSubcommand(launch, rest, subcommand)
+		if !placed {
+			return command, ""
+		}
+	}
+
 	// Inject flag after the launch command.
 	return envPrefix + launch + " " + flag + rest, toolName
+}
+
+// withSubcommand moves subcommand from the start of rest onto the end of
+// launch, so the flag lands after it: `kiro-cli chat --resume` becomes
+// `kiro-cli chat` and ` --resume`. A command that starts with options or with
+// nothing gets the subcommand, because the tool runs it by default (bare
+// kiro-cli opens a chat). A command that runs another subcommand has no place
+// for the flag, and placed is false.
+func withSubcommand(launch, rest, subcommand string) (newLaunch, newRest string, placed bool) {
+	arguments := strings.Fields(rest)
+	if len(arguments) > 0 && arguments[0] == subcommand {
+		return launch + " " + subcommand, strings.TrimPrefix(strings.TrimLeft(rest, " "), subcommand), true
+	}
+
+	if len(arguments) == 0 || strings.HasPrefix(arguments[0], "-") {
+		return launch + " " + subcommand, rest, true
+	}
+
+	return launch, rest, false
 }

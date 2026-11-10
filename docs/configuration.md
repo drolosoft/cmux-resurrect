@@ -112,7 +112,7 @@ The list takes the agent names below. The flag goes right after the command that
 | qwen | `qwen` | `--yolo` |
 | goose | `goose` | none (Goose approves tool calls by default) |
 | crush | `crush` | `--yolo` |
-| kiro | `kiro-cli` | `--trust-all-tools` |
+| kiro | `kiro-cli` | `--trust-all-tools`, after `chat` |
 | antigravity | `agy` | `--dangerously-skip-permissions` |
 | cline | `cline` | none (Cline approves tool calls by default) |
 | vibe | `vibe` | `--auto-approve` |
@@ -120,6 +120,8 @@ The list takes the agent names below. The flag goes right after the command that
 | kimi | `kimi` | `--auto` |
 
 OpenCode releases older than the ones that document `--auto` (1.14.48, for example) reject any flag they do not know and will not start. Leave `opencode` out of the list on those versions.
+
+Kiro takes `--trust-all-tools` only after its `chat` subcommand, so crex types `kiro-cli chat --trust-all-tools --resume-id <id>`, and `kiro-cli chat --trust-all-tools` for a pane with no session. A `kiro-cli` command that runs another subcommand gets no flag.
 
 Hermes keeps the approval mode a session was created with and exits when a resume asks for another, so crex adds `--yolo` only when Hermes starts a fresh session, never to `hermes --resume`.
 

@@ -52,6 +52,10 @@ type detector struct {
 	Command        string   // what a shell types to start the tool, when it is not Name
 	TitlePatterns  []string // substrings in terminal title confirming the tool
 	AutoAcceptFlag string   // CLI flag to skip permission prompts (empty if none)
+	// FlagSubcommand is the subcommand the flag belongs to, for a tool whose
+	// top level rejects it: kiro-cli takes --trust-all-tools only after chat.
+	// The flag goes after the subcommand, which a command without one gets.
+	FlagSubcommand string
 	// FlagOnFreshOnly is set for tools that refuse the flag on a resumed
 	// session: the choice was stored when the session was created.
 	FlagOnFreshOnly bool
@@ -240,11 +244,14 @@ var registry = []detector{
 	{
 		Name: "kiro",
 		// Kiro CLI 3 is one kiro-cli binary; the 2.x releases ran the chat
-		// as kiro-cli-chat.
-		ProcessNames:   []string{"kiro-cli", "kiro-cli-chat"},
-		Command:        "kiro-cli",
-		TitlePatterns:  []string{"Kiro"},
+		// as kiro-cli-chat, which 3.1 no longer ships.
+		ProcessNames:  []string{"kiro-cli", "kiro-cli-chat"},
+		Command:       "kiro-cli",
+		TitlePatterns: []string{"Kiro"},
+		// `kiro-cli --trust-all-tools chat` exits with "unexpected
+		// argument": the flag is chat's, not the top level's.
 		AutoAcceptFlag: "--trust-all-tools",
+		FlagSubcommand: "chat",
 		Detect:         detectKiro,
 	},
 	{
@@ -373,6 +380,18 @@ func FlagOnFreshOnlyTools() map[string]bool {
 	for _, d := range registry {
 		if d.FlagOnFreshOnly {
 			result[d.Name] = true
+		}
+	}
+	return result
+}
+
+// FlagSubcommands returns, for each tool that takes its auto-accept flag
+// only after a subcommand, the name of that subcommand.
+func FlagSubcommands() map[string]string {
+	result := make(map[string]string)
+	for _, d := range registry {
+		if d.FlagSubcommand != "" {
+			result[d.Name] = d.FlagSubcommand
 		}
 	}
 	return result

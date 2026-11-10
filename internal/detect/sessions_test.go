@@ -216,6 +216,22 @@ func TestRegistry_ProcessAwareRelaunchCommand(t *testing.T) {
 	}
 }
 
+// TestFlagSubcommands: only Kiro takes its flag after a subcommand. Every
+// other tool's flag goes right after its launch command.
+func TestFlagSubcommands(t *testing.T) {
+	want := map[string]string{"kiro": "chat"}
+
+	got := FlagSubcommands()
+	if len(got) != len(want) {
+		t.Errorf("FlagSubcommands() = %q, want %q", got, want)
+	}
+	for tool, subcommand := range want {
+		if got[tool] != subcommand {
+			t.Errorf("FlagSubcommands()[%q] = %q, want %q", tool, got[tool], subcommand)
+		}
+	}
+}
+
 func TestBareCommands(t *testing.T) {
 	bare := BareCommands()
 
