@@ -872,6 +872,11 @@ var aiTitlePatterns = detect.OrderedTitlePatterns()
 // window, where it most likely runs. Losing a doubtful resume is better than
 // resuming someone else's conversation.
 //
+// A session whose processes run on no terminal at all, such as an agent a
+// desktop app started, is given to no slot on any backend: no pane shows it.
+// That holds only when the scan read terminals, which at least one session on
+// a terminal proves; when none has one, the passes guess as they always did.
+//
 // Directories are compared with symlinks resolved, since lsof reports
 // /private/tmp/x for a process the shell sees in /tmp/x.
 //
@@ -906,6 +911,9 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces, otherWorkspaces
 
 	// cmux reports the terminal of every live shell; Ghostty never does.
 	terminalsKnown := slices.ContainsFunc(treeWorkspaces, hasTTY)
+
+	// Whether the process scan read terminals at all, from either backend.
+	sessionTerminalsKnown := readTerminals(detected)
 
 	// Directories open in the other windows. Only Ghostty reports a
 	// surface's directory in the tree, and only Ghostty needs them.
@@ -944,6 +952,11 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces, otherWorkspaces
 	// match on the title alone or on the directory alone.
 	mayTake := func(s detect.Session, sl commandSlot, guess bool) bool {
 		if consumed[s.Key()] {
+			return false
+		}
+		// A session that runs on no terminal (an agent a desktop app
+		// started, a daemon) is what no pane shows.
+		if sessionTerminalsKnown && len(detected.TTYs[s.Key()]) == 0 {
 			return false
 		}
 		if terminalsKnown {
@@ -1156,6 +1169,20 @@ func onlySession(sessions []detect.Session, keep func(detect.Session) bool) *det
 		found = &sessions[i]
 	}
 	return found
+}
+
+// readTerminals reports whether the process scan read the terminals of the
+// sessions it found: at least one of them runs on one. ps prints a terminal
+// for every process it lists, so only a scan that could not read them, or a
+// caller built before sessions carried them, leaves every session without
+// one. Then a session without a terminal proves nothing.
+func readTerminals(detected detect.DetectedSessions) bool {
+	for _, ttys := range detected.TTYs {
+		if len(ttys) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // dirResolver resolves directories to their real path, each one once per

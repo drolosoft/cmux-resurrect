@@ -846,3 +846,70 @@ func TestApplyDetectedSessions_SessionsSharingATerminal(t *testing.T) {
 		})
 	}
 }
+
+// TestApplyDetectedSessions_SessionInNoTerminalIsNeverGiven reproduces the
+// Ghostty run of 2026-11-09: a shell titled "claude notes" took, through the
+// title-only pass, a Claude session whose processes run on no terminal at all
+// (an agent a desktop app started). No pane can show such a session. That is
+// known only when the scan read terminals, which the session on ttys001 shows.
+func TestApplyDetectedSessions_SessionInNoTerminalIsNeverGiven(t *testing.T) {
+	mine := detect.Session{Tool: "claude", CWD: "/home/u/shared", Command: "claude --resume mine"}
+	_, mineLive := singlePaneWorkspace("shared", mine.CWD, "✳ Claude Code", "")
+
+	t.Run("title-only pass", func(t *testing.T) {
+		desktop := detect.Session{Tool: "claude", CWD: "/home/u/desktop", Command: "claude --resume desktop"}
+		notes, notesLive := singlePaneWorkspace("notes", "/home/u/notes", "claude notes", "")
+		layout := &model.Layout{Workspaces: []model.Workspace{notes}}
+		detected := detectedSessions(map[string][]string{mine.Command: {"ttys001"}}, mine, desktop)
+
+		applyDetectedSessions(layout, []client.TreeWorkspace{notesLive}, []client.TreeWorkspace{mineLive}, detected)
+
+		if got := layout.Workspaces[0].Panes[0].Command; got != "" {
+			t.Errorf("shell command = %q, want none: the session runs in no terminal", got)
+		}
+	})
+
+	t.Run("cwd-only pass", func(t *testing.T) {
+		daemon := detect.Session{Tool: "codex", CWD: "/home/u/notes", Command: "codex resume daemon"}
+		notes, notesLive := singlePaneWorkspace("notes", "/home/u/notes", "zsh", "")
+		layout := &model.Layout{Workspaces: []model.Workspace{notes}}
+		detected := detectedSessions(map[string][]string{mine.Command: {"ttys001"}}, mine, daemon)
+
+		applyDetectedSessions(layout, []client.TreeWorkspace{notesLive}, []client.TreeWorkspace{mineLive}, detected)
+
+		if got := layout.Workspaces[0].Panes[0].Command; got != "" {
+			t.Errorf("shell command = %q, want none: the session runs in no terminal", got)
+		}
+	})
+
+	// The session that does run on a terminal still reaches its own pane,
+	// even when a session in no terminal shares its directory and was found
+	// first.
+	t.Run("the session on a terminal", func(t *testing.T) {
+		shared, sharedLive := singlePaneWorkspace("shared", mine.CWD, "✳ Claude Code", "")
+		desktop := detect.Session{Tool: "claude", CWD: mine.CWD, Command: "claude --resume desktop"}
+		layout := &model.Layout{Workspaces: []model.Workspace{shared}}
+		detected := detectedSessions(map[string][]string{mine.Command: {"ttys001"}}, desktop, mine)
+
+		applyDetectedSessions(layout, []client.TreeWorkspace{sharedLive}, nil, detected)
+
+		if got := layout.Workspaces[0].Panes[0].Command; got != mine.Command {
+			t.Errorf("claude pane command = %q, want %q", got, mine.Command)
+		}
+	})
+
+	// A scan that read no terminal at all (a ps without them, or a fixture
+	// older than the field) proves nothing, and the guesses go on as before.
+	t.Run("no session has a terminal", func(t *testing.T) {
+		desktop := detect.Session{Tool: "claude", CWD: "/home/u/desktop", Command: "claude --resume desktop"}
+		notes, notesLive := singlePaneWorkspace("notes", "/home/u/notes", "claude notes", "")
+		layout := &model.Layout{Workspaces: []model.Workspace{notes}}
+		detected := detectedSessions(map[string][]string{desktop.Command: {}}, desktop)
+
+		applyDetectedSessions(layout, []client.TreeWorkspace{notesLive}, nil, detected)
+
+		if got := layout.Workspaces[0].Panes[0].Command; got != desktop.Command {
+			t.Errorf("pane command = %q, want %q", got, desktop.Command)
+		}
+	})
+}
