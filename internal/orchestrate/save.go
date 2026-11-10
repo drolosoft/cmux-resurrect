@@ -1159,8 +1159,13 @@ func commandSlots(ws *model.Workspace, surfaces map[surfaceTitleKey]client.TreeS
 // specific first: the tool with the longest matching pattern leads, and tools
 // that tie keep registry order. Patterns overlap ("amp" is inside "example",
 // and "✳ " is not Claude's alone), so the caller tries every candidate and
-// keeps the first that really has a session for the slot.
+// keeps the first that really has a session for the slot. A shell's own title
+// names no tool, even when its directory holds a tool's name.
 func titleTools(title string) []string {
+	if isPathTitle(title) {
+		return nil
+	}
+
 	var tools []string
 	matchLength := make(map[string]int)
 	for _, entry := range aiTitlePatterns {
@@ -1176,6 +1181,18 @@ func titleTools(title string) []string {
 		return matchLength[tools[i]] > matchLength[tools[j]]
 	})
 	return tools
+}
+
+// isPathTitle reports whether title is the one a shell sets for itself: its
+// directory, bare ("/private/tmp/claude-501/x", "~/Git/proj") or after the
+// user and host ("txeo@mini: ~/Git/proj"). AI tools title the terminal with
+// their name or the conversation, never with a bare path.
+func isPathTitle(title string) bool {
+	candidate := strings.TrimSpace(title)
+	if prompt, dir, found := strings.Cut(candidate, ": "); found && strings.Contains(prompt, "@") && !strings.Contains(prompt, " ") {
+		candidate = dir
+	}
+	return strings.HasPrefix(candidate, "/") || strings.HasPrefix(candidate, "~")
 }
 
 // titleMatchLength returns the length, in characters, of the longest of the

@@ -278,6 +278,11 @@ func TestTitleTools(t *testing.T) {
 		{title: "✳ Claude Code", want: []string{"claude", "codebuddy"}},
 		{title: "OpenCode | example", want: []string{"opencode", "amp"}},
 		{title: "zsh", want: nil},
+		// A shell titles itself with its directory, and a directory can
+		// hold a tool's name without the tool running there.
+		{title: "/private/tmp/claude-501/scratchpad", want: nil},
+		{title: "~/Git/codex-notes", want: nil},
+		{title: "txeo@mini: ~/Git/claude-tools", want: nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.title, func(t *testing.T) {
@@ -543,6 +548,20 @@ func TestApplyDetectedSessions_ClaudeTitledShellGetsNoSessionFromAnotherWindow(t
 		detected := detectedSessions(nil, auris)
 
 		applyDetectedSessions(layout, []client.TreeWorkspace{shellLive}, []client.TreeWorkspace{aurisLive}, detected)
+
+		if got := layout.Workspaces[0].Panes[0].Command; got != "" {
+			t.Errorf("shell command = %q, want none", got)
+		}
+	})
+
+	// The session can run where crex sees no window at all, in another
+	// terminal app. The shell's title is its directory, which names no tool.
+	t.Run("Ghostty, the session shows in no window", func(t *testing.T) {
+		shell, shellLive := singlePaneWorkspace("scratch", scratchpad, scratchpad, "")
+		layout := &model.Layout{Workspaces: []model.Workspace{shell}}
+		detected := detectedSessions(nil, auris)
+
+		applyDetectedSessions(layout, []client.TreeWorkspace{shellLive}, nil, detected)
 
 		if got := layout.Workspaces[0].Panes[0].Command; got != "" {
 			t.Errorf("shell command = %q, want none", got)
