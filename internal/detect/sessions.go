@@ -37,7 +37,10 @@ type detector struct {
 	Command        string   // what a shell types to start the tool, when it is not Name
 	TitlePatterns  []string // substrings in terminal title confirming the tool
 	AutoAcceptFlag string   // CLI flag to skip permission prompts (empty if none)
-	Detect         func(cwd, pid string) *Session
+	// FlagOnFreshOnly is set for tools that refuse the flag on a resumed
+	// session: the choice was stored when the session was created.
+	FlagOnFreshOnly bool
+	Detect          func(cwd, pid string) *Session
 }
 
 // launchCommand returns the words that start the tool from a shell: Command
@@ -111,8 +114,9 @@ var registry = []detector{
 		AutoAcceptFlag: "--always-approve",
 		Detect:         detectGrok,
 	},
-	// Tier 2: Process-aware detectors — recognized but no session file parsing.
-	processAware(detector{
+	// The tools below resume a session when they left one for the directory.
+	// With none, each is started again with its bare launch command.
+	{
 		Name: "cursor",
 		// The installer links both names to the same launcher under
 		// ~/.local/share/cursor-agent/. "agent" alone could be anything,
@@ -122,23 +126,26 @@ var registry = []detector{
 		Command:        "agent",
 		TitlePatterns:  []string{"Cursor", "cursor"},
 		AutoAcceptFlag: "--force",
-	}),
-	processAware(detector{
+		Detect:         detectCursor,
+	},
+	{
 		Name:          "aider",
 		ProcessNames:  []string{"aider"},
 		TitlePatterns: []string{"Aider", "aider"},
 		// --yes only worked as an argparse prefix of --yes-always.
 		AutoAcceptFlag: "--yes-always",
-	}),
-	processAware(detector{
+		Detect:         detectAider,
+	},
+	{
 		Name:         "pi",
 		ProcessNames: []string{"pi"},
 		// Pi titles the terminal "π - <session>". A plain "Pi" matched
 		// "api", "pipeline" and "copilot". Pi has no flag: it does not ask
 		// before running tools, and --approve is about trusting a project.
 		TitlePatterns: []string{"π - "},
-	}),
-	processAware(detector{
+		Detect:        detectPi,
+	},
+	{
 		Name: "rovo",
 		// `acli rovodev run` starts Rovo Dev; the agent itself runs as
 		// atlassian_cli_rovodev.
@@ -147,37 +154,50 @@ var registry = []detector{
 		Command:        "acli rovodev run",
 		TitlePatterns:  []string{"Rovo", "rovo"},
 		AutoAcceptFlag: "--yolo",
-	}),
-	processAware(detector{
+		Detect:         detectRovo,
+	},
+	{
 		Name:           "hermes",
 		ProcessNames:   []string{"hermes"},
 		TitlePatterns:  []string{"Hermes", "hermes"},
 		AutoAcceptFlag: "--yolo",
-	}),
-	processAware(detector{
+		// Hermes freezes --yolo into a session when it is created. Passing
+		// it to --resume on a session started without it exits with an error.
+		FlagOnFreshOnly: true,
+		Detect:          detectHermes,
+	},
+	{
 		Name: "codebuddy",
 		// cbc is the short name of the same npm script. COIN-OR's solver
 		// is also called cbc, so the path has to name CodeBuddy.
-		ProcessNames:   []string{"codebuddy", "cbc"},
-		PathMarker:     "codebuddy",
-		TitlePatterns:  []string{"CodeBuddy", "codebuddy"},
+		ProcessNames: []string{"codebuddy", "cbc"},
+		PathMarker:   "codebuddy",
+		// CodeBuddy titles the terminal "✳ <topic>", the same mark Claude
+		// Code uses. The pane goes to whichever tool has a session there.
+		TitlePatterns:  []string{"CodeBuddy", "codebuddy", "✳ "},
 		AutoAcceptFlag: "--dangerously-skip-permissions",
-	}),
-	processAware(detector{
+		Detect:         detectCodeBuddy,
+	},
+	{
 		Name:           "factory",
 		ProcessNames:   []string{"droid"},
 		Command:        "droid",
 		TitlePatterns:  []string{"Factory", "factory"},
 		AutoAcceptFlag: "--skip-permissions-unsafe",
-	}),
-	processAware(detector{
-		Name:          "qoder",
-		ProcessNames:  []string{"qoder", "qodercli"},
-		TitlePatterns: []string{"Qoder", "qoder"},
+		Detect:         detectDroid,
+	},
+	{
+		Name:         "qoder",
+		ProcessNames: []string{"qoder", "qodercli"},
+		// Once a session has a name the title is "◇ <name> | Ready",
+		// "✦ <name> | Working" or "▲ <name> | Action Required", without
+		// the word Qoder. Gemini CLI shares the first two marks.
+		TitlePatterns: []string{"Qoder", "qoder", "◇ ", "✦ ", "▲ "},
 		// The auto permission mode still lets a classifier stop commands;
 		// --yolo is the one that skips every prompt.
 		AutoAcceptFlag: "--yolo",
-	}),
+		Detect:         detectQoder,
+	},
 }
 
 // BareCommands returns every command a pane can hold that only says which AI
@@ -242,6 +262,18 @@ func OrderedTitlePatterns() []ToolTitlePatterns {
 	result := make([]ToolTitlePatterns, 0, len(registry))
 	for _, d := range registry {
 		result = append(result, ToolTitlePatterns{Tool: d.Name, Patterns: d.TitlePatterns})
+	}
+	return result
+}
+
+// FlagOnFreshOnlyTools returns the tools whose auto-accept flag must not be
+// added to a command that resumes a session.
+func FlagOnFreshOnlyTools() map[string]bool {
+	result := make(map[string]bool)
+	for _, d := range registry {
+		if d.FlagOnFreshOnly {
+			result[d.Name] = true
+		}
 	}
 	return result
 }

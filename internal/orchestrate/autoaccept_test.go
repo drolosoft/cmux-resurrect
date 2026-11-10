@@ -177,3 +177,18 @@ func TestInjectAutoAccept_StaleRegistryName(t *testing.T) {
 		t.Errorf("got (%q, %q), want factory unchanged", cmd, tool)
 	}
 }
+
+// TestInjectAutoAccept_HermesResumeKeepsItsMode checks that a resumed Hermes
+// session is left alone: Hermes exits with an error when --resume carries a
+// --yolo the session was not created with.
+func TestInjectAutoAccept_HermesResumeKeepsItsMode(t *testing.T) {
+	resumed, tool := InjectAutoAccept("hermes --resume 20261110_091523_a1b2c3", []string{"all"})
+	if resumed != "hermes --resume 20261110_091523_a1b2c3" || tool != "" {
+		t.Errorf("resume = %q (tool %q), want the command unchanged", resumed, tool)
+	}
+
+	fresh, tool := InjectAutoAccept("hermes", []string{"hermes"})
+	if fresh != "hermes --yolo" || tool != "hermes" {
+		t.Errorf("fresh = %q (tool %q), want hermes --yolo", fresh, tool)
+	}
+}

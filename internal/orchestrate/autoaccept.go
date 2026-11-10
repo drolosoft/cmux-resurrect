@@ -9,6 +9,30 @@ import (
 // autoAcceptCache is populated once from the detect registry.
 var autoAcceptCache = detect.AutoAcceptFlags()
 
+// flagOnFreshOnly lists the tools that reject their flag on a resumed session.
+var flagOnFreshOnly = detect.FlagOnFreshOnlyTools()
+
+// resumeArguments are the arguments that make a command continue an earlier
+// session instead of starting a new one.
+var resumeArguments = map[string]bool{
+	"--resume":   true,
+	"-r":         true,
+	"--continue": true,
+	"-c":         true,
+}
+
+// resumesSession reports whether the arguments after the launch command ask
+// the tool to continue an earlier session.
+func resumesSession(arguments string) bool {
+	for _, argument := range strings.Fields(arguments) {
+		if resumeArguments[argument] {
+			return true
+		}
+	}
+
+	return false
+}
+
 // InjectAutoAccept checks if a command starts with a known AI tool's launch
 // command (after any leading VAR=value assignments) and if that tool is
 // enabled in the autoAccept config list. If so, it injects the tool's
@@ -48,6 +72,12 @@ func InjectAutoAccept(command string, autoAccept []string) (string, string) {
 		}
 	}
 	if !allowed {
+		return command, ""
+	}
+
+	// A session keeps the approval mode it was created with, and some tools
+	// exit with an error when a resume asks for another one.
+	if flagOnFreshOnly[toolName] && resumesSession(rest) {
 		return command, ""
 	}
 

@@ -271,8 +271,9 @@ func TestTitleTools(t *testing.T) {
 		title string
 		want  []string
 	}{
-		{title: "✳ Fix amp timeout", want: []string{"amp", "claude"}},
-		{title: "✳ Claude Code", want: []string{"claude"}},
+		// CodeBuddy titles its panes with the same ✳ mark as Claude Code.
+		{title: "✳ Fix amp timeout", want: []string{"amp", "claude", "codebuddy"}},
+		{title: "✳ Claude Code", want: []string{"claude", "codebuddy"}},
 		{title: "OpenCode | example", want: []string{"opencode", "amp"}},
 		{title: "zsh", want: nil},
 	}

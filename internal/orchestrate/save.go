@@ -767,7 +767,18 @@ var aiResumePatterns = []string{
 	"amp threads continue ",
 	"gemini --resume ",
 	"copilot --continue",
+	"copilot --resume ",
 	"grok --continue",
+	"grok --resume ",
+	"grok --session ",
+	"agent --resume ",
+	"aider --restore-chat-history",
+	"pi --session ",
+	"acli rovodev run --restore ",
+	"hermes --resume ",
+	"codebuddy --resume ",
+	"droid --resume ",
+	"qoder --resume ",
 }
 
 // clearAutoDetectedCommands removes all AI resume commands from the layout.
