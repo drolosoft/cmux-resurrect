@@ -2,6 +2,7 @@ package orchestrate
 
 import (
 	"fmt"
+	"io"
 	"maps"
 	"os"
 	"path/filepath"
@@ -119,7 +120,7 @@ func (s *Saver) Save(name, description string) (*model.Layout, error) {
 	// Surface titles from the tree confirm which panes actually run an AI CLI,
 	// preventing false matches when multiple workspaces share a CWD.
 	if os.Getenv("CREX_DEBUG") != "" {
-		debugDetection(layout, win.Workspaces)
+		debugDetection(os.Stderr, layout, win.Workspaces, detected)
 	}
 	applyDetectedSessions(layout, win.Workspaces, otherWindows(tree, win), detected)
 
@@ -749,28 +750,30 @@ func hasTTY(ws client.TreeWorkspace) bool {
 	return false
 }
 
-// debugDetection prints detection diagnostics when CREX_DEBUG is set.
-func debugDetection(layout *model.Layout, treeWorkspaces []client.TreeWorkspace) {
-	detected := detect.AISessions()
-	fmt.Fprintf(os.Stderr, "\n  [debug] Detected sessions:\n")
-	for cwd, sessions := range detected.ByCWD {
-		for _, s := range sessions {
-			fmt.Fprintf(os.Stderr, "    tool=%s cwd=%s cmd=%s ttys=%v\n", s.Tool, cwd, s.Command, detected.TTYs[s.Key()])
+// debugDetection prints detection diagnostics to out when CREX_DEBUG is set.
+// It prints the sessions the save is about to match, not a scan of its own,
+// so the dump shows exactly what the save worked from. Directories come in
+// sorted order to keep two dumps comparable.
+func debugDetection(out io.Writer, layout *model.Layout, treeWorkspaces []client.TreeWorkspace, detected detect.DetectedSessions) {
+	_, _ = fmt.Fprintf(out, "\n  [debug] Detected sessions:\n")
+	for _, cwd := range slices.Sorted(maps.Keys(detected.ByCWD)) {
+		for _, s := range detected.ByCWD[cwd] {
+			_, _ = fmt.Fprintf(out, "    tool=%s cwd=%s cmd=%s ttys=%v\n", s.Tool, cwd, s.Command, detected.TTYs[s.Key()])
 		}
 	}
-	fmt.Fprintf(os.Stderr, "  [debug] Surface titles:\n")
+	_, _ = fmt.Fprintf(out, "  [debug] Surface titles:\n")
 	for _, tw := range treeWorkspaces {
 		for _, tp := range tw.Panes {
 			for _, s := range tp.Surfaces {
-				fmt.Fprintf(os.Stderr, "    ws=%q pane=%d title=%q tty=%s\n", tw.Title, tp.Index, s.Title, s.TTY)
+				_, _ = fmt.Fprintf(out, "    ws=%q pane=%d title=%q tty=%s\n", tw.Title, tp.Index, s.Title, s.TTY)
 			}
 		}
 	}
-	fmt.Fprintf(os.Stderr, "  [debug] Layout workspaces:\n")
+	_, _ = fmt.Fprintf(out, "  [debug] Layout workspaces:\n")
 	for _, ws := range layout.Workspaces {
-		fmt.Fprintf(os.Stderr, "    ws=%q cwd=%s panes=%d\n", ws.Title, ws.CWD, len(ws.Panes))
+		_, _ = fmt.Fprintf(out, "    ws=%q cwd=%s panes=%d\n", ws.Title, ws.CWD, len(ws.Panes))
 	}
-	fmt.Fprintln(os.Stderr)
+	_, _ = fmt.Fprintln(out)
 }
 
 // aiResumePatterns matches commands that were auto-detected in a previous save.

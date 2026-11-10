@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/drolosoft/cmux-resurrect/internal/client"
@@ -741,6 +742,23 @@ func TestApplyDetectedSessions_GhosttyGuessesOnlyWhatNoOtherWindowShows(t *testi
 			})
 		}
 	})
+}
+
+// TestDebugDetection_ShowsTheSessionsTheSaveUsed: CREX_DEBUG used to run a
+// detection of its own, so the dump could list sessions the save never saw.
+// It now prints the ones it is handed, with their terminals.
+func TestDebugDetection_ShowsTheSessionsTheSaveUsed(t *testing.T) {
+	session := detect.Session{Tool: "claude", CWD: "/home/u/proj", Command: "claude --resume handed"}
+	detected := detectedSessions(map[string][]string{session.Command: {"ttys005"}}, session)
+	layout := &model.Layout{}
+
+	var out strings.Builder
+	debugDetection(&out, layout, nil, detected)
+
+	want := "tool=claude cwd=/home/u/proj cmd=claude --resume handed ttys=[ttys005]"
+	if !strings.Contains(out.String(), want) {
+		t.Errorf("debug output lacks %q:\n%s", want, out.String())
+	}
 }
 
 // twoPaneWorkspace returns a saved workspace of two terminal panes in cwd and
