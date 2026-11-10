@@ -284,7 +284,7 @@ func AISessions() DetectedSessions {
 	//   - PID-based tools (amp, claude): one call per (tool, pid), so two
 	//     instances in the same CWD each get their own session.
 	seen := make(map[string]bool)
-	seenCommand := make(map[string]bool)
+	seenSession := make(map[sessionKey]bool)
 
 	// Build tool name → detector lookup. The process scan reports tool
 	// names, whatever binary each tool runs as.
@@ -308,16 +308,36 @@ func AISessions() DetectedSessions {
 		seen[key] = true
 
 		d := detectorByName[p.tool]
-		s := d.Detect(p.cwd, p.pid)
-		// PID-keyed detectors can still resolve two processes to the same
-		// session (e.g. the most-recent-transcript fallback); keep one.
-		if s != nil && !seenCommand[s.Command] {
-			seenCommand[s.Command] = true
-			result.ByCWD[s.CWD] = append(result.ByCWD[s.CWD], *s)
-			result.ByTool[s.Tool] = append(result.ByTool[s.Tool], *s)
-		}
+		addSession(result, seenSession, d.Detect(p.cwd, p.pid))
 	}
 	return result
+}
+
+// sessionKey identifies one detected session: its resume command in its
+// directory. The command alone is not enough, because Copilot and Grok resume
+// with the same words everywhere and a tier-2 tool relaunches with its bare
+// name, so two panes in two directories would look like one session.
+type sessionKey struct {
+	command string
+	cwd     string
+}
+
+// addSession indexes s in result unless seen already holds the same session.
+// PID-keyed detectors can still resolve two processes to the same session
+// (e.g. the most-recent-transcript fallback); keep one. A nil s is ignored.
+func addSession(result DetectedSessions, seen map[sessionKey]bool, s *Session) {
+	if s == nil {
+		return
+	}
+
+	key := sessionKey{command: s.Command, cwd: s.CWD}
+	if seen[key] {
+		return
+	}
+	seen[key] = true
+
+	result.ByCWD[s.CWD] = append(result.ByCWD[s.CWD], *s)
+	result.ByTool[s.Tool] = append(result.ByTool[s.Tool], *s)
 }
 
 // aiProcess holds a running AI CLI process.

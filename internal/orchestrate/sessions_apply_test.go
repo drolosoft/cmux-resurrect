@@ -364,3 +364,56 @@ func TestApplyDetectedSessions_LongestTitlePatternWins(t *testing.T) {
 		t.Errorf("pane command = %q, want %q", got, opencode.Command)
 	}
 }
+
+// TestApplyDetectedSessions_SameCommandInTwoDirectories: Copilot always
+// resumes with "copilot --continue", and a tier-2 tool such as Aider always
+// relaunches with its bare name, so two panes in two directories carry the
+// same command. A session is the command in its directory: both panes get it.
+func TestApplyDetectedSessions_SameCommandInTwoDirectories(t *testing.T) {
+	tests := []struct {
+		tool    string
+		title   string
+		command string
+	}{
+		{tool: "copilot", title: "GitHub Copilot", command: "copilot --continue"},
+		{tool: "aider", title: "aider", command: "aider"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.tool, func(t *testing.T) {
+			layout := &model.Layout{
+				Workspaces: []model.Workspace{{
+					Title: "proj",
+					CWD:   "/home/u/a",
+					Panes: []model.Pane{
+						{Type: "terminal", Index: 0, CWD: "/home/u/a"},
+						{Type: "terminal", Index: 1, CWD: "/home/u/b", Split: "right"},
+					},
+				}},
+			}
+			tree := []client.TreeWorkspace{{
+				Title: "proj",
+				Panes: []client.TreePane{
+					{Index: 0, Surfaces: []client.TreeSurface{{Title: tt.title}}},
+					{Index: 1, Surfaces: []client.TreeSurface{{Title: tt.title}}},
+				},
+			}}
+			inA := detect.Session{Tool: tt.tool, CWD: "/home/u/a", Command: tt.command}
+			inB := detect.Session{Tool: tt.tool, CWD: "/home/u/b", Command: tt.command}
+			detected := detect.DetectedSessions{
+				ByCWD: map[string][]detect.Session{
+					"/home/u/a": {inA},
+					"/home/u/b": {inB},
+				},
+				ByTool: map[string][]detect.Session{tt.tool: {inA, inB}},
+			}
+
+			applyDetectedSessions(layout, tree, detected)
+
+			for i, pane := range layout.Workspaces[0].Panes {
+				if pane.Command != tt.command {
+					t.Errorf("pane %d (%s) command = %q, want %q", i, pane.CWD, pane.Command, tt.command)
+				}
+			}
+		})
+	}
+}

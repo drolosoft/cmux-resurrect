@@ -819,7 +819,8 @@ var aiTitlePatterns = detect.OrderedTitlePatterns()
 //     match by CWD alone — but only if no other workspace already claimed
 //     that CWD in pass 1.
 //
-// Each CWD is consumed after the first match to prevent duplicates.
+// Each session (its command in its directory) is consumed after the first
+// match to prevent duplicates.
 func applyDetectedSessions(layout *model.Layout, treeWorkspaces []client.TreeWorkspace, detected detect.DetectedSessions) {
 	if len(detected.ByCWD) == 0 {
 		return
@@ -837,12 +838,15 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces []client.TreeWor
 		}
 	}
 
-	consumed := make(map[string]bool) // consumed session commands (unique per session)
+	// Sessions already given to a slot. A session is its command in its
+	// directory: "copilot --continue" or a bare "aider" reads the same in
+	// every directory the tool runs in.
+	consumed := make(map[sessionKey]bool)
 
 	// findSession returns an unconsumed session for the given tool from a CWD list.
 	findSession := func(sessions []detect.Session, tool string) *detect.Session {
 		for i := range sessions {
-			if sessions[i].Tool == tool && !consumed[sessions[i].Command] {
+			if sessions[i].Tool == tool && !consumed[keyOf(sessions[i])] {
 				return &sessions[i]
 			}
 		}
@@ -856,7 +860,7 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces []client.TreeWor
 	findTitledSession := func(sessions []detect.Session, tool, title string) *detect.Session {
 		for i := range sessions {
 			s := &sessions[i]
-			if s.Tool == tool && !consumed[s.Command] && s.Title != "" && strings.Contains(title, s.Title) {
+			if s.Tool == tool && !consumed[keyOf(*s)] && s.Title != "" && strings.Contains(title, s.Title) {
 				return s
 			}
 		}
@@ -901,7 +905,7 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces []client.TreeWor
 					}
 
 					*sl.cmd = s.Command
-					consumed[s.Command] = true
+					consumed[keyOf(*s)] = true
 					titled[sl.cmd] = true
 					break
 				}
@@ -925,7 +929,7 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces []client.TreeWor
 				}
 
 				*sl.cmd = s.Command
-				consumed[s.Command] = true
+				consumed[keyOf(*s)] = true
 				break
 			}
 		}
@@ -949,9 +953,9 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces []client.TreeWor
 			claimed := false
 			for _, cwd := range sl.searchCWDs() {
 				for _, s := range detected.ByCWD[cwd] {
-					if !consumed[s.Command] {
+					if !consumed[keyOf(s)] {
 						*sl.cmd = s.Command
-						consumed[s.Command] = true
+						consumed[keyOf(s)] = true
 						claimed = true
 						break
 					}
@@ -962,6 +966,19 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces []client.TreeWor
 			}
 		}
 	}
+}
+
+// sessionKey identifies one detected session while sessions are handed out:
+// its command in its directory, the same identity detect.AISessions keeps
+// one session per.
+type sessionKey struct {
+	command string
+	cwd     string
+}
+
+// keyOf returns the key that marks s as consumed.
+func keyOf(s detect.Session) sessionKey {
+	return sessionKey{command: s.Command, cwd: s.CWD}
 }
 
 // surfaceTitleKey addresses one live surface: workspace title + the pane's

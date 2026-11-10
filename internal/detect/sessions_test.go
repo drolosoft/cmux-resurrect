@@ -260,3 +260,63 @@ func TestToolLaunch(t *testing.T) {
 		})
 	}
 }
+
+// newDetectedSessions returns an empty result for addSession to fill.
+func newDetectedSessions() DetectedSessions {
+	return DetectedSessions{
+		ByCWD:  make(map[string][]Session),
+		ByTool: make(map[string][]Session),
+	}
+}
+
+// TestAddSession_SameCommandInTwoDirectories: Copilot resumes with
+// "copilot --continue" and Aider relaunches as "aider" wherever they run. Two
+// processes in two directories are two sessions, and both are kept.
+func TestAddSession_SameCommandInTwoDirectories(t *testing.T) {
+	tests := []struct {
+		tool    string
+		command string
+	}{
+		{tool: "copilot", command: "copilot --continue"},
+		{tool: "aider", command: "aider"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.tool, func(t *testing.T) {
+			result := newDetectedSessions()
+			seen := make(map[sessionKey]bool)
+
+			addSession(result, seen, &Session{Tool: tt.tool, CWD: "/home/u/a", Command: tt.command})
+			addSession(result, seen, &Session{Tool: tt.tool, CWD: "/home/u/b", Command: tt.command})
+
+			if got := len(result.ByTool[tt.tool]); got != 2 {
+				t.Errorf("ByTool[%q] holds %d sessions, want 2", tt.tool, got)
+			}
+			for _, cwd := range []string{"/home/u/a", "/home/u/b"} {
+				if got := len(result.ByCWD[cwd]); got != 1 {
+					t.Errorf("ByCWD[%q] holds %d sessions, want 1", cwd, got)
+				}
+			}
+		})
+	}
+}
+
+// TestAddSession_SameSessionTwice guards what the filter was written for: two
+// Claude processes in one directory that resolve to the same session id (the
+// most-recent-transcript fallback) are one session, not two panes resuming
+// the same conversation.
+func TestAddSession_SameSessionTwice(t *testing.T) {
+	result := newDetectedSessions()
+	seen := make(map[sessionKey]bool)
+	session := Session{Tool: "claude", CWD: "/home/u/proj", Command: "claude --resume abc123"}
+
+	addSession(result, seen, &session)
+	addSession(result, seen, &session)
+	addSession(result, seen, nil)
+
+	if got := len(result.ByTool["claude"]); got != 1 {
+		t.Errorf("ByTool[claude] holds %d sessions, want 1", got)
+	}
+	if got := len(result.ByCWD["/home/u/proj"]); got != 1 {
+		t.Errorf("ByCWD[/home/u/proj] holds %d sessions, want 1", got)
+	}
+}
