@@ -850,8 +850,13 @@ var aiTitlePatterns = detect.OrderedTitlePatterns()
 // Detection is best-effort: if anything fails, panes are left unchanged.
 //
 // Matching strategy:
+//  0. Terminal (pass 0): a session whose process runs on the slot's own
+//     terminal is the one the slot shows, whatever its title and however
+//     many panes the workspace has. Only backends that report terminals
+//     (cmux) have it. When several sessions share the terminal,
+//     terminalSession says which signal picks one.
 //  1. Title-confirmed (pass 1a): both CWD and surface title agree → highest
-//     confidence.
+//     confidence among the guesses.
 //  2. Title only (pass 1b), for a slot whose title names a tool but whose
 //     directory matched no session.
 //  3. CWD-only fallback (pass 2): for tools that don't set a recognizable
@@ -860,10 +865,10 @@ var aiTitlePatterns = detect.OrderedTitlePatterns()
 // A session runs in one window, and the saved window must never take one
 // from another: restoring it would open a second copy of a conversation that
 // is still running. When the backend reports each surface's terminal (cmux),
-// every pass gives a slot only a session whose process runs on that slot's
-// terminal. Without terminals (Ghostty) nothing proves where a process runs:
-// 1a still trusts title and directory together, while 1b and 2, which have
-// only one of the two, skip a session whose directory is open in another
+// passes 1a to 2 also give a slot only a session whose process runs on that
+// slot's terminal. Without terminals (Ghostty) nothing proves where a process
+// runs: 1a still trusts title and directory together, while 1b and 2, which
+// have only one of the two, skip a session whose directory is open in another
 // window, where it most likely runs. Losing a doubtful resume is better than
 // resuming someone else's conversation.
 //
@@ -915,10 +920,25 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces, otherWorkspaces
 		}
 	}
 
+	// Sessions by the terminals their processes run on, listed in the order
+	// of byDir so a terminal offers its sessions the same way on every save.
+	byTTY := make(map[string][]detect.Session)
+	for _, dir := range slices.Sorted(maps.Keys(byDir)) {
+		for _, s := range byDir[dir] {
+			for _, tty := range detected.TTYs[s.Key()] {
+				byTTY[tty] = append(byTTY[tty], s)
+			}
+		}
+	}
+
 	// Sessions already given to a slot. A session is its command in its
 	// directory: "copilot --continue" or a bare "aider" reads the same in
 	// every directory the tool runs in.
 	consumed := make(map[detect.SessionKey]bool)
+
+	// Slots a pass has already settled for good. The title passes below
+	// overwrite any command, so they must skip these.
+	settled := make(map[*string]bool)
 
 	// mayTake reports whether sl may take s. guess is set by the passes that
 	// match on the title alone or on the directory alone.
@@ -957,6 +977,30 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces, otherWorkspaces
 		return nil
 	}
 
+	// Pass 0: the slot's own terminal. A session whose process runs on the
+	// terminal of the slot is the one the slot shows, whatever its title and
+	// however many panes the workspace has: an idle Claude Code titles the
+	// terminal with the conversation alone, which names no tool.
+	for i := range layout.Workspaces {
+		ws := &layout.Workspaces[i]
+		for _, sl := range commandSlots(ws, surfaces) {
+			if sl.tty == "" {
+				continue
+			}
+			onTerminal := slices.DeleteFunc(slices.Clone(byTTY[sl.tty]), func(s detect.Session) bool {
+				return consumed[s.Key()]
+			})
+			s := terminalSession(onTerminal, sl)
+			if s == nil {
+				continue
+			}
+
+			*sl.cmd = s.Command
+			consumed[s.Key()] = true
+			settled[sl.cmd] = true
+		}
+	}
+
 	// Pass 1a: Title + CWD match (highest confidence). Assign sessions only
 	// when both the surface title confirms the tool AND a CWD matches a
 	// detected session's CWD. This prevents CWD-mismatched workspaces from
@@ -967,12 +1011,11 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces, otherWorkspaces
 	// It runs twice: first only where the session's own title is in the
 	// surface title, so a slot earlier in the layout can't take a session
 	// that a later slot names; then without that requirement.
-	titled := make(map[*string]bool)
 	for _, byTitle := range []bool{true, false} {
 		for i := range layout.Workspaces {
 			ws := &layout.Workspaces[i]
 			for _, sl := range commandSlots(ws, surfaces) {
-				if titled[sl.cmd] {
+				if settled[sl.cmd] {
 					continue
 				}
 				// Every tool the title names is a candidate, the most
@@ -996,7 +1039,7 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces, otherWorkspaces
 
 					*sl.cmd = s.Command
 					consumed[s.Key()] = true
-					titled[sl.cmd] = true
+					settled[sl.cmd] = true
 					break
 				}
 			}
@@ -1057,6 +1100,62 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces, otherWorkspaces
 			}
 		}
 	}
+}
+
+// terminalSession returns the session a slot shows among the unconsumed
+// sessions that run on its terminal, or nil when they do not tell which.
+// One session is the answer. Several share a terminal when a tool was started
+// from inside another tool's shell, and then three signals decide, in order:
+// the session whose conversation title is in the surface title, the tool the
+// slot's foreground command starts (the process the terminal shows now), and
+// the most specific tool the title names. Each decides only when it leaves a
+// single session; the terminal alone never picks one of several.
+func terminalSession(sessions []detect.Session, sl commandSlot) *detect.Session {
+	if len(sessions) == 1 {
+		return &sessions[0]
+	}
+
+	inTitle := func(s detect.Session) bool {
+		return s.Title != "" && strings.Contains(sl.title, s.Title)
+	}
+	if s := onlySession(sessions, inTitle); s != nil {
+		return s
+	}
+
+	// A saved command may carry an env prefix such as CLAUDE_CONFIG_DIR=….
+	_, foreground := detect.SplitEnvPrefix(*sl.cmd)
+	if tool, _, ok := detect.ToolLaunch(foreground); ok {
+		ofTool := func(s detect.Session) bool { return s.Tool == tool }
+		if s := onlySession(sessions, ofTool); s != nil {
+			return s
+		}
+	}
+
+	// The first tool the title names that has a session here decides; a
+	// less specific tool must not answer for it when it has two.
+	for _, tool := range titleTools(sl.title) {
+		ofTool := func(s detect.Session) bool { return s.Tool == tool }
+		if slices.ContainsFunc(sessions, ofTool) {
+			return onlySession(sessions, ofTool)
+		}
+	}
+	return nil
+}
+
+// onlySession returns the one session in sessions that keep accepts, or nil
+// when none or several do.
+func onlySession(sessions []detect.Session, keep func(detect.Session) bool) *detect.Session {
+	var found *detect.Session
+	for i := range sessions {
+		if !keep(sessions[i]) {
+			continue
+		}
+		if found != nil {
+			return nil
+		}
+		found = &sessions[i]
+	}
+	return found
 }
 
 // dirResolver resolves directories to their real path, each one once per

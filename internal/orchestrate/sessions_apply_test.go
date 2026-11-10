@@ -742,3 +742,107 @@ func TestApplyDetectedSessions_GhosttyGuessesOnlyWhatNoOtherWindowShows(t *testi
 		}
 	})
 }
+
+// twoPaneWorkspace returns a saved workspace of two terminal panes in cwd and
+// the live tree workspace behind it, each pane titled and on the terminal
+// given. Two panes keep the workspace out of the cwd-only pass.
+func twoPaneWorkspace(cwd string, titles, ttys [2]string) (model.Workspace, client.TreeWorkspace) {
+	saved := model.Workspace{
+		Title: "proj",
+		CWD:   cwd,
+		Panes: []model.Pane{
+			{Type: "terminal", Index: 0, CWD: cwd},
+			{Type: "terminal", Index: 1, CWD: cwd, Split: "right"},
+		},
+	}
+	live := client.TreeWorkspace{
+		Title: "proj",
+		Panes: []client.TreePane{
+			{Index: 0, Surfaces: []client.TreeSurface{{Title: titles[0], TTY: ttys[0]}}},
+			{Index: 1, Surfaces: []client.TreeSurface{{Title: titles[1], TTY: ttys[1]}}},
+		},
+	}
+	return saved, live
+}
+
+// TestApplyDetectedSessions_SessionOnThePaneTerminalWhateverTheTitle
+// reproduces the live run of 2026-11-09: an idle Claude Code titles its
+// terminal with the conversation's title alone ("CREXONE66675000"), which
+// names no tool. In a workspace of two panes neither title pass tried Claude
+// and the cwd-only pass skipped the workspace, so the pane came back with a
+// bare claude although the session runs on that pane's own terminal.
+func TestApplyDetectedSessions_SessionOnThePaneTerminalWhateverTheTitle(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		title string
+	}{
+		{name: "the session title is known", title: "CREXONE66675000"},
+		{name: "the session title is not known", title: ""},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			saved, live := twoPaneWorkspace("/home/u/one", [2]string{"CREXONE66675000", "✳ amp example"}, [2]string{"ttys005", "ttys006"})
+			layout := &model.Layout{Workspaces: []model.Workspace{saved}}
+			// The foreground scan saw a bare claude on both panes.
+			layout.Workspaces[0].Panes[0].Command = "claude"
+			layout.Workspaces[0].Panes[1].Command = "claude"
+			one := detect.Session{Tool: "claude", CWD: "/home/u/one", Command: "claude --resume one", Title: tt.title}
+			two := detect.Session{Tool: "claude", CWD: "/home/u/two", Command: "claude --resume two"}
+			detected := detectedSessions(
+				map[string][]string{one.Command: {"ttys005"}, two.Command: {"ttys006"}},
+				one, two,
+			)
+
+			applyDetectedSessions(layout, []client.TreeWorkspace{live}, nil, detected)
+
+			want := []string{one.Command, two.Command}
+			if got := commandsOf(layout); !slices.Equal(got, want) {
+				t.Errorf("pane commands = %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+// TestApplyDetectedSessions_SessionsSharingATerminal: a tool started from
+// inside another tool's shell runs on the same terminal as that tool. The
+// conversation title in the surface title decides first, then the tool the
+// pane's foreground command starts, then the tool the title names. When none
+// of them picks one session, the terminal does not choose between them.
+func TestApplyDetectedSessions_SessionsSharingATerminal(t *testing.T) {
+	login := detect.Session{Tool: "claude", CWD: "/home/u/proj", Command: "claude --resume login", Title: "Fix login bug"}
+	review := detect.Session{Tool: "claude", CWD: "/home/u/proj", Command: "claude --resume review", Title: "Review code"}
+	amp := detect.Session{Tool: "amp", CWD: "/home/u/proj", Command: "amp threads continue T-1"}
+	codex := detect.Session{Tool: "codex", CWD: "/home/u/proj", Command: "codex resume thread-1"}
+
+	for _, tt := range []struct {
+		name       string
+		title      string
+		foreground string
+		sessions   []detect.Session
+		want       string
+	}{
+		{name: "the conversation title", title: "⠂ Fix login bug", sessions: []detect.Session{review, login}, want: login.Command},
+		{name: "the foreground command", title: "CREXONE66675000", foreground: "claude", sessions: []detect.Session{amp, review}, want: review.Command},
+		{name: "the tool in the title", title: "Codex", sessions: []detect.Session{amp, codex}, want: codex.Command},
+		{name: "nothing decides", title: "zsh", sessions: []detect.Session{amp, codex}, want: ""},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			saved, live := twoPaneWorkspace("/home/u/proj", [2]string{tt.title, "zsh"}, [2]string{"ttys005", "ttys006"})
+			layout := &model.Layout{Workspaces: []model.Workspace{saved}}
+			layout.Workspaces[0].Panes[0].Command = tt.foreground
+			ttys := make(map[string][]string)
+			for _, s := range tt.sessions {
+				ttys[s.Command] = []string{"ttys005"}
+			}
+			detected := detectedSessions(ttys, tt.sessions...)
+
+			applyDetectedSessions(layout, []client.TreeWorkspace{live}, nil, detected)
+
+			if got := layout.Workspaces[0].Panes[0].Command; got != tt.want {
+				t.Errorf("pane command = %q, want %q", got, tt.want)
+			}
+			if got := layout.Workspaces[0].Panes[1].Command; got != "" {
+				t.Errorf("shell pane command = %q, want none", got)
+			}
+		})
+	}
+}
