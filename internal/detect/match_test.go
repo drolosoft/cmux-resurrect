@@ -17,6 +17,7 @@ func testMatcher() processMatcher {
 		{Name: "gemini", ProcessNames: []string{"gemini"}},
 		{Name: "pi", ProcessNames: []string{"pi"}},
 		{Name: "factory", ProcessNames: []string{"droid"}},
+		{Name: "grok", ProcessNames: []string{"grok", "agent"}, PathMarker: "grok"},
 		{Name: "cursor", ProcessNames: []string{"agent", "cursor-agent"}, PathMarker: "cursor-agent"},
 		{Name: "rovo", ProcessNames: []string{"atlassian_cli_rovodev"}, LaunchPrefixes: []string{"acli rovodev"}},
 	})
@@ -96,6 +97,16 @@ func TestMatchComm(t *testing.T) {
 		{"generic name outside its install dir", "/usr/local/bin/agent", "", false},
 		{"generic name bare", "agent", "", false},
 		{"unknown", "/usr/bin/htop", "", false},
+
+		// Grok's installer links agent to the same binary as grok, in
+		// ~/.grok/bin. The Cursor marker is longer, so it is tried first.
+		{"grok's agent alias by path", "/Users/dev/.grok/bin/agent", "grok", true},
+		{"cursor install under a home named after grok", "/Users/grokfan/.local/share/cursor-agent/versions/2026.11.05-86047df/agent", "cursor", true},
+
+		// ps cuts a column that is not the last to 16 characters. A cut
+		// path is no tool's, even when it ends in a name's first letters.
+		{"comm cut to 16 characters", "/Users/dev/claud", "", false},
+		{"node path cut to 16 characters", "/Users/dev1/.nvm", "", false},
 	}
 
 	for _, tt := range tests {
@@ -271,5 +282,50 @@ func TestMatchArgs_GenericNameThroughSymlink(t *testing.T) {
 	}
 	if tool, ok := matcher.matchArgs(otherLink); ok {
 		t.Errorf("matchArgs(%q) = %q, want no match", otherLink, tool)
+	}
+}
+
+// TestMatchArgs_CursorAndGrokAgent: the command lines ps printed in the lab
+// for Cursor's launcher, which re-execs its bundled node with argv[0] set to
+// the link it was started through, and for Grok's agent alias by path. Both
+// go through real links, as the installers make them.
+func TestMatchArgs_CursorAndGrokAgent(t *testing.T) {
+	home := t.TempDir()
+	versionDir := filepath.Join(home, ".local", "share", "cursor-agent", "versions", "2026.11.05-86047df")
+	grokDownloads := filepath.Join(home, ".grok", "downloads")
+	for _, dir := range []string{versionDir, filepath.Join(home, ".local", "bin"), grokDownloads, filepath.Join(home, ".grok", "bin")} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	cursorLauncher := filepath.Join(versionDir, "cursor-agent")
+	grokBinary := filepath.Join(grokDownloads, "grok-macos-aarch64")
+	for _, file := range []string{cursorLauncher, grokBinary} {
+		if err := os.WriteFile(file, []byte("#!/bin/sh\n"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cursorLink := filepath.Join(home, ".local", "bin", "agent")
+	grokLink := filepath.Join(home, ".grok", "bin", "agent")
+	if err := os.Symlink(cursorLauncher, cursorLink); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("../downloads/grok-macos-aarch64", grokLink); err != nil {
+		t.Fatal(err)
+	}
+
+	matcher := newProcessMatcher(registry)
+
+	cursorArgs := cursorLink + " --use-system-ca " + filepath.Join(versionDir, "index.js") + " --force"
+	if tool, ok := matcher.matchArgs(cursorArgs); !ok || tool != "cursor" {
+		t.Errorf("matchArgs(cursor launcher) = (%q, %v), want (cursor, true)", tool, ok)
+	}
+	if tool, ok := matcher.matchComm(cursorLink); !ok || tool != "cursor" {
+		t.Errorf("matchComm(cursor link) = (%q, %v), want (cursor, true)", tool, ok)
+	}
+
+	if tool, ok := matcher.matchArgs(grokLink + " --always-approve"); !ok || tool != "grok" {
+		t.Errorf("matchArgs(grok's agent link) = (%q, %v), want (grok, true)", tool, ok)
 	}
 }

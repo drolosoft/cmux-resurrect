@@ -94,7 +94,7 @@ func TestBatchCWDs_EmptyInput(t *testing.T) {
 
 func TestRegistryNames(t *testing.T) {
 	names := make(map[string]bool)
-	processOwners := make(map[string]string)
+	processOwners := make(map[string][]detector)
 	for _, d := range registry {
 		if names[d.Name] {
 			t.Errorf("duplicate tool name: %q", d.Name)
@@ -105,10 +105,7 @@ func TestRegistryNames(t *testing.T) {
 			t.Errorf("no process names for %q", d.Name)
 		}
 		for _, process := range d.ProcessNames {
-			if owner, taken := processOwners[process]; taken {
-				t.Errorf("process name %q belongs to both %q and %q", process, owner, d.Name)
-			}
-			processOwners[process] = d.Name
+			processOwners[process] = append(processOwners[process], d)
 		}
 
 		if d.Detect == nil {
@@ -116,6 +113,19 @@ func TestRegistryNames(t *testing.T) {
 		}
 		if len(d.TitlePatterns) == 0 {
 			t.Errorf("no title patterns for %q", d.Name)
+		}
+	}
+
+	// Two tools can share a process name (Cursor and Grok both install an
+	// agent) only when each one's install path has to confirm it.
+	for process, owners := range processOwners {
+		if len(owners) < 2 {
+			continue
+		}
+		for _, owner := range owners {
+			if owner.PathMarker == "" {
+				t.Errorf("process name %q is shared, but %q has no PathMarker to claim it by", process, owner.Name)
+			}
 		}
 	}
 }
@@ -138,7 +148,7 @@ var wantRegistry = map[string]registryRow{
 	"amp":         {[]string{"amp"}, "amp", "--dangerously-allow-all"},
 	"gemini":      {[]string{"gemini"}, "gemini", "--approval-mode=yolo"},
 	"copilot":     {[]string{"copilot"}, "copilot", "--allow-all"},
-	"grok":        {[]string{"grok"}, "grok", "--always-approve"},
+	"grok":        {[]string{"grok", "agent"}, "grok", "--always-approve"},
 	"cursor":      {[]string{"agent", "cursor-agent"}, "agent", "--force"},
 	"aider":       {[]string{"aider"}, "aider", "--yes-always"},
 	"pi":          {[]string{"pi"}, "pi", ""},
@@ -448,7 +458,7 @@ func TestMatchProcesses_SkipsToolServices(t *testing.T) {
 		" 6497 ttys005  " + hermesPython + " -I -c " + hermesLauncherScript + "\n" +
 		" 6889 ??       " + hermesPython + " -m hermes_cli.main --profile default gateway run --quiet --idle-exit\n"
 
-	got := matchProcesses(newProcessMatcher(registry), commOutput, argsOutput)
+	got := matchProcesses(newProcessMatcher(registry), commOutput, argsOutput, noExecutableNames(t))
 
 	want := []matchedProcess{
 		{pid: "59393", tool: "cline", tty: "ttys004"},
@@ -457,6 +467,47 @@ func TestMatchProcesses_SkipsToolServices(t *testing.T) {
 	}
 	if !slices.Equal(got, want) {
 		t.Errorf("matchProcesses() = %+v, want %+v", got, want)
+	}
+}
+
+// noExecutableNames stands in for ps's ucomm lookup in a scan that has no
+// process to settle with it: asking would cost a ps call for nothing.
+func noExecutableNames(t *testing.T) func([]string) map[string]string {
+	return func(pids []string) map[string]string {
+		t.Errorf("executable names asked for %q, want no lookup", pids)
+		return nil
+	}
+}
+
+// TestMatchProcesses_AgentByExecutable: Grok's installer links ~/.grok/bin/
+// agent to the grok binary. Typed as `agent` in a shell, ps shows "agent" in
+// both comm and args, the name Cursor's CLI uses too; only the file it
+// executes (ucomm, cut to 16 characters) says grok. The lab saw ucomm
+// "grok-macos-aarch" for it and "node" for Cursor's launcher, whose comm is
+// the full link path. Another program called agent stays unknown.
+func TestMatchProcesses_AgentByExecutable(t *testing.T) {
+	commOutput := "  PID TTY      COMM\n" +
+		"66507 ttys002  agent\n" +
+		"66900 ttys003  agent\n" +
+		"67000 ttys004  zsh\n"
+	argsOutput := "66507 ttys002  agent --always-approve\n" +
+		"66900 ttys003  agent --serve\n" +
+		"67000 ttys004  -zsh\n"
+
+	var asked []string
+	executableNames := func(pids []string) map[string]string {
+		asked = pids
+		return map[string]string{"66507": "grok-macos-aarch", "66900": "agent"}
+	}
+
+	got := matchProcesses(newProcessMatcher(registry), commOutput, argsOutput, executableNames)
+
+	want := []matchedProcess{{pid: "66507", tool: "grok", tty: "ttys002"}}
+	if !slices.Equal(got, want) {
+		t.Errorf("matchProcesses() = %+v, want %+v", got, want)
+	}
+	if !slices.Equal(asked, []string{"66507", "66900"}) {
+		t.Errorf("executable names asked for %q, want only the two agent processes", asked)
 	}
 }
 

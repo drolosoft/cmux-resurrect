@@ -29,21 +29,24 @@ func interpreterFamily(name string) string {
 // shows about it. It answers with the tool's registry name, never with the
 // binary name, so `droid` comes back as "factory".
 type processMatcher struct {
-	byProcessName map[string]detector // every process name of every tool
-	launchers     []detector          // tools that also run through a launcher binary
-	scripted      []detector          // tools an interpreter runs, known by CommandMarkers
-	services      map[string][]string // tool name → markers of its background service
+	byProcessName map[string][]detector // every process name → the tools that use it
+	launchers     []detector            // tools that also run through a launcher binary
+	scripted      []detector            // tools an interpreter runs, known by CommandMarkers
+	services      map[string][]string   // tool name → markers of its background service
 }
 
 // newProcessMatcher indexes detectors by the names their processes take.
+// Tools that share a name (Cursor and Grok both install an `agent`) are tried
+// with the longest PathMarker first: "cursor-agent" in a path says more than
+// "grok", which a home folder could be named after.
 func newProcessMatcher(detectors []detector) processMatcher {
 	matcher := processMatcher{
-		byProcessName: make(map[string]detector),
+		byProcessName: make(map[string][]detector),
 		services:      make(map[string][]string),
 	}
 	for _, entry := range detectors {
 		for _, process := range entry.ProcessNames {
-			matcher.byProcessName[process] = entry
+			matcher.byProcessName[process] = append(matcher.byProcessName[process], entry)
 		}
 		if len(entry.LaunchPrefixes) > 0 {
 			matcher.launchers = append(matcher.launchers, entry)
@@ -55,7 +58,35 @@ func newProcessMatcher(detectors []detector) processMatcher {
 			matcher.services[entry.Name] = entry.ServiceMarkers
 		}
 	}
+
+	for _, owners := range matcher.byProcessName {
+		slices.SortStableFunc(owners, func(a, b detector) int {
+			return len(b.PathMarker) - len(a.PathMarker)
+		})
+	}
 	return matcher
+}
+
+// guardedName returns argv[0]'s base name when it is a process name that only
+// tools with a PathMarker use, so a command line that names no install path,
+// such as `agent --always-approve`, could still be one of them.
+func (matcher processMatcher) guardedName(args string) (string, bool) {
+	fields := strings.Fields(args)
+	if len(fields) == 0 {
+		return "", false
+	}
+
+	name := filepath.Base(fields[0])
+	owners, known := matcher.byProcessName[name]
+	if !known {
+		return "", false
+	}
+	for _, owner := range owners {
+		if owner.PathMarker == "" {
+			return "", false
+		}
+	}
+	return name, true
 }
 
 // runsService reports whether commandLine, a process of tool, is the tool's
@@ -174,19 +205,19 @@ func (matcher processMatcher) launchedTool(fields []string) (string, bool) {
 }
 
 // tool returns the registry name of the tool a process name belongs to.
-// path is where the name was seen: the executable path or a script argument.
-// A tool with a PathMarker claims the process only when that path, or the
-// file it links to, contains the marker; that keeps a generic name such as
-// "agent" from matching every program called agent.
+// path is where the name was seen: the executable path, a script argument or
+// the name of the file the process executes. A tool with a PathMarker claims
+// the process only when that path, or the file it links to, contains the
+// marker; that keeps a generic name such as "agent" from matching every
+// program called agent.
 func (matcher processMatcher) tool(name, path string) (string, bool) {
-	entry, known := matcher.byProcessName[name]
-	if !known {
-		return "", false
+	for _, entry := range matcher.byProcessName[name] {
+		if entry.PathMarker != "" && !pathMentions(path, entry.PathMarker) {
+			continue
+		}
+		return entry.Name, true
 	}
-	if entry.PathMarker != "" && !pathMentions(path, entry.PathMarker) {
-		return "", false
-	}
-	return entry.Name, true
+	return "", false
 }
 
 // pathMentions reports whether path, or the file an absolute path links to,

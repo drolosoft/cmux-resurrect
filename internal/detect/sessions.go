@@ -135,8 +135,12 @@ var registry = []detector{
 		Detect:         detectCopilot,
 	},
 	{
-		Name:           "grok",
-		ProcessNames:   []string{"grok"},
+		Name: "grok",
+		// Grok's installer also links ~/.grok/bin/agent to the grok binary,
+		// the name Cursor's CLI uses. That agent counts as Grok only when
+		// its path, its link or the file it executes says grok.
+		ProcessNames:   []string{"grok", "agent"},
+		PathMarker:     "grok",
 		TitlePatterns:  []string{"Grok", "grok"},
 		AutoAcceptFlag: "--always-approve",
 		Detect:         detectGrok,
@@ -589,7 +593,10 @@ func listAIProcesses(matcher processMatcher) []aiProcess {
 	commOutput, _ := exec.CommandContext(ctx, "ps", "axo", "pid,tty,comm").Output()
 	argsOutput, _ := exec.CommandContext(ctx, "ps", "axo", "pid=,tty=,args=").Output()
 
-	matches := matchProcesses(matcher, string(commOutput), string(argsOutput))
+	lookup := func(pids []string) map[string]string {
+		return executableNames(ctx, pids)
+	}
+	matches := matchProcesses(matcher, string(commOutput), string(argsOutput), lookup)
 	if len(matches) == 0 {
 		return nil
 	}
@@ -618,12 +625,25 @@ type matchedProcess struct {
 	tty  string // the process's terminal as ps names it, "" when it has none
 }
 
+// unsettledProcess is a process whose name only tools with a PathMarker use
+// and whose command line names no install path, as when a shell starts
+// Grok's ~/.grok/bin/agent by typing `agent`.
+type unsettledProcess struct {
+	pid         string
+	tty         string
+	name        string // argv[0]'s base name
+	commandLine string
+}
+
 // matchProcesses finds the processes that run a registered tool in the output
 // of the two ps passes: commOutput lists `pid,tty,comm` and argsOutput
-// `pid=,tty=,args=`. Processes come back in the order the passes found them,
-// without the tools' background services.
-func matchProcesses(matcher processMatcher, commOutput, argsOutput string) []matchedProcess {
+// `pid=,tty=,args=`. A process both passes leave unsettled is settled by the
+// name of the file it executes, which executableNames returns per pid; it is
+// asked only when there is such a process. Processes come back in the order
+// they were found, without the tools' background services.
+func matchProcesses(matcher processMatcher, commOutput, argsOutput string, executableNames func(pids []string) map[string]string) []matchedProcess {
 	var matches []matchedProcess
+	var unsettled []unsettledProcess
 	matched := make(map[string]bool)  // pids already claimed, to avoid duplicates
 	services := make(map[string]bool) // pids of tool daemons the comm pass claimed
 
@@ -663,12 +683,66 @@ func matchProcesses(matcher processMatcher, commOutput, argsOutput string) []mat
 		if tool, ok := matcher.matchArgs(commandLine); ok {
 			matches = append(matches, matchedProcess{pid: pid, tool: tool, tty: tty})
 			matched[pid] = true
+			continue
+		}
+
+		if name, guarded := matcher.guardedName(commandLine); guarded {
+			unsettled = append(unsettled, unsettledProcess{pid: pid, tty: tty, name: name, commandLine: commandLine})
 		}
 	}
+
+	matches = append(matches, settleByExecutable(matcher, unsettled, executableNames)...)
 
 	return slices.DeleteFunc(matches, func(match matchedProcess) bool {
 		return services[match.pid]
 	})
+}
+
+// settleByExecutable gives each unsettled process to the tool whose
+// PathMarker the file it executes is named after. macOS keeps that name
+// (ucomm) apart from argv[0]: Grok's agent link runs grok-macos-aarch64.
+func settleByExecutable(matcher processMatcher, unsettled []unsettledProcess, executableNames func(pids []string) map[string]string) []matchedProcess {
+	if len(unsettled) == 0 {
+		return nil
+	}
+
+	pids := make([]string, len(unsettled))
+	for i, process := range unsettled {
+		pids[i] = process.pid
+	}
+	executables := executableNames(pids)
+
+	var settled []matchedProcess
+	for _, process := range unsettled {
+		executable := executables[process.pid]
+		if executable == "" {
+			continue
+		}
+
+		tool, ok := matcher.tool(process.name, executable)
+		if !ok || matcher.runsService(tool, process.commandLine) {
+			continue
+		}
+		settled = append(settled, matchedProcess{pid: process.pid, tool: tool, tty: process.tty})
+	}
+	return settled
+}
+
+// executableNames asks ps for the name of the file each pid executes
+// (ucomm), cut to 16 characters by the kernel. ps exits with an error when
+// one of the pids has gone, and still lists the others.
+func executableNames(ctx context.Context, pids []string) map[string]string {
+	names := make(map[string]string)
+	out, _ := exec.CommandContext(ctx, "ps", "-o", "pid=,ucomm=", "-p", strings.Join(pids, ",")).Output()
+
+	for _, line := range strings.Split(string(out), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		names[fields[0]] = strings.Join(fields[1:], " ")
+	}
+	return names
 }
 
 // toolOf returns the tool matched for pid, or "" when matches has none.
