@@ -7,7 +7,6 @@ package detect
 import (
 	"context"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -22,23 +21,40 @@ type Session struct {
 }
 
 // detector defines how to detect and resolve sessions for one AI tool.
-// Each tool registers its process name, title patterns, and detection logic.
+// Each tool registers its process names, title patterns, and detection logic.
 // The Detect function receives both the working directory and the PID of
 // the running process; tools that don't need the PID may ignore it.
+//
+// Name is what saved layouts and the auto_accept config store, so it never
+// changes once a tool ships. What the tool runs as, and what starts it, can
+// differ from it: Factory's binary is `droid`, Rovo Dev starts with
+// `acli rovodev run`. ProcessNames and Command say so.
 type detector struct {
 	Name           string   // tool name (used as Session.Tool)
-	ProcessName    string   // binary name as shown by ps (e.g. "claude")
+	ProcessNames   []string // binary names as shown by ps (e.g. "claude"), main one first
+	PathMarker     string   // when set, a process counts only if its path contains it
+	LaunchPrefixes []string // launcher command lines that also mean the tool (e.g. "acli rovodev")
+	Command        string   // what a shell types to start the tool, when it is not Name
 	TitlePatterns  []string // substrings in terminal title confirming the tool
 	AutoAcceptFlag string   // CLI flag to skip permission prompts (empty if none)
 	Detect         func(cwd, pid string) *Session
+}
+
+// launchCommand returns the words that start the tool from a shell: Command
+// when the tool sets one, its Name otherwise.
+func (d detector) launchCommand() string {
+	if d.Command != "" {
+		return d.Command
+	}
+	return d.Name
 }
 
 // registry holds all known AI tool detectors. To add a new tool,
 // append a detector here — no other code changes needed.
 var registry = []detector{
 	{
-		Name:        "claude",
-		ProcessName: "claude",
+		Name:         "claude",
+		ProcessNames: []string{"claude"},
 		// Claude Code sets various titles depending on the active screen:
 		// "✳ Claude Code", "⠂ Claude Code", "✳ Available Commands", etc.
 		// The ✳/⠂/⠐ prefixes are Claude-specific status indicators.
@@ -48,66 +64,145 @@ var registry = []detector{
 	},
 	{
 		Name:           "opencode",
-		ProcessName:    "opencode",
+		ProcessNames:   []string{"opencode"},
 		TitlePatterns:  []string{"OpenCode", "opencode", "OC |"},
 		AutoAcceptFlag: "--yolo",
 		Detect:         detectOpenCode,
 	},
 	{
 		Name:           "codex",
-		ProcessName:    "codex",
+		ProcessNames:   []string{"codex"},
 		TitlePatterns:  []string{"Codex", "codex"},
 		AutoAcceptFlag: "--full-auto",
 		Detect:         detectCodex,
 	},
 	{
 		Name:           "amp",
-		ProcessName:    "amp",
+		ProcessNames:   []string{"amp"},
 		TitlePatterns:  []string{"Amp", "amp"},
 		AutoAcceptFlag: "--dangerously-allow-all",
 		Detect:         detectAmp,
 	},
 	{
 		Name:           "gemini",
-		ProcessName:    "gemini",
+		ProcessNames:   []string{"gemini"},
 		TitlePatterns:  []string{"◇ ", "✦ ", "✋ ", "Gemini", "gemini"},
 		AutoAcceptFlag: "--sandbox",
 		Detect:         detectGemini,
 	},
 	{
 		Name:           "copilot",
-		ProcessName:    "copilot",
+		ProcessNames:   []string{"copilot"},
 		TitlePatterns:  []string{"Copilot", "copilot"},
 		AutoAcceptFlag: "--allow-all",
 		Detect:         detectCopilot,
 	},
 	{
 		Name:           "grok",
-		ProcessName:    "grok",
+		ProcessNames:   []string{"grok"},
 		TitlePatterns:  []string{"Grok", "grok"},
 		AutoAcceptFlag: "--always-approve",
 		Detect:         detectGrok,
 	},
 	// Tier 2: Process-aware detectors — recognized but no session file parsing.
-	{Name: "cursor", ProcessName: "cursor-agent", TitlePatterns: []string{"Cursor", "cursor"}, AutoAcceptFlag: "", Detect: detectProcessAware("cursor")},
-	{Name: "aider", ProcessName: "aider", TitlePatterns: []string{"Aider", "aider"}, AutoAcceptFlag: "--yes", Detect: detectProcessAware("aider")},
-	{Name: "pi", ProcessName: "pi", TitlePatterns: []string{"Pi"}, AutoAcceptFlag: "--approve", Detect: detectProcessAware("pi")},
-	{Name: "rovo", ProcessName: "rovo", TitlePatterns: []string{"Rovo", "rovo"}, AutoAcceptFlag: "", Detect: detectProcessAware("rovo")},
-	{Name: "hermes", ProcessName: "hermes", TitlePatterns: []string{"Hermes", "hermes"}, AutoAcceptFlag: "--yolo", Detect: detectProcessAware("hermes")},
-	{Name: "codebuddy", ProcessName: "codebuddy-cli", TitlePatterns: []string{"CodeBuddy", "codebuddy"}, AutoAcceptFlag: "--dangerously-skip-permissions", Detect: detectProcessAware("codebuddy")},
-	{Name: "factory", ProcessName: "factory-droid", TitlePatterns: []string{"Factory", "factory"}, AutoAcceptFlag: "--skip-permissions-unsafe", Detect: detectProcessAware("factory")},
-	{Name: "qoder", ProcessName: "qodercli", TitlePatterns: []string{"Qoder", "qoder"}, AutoAcceptFlag: "--permission-mode auto", Detect: detectProcessAware("qoder")},
+	processAware(detector{
+		Name: "cursor",
+		// The installer links both names to the same launcher under
+		// ~/.local/share/cursor-agent/. "agent" alone could be anything,
+		// so the install path has to confirm it.
+		ProcessNames:  []string{"agent", "cursor-agent"},
+		PathMarker:    "cursor-agent",
+		Command:       "agent",
+		TitlePatterns: []string{"Cursor", "cursor"},
+	}),
+	processAware(detector{
+		Name:           "aider",
+		ProcessNames:   []string{"aider"},
+		TitlePatterns:  []string{"Aider", "aider"},
+		AutoAcceptFlag: "--yes",
+	}),
+	processAware(detector{
+		Name:           "pi",
+		ProcessNames:   []string{"pi"},
+		TitlePatterns:  []string{"Pi"},
+		AutoAcceptFlag: "--approve",
+	}),
+	processAware(detector{
+		Name: "rovo",
+		// `acli rovodev run` starts Rovo Dev; the agent itself runs as
+		// atlassian_cli_rovodev.
+		ProcessNames:   []string{"atlassian_cli_rovodev"},
+		LaunchPrefixes: []string{"acli rovodev"},
+		Command:        "acli rovodev run",
+		TitlePatterns:  []string{"Rovo", "rovo"},
+	}),
+	processAware(detector{
+		Name:           "hermes",
+		ProcessNames:   []string{"hermes"},
+		TitlePatterns:  []string{"Hermes", "hermes"},
+		AutoAcceptFlag: "--yolo",
+	}),
+	processAware(detector{
+		Name: "codebuddy",
+		// cbc is the short name of the same npm script. COIN-OR's solver
+		// is also called cbc, so the path has to name CodeBuddy.
+		ProcessNames:   []string{"codebuddy", "cbc"},
+		PathMarker:     "codebuddy",
+		TitlePatterns:  []string{"CodeBuddy", "codebuddy"},
+		AutoAcceptFlag: "--dangerously-skip-permissions",
+	}),
+	processAware(detector{
+		Name:           "factory",
+		ProcessNames:   []string{"droid"},
+		Command:        "droid",
+		TitlePatterns:  []string{"Factory", "factory"},
+		AutoAcceptFlag: "--skip-permissions-unsafe",
+	}),
+	processAware(detector{
+		Name:           "qoder",
+		ProcessNames:   []string{"qoder", "qodercli"},
+		TitlePatterns:  []string{"Qoder", "qoder"},
+		AutoAcceptFlag: "--permission-mode auto",
+	}),
 }
 
-// ProcessNames returns the set of binary names for all registered AI tools.
-// Used by the save flow to distinguish AI tool commands from generic
-// foreground commands (e.g. "claude" vs "htop").
-func ProcessNames() map[string]bool {
-	result := make(map[string]bool, len(registry))
+// BareCommands returns every command a pane can hold that only says which AI
+// tool runs there, with no session to resume: each process name, each launch
+// command, and each tool name (older versions saved "factory" or "cursor" as
+// the command of a tier-2 pane). The save flow treats these as unassigned so
+// detection can replace them with a real resume or launch command.
+func BareCommands() map[string]bool {
+	result := make(map[string]bool)
 	for _, d := range registry {
-		result[d.ProcessName] = true
+		for _, process := range d.ProcessNames {
+			result[process] = true
+		}
+		result[d.launchCommand()] = true
+		result[d.Name] = true
 	}
 	return result
+}
+
+// ToolLaunch finds the registered tool a command line starts. It returns the
+// tool name and the words that launch it ("acli rovodev run" for rovo), so a
+// caller can add flags right after those words. ok is false for any command
+// that does not begin with a tool's launch command.
+func ToolLaunch(cmdline string) (tool, launch string, ok bool) {
+	for _, d := range registry {
+		candidate := d.launchCommand()
+		if cmdline != candidate && !strings.HasPrefix(cmdline, candidate+" ") {
+			continue
+		}
+
+		// No launch command is a prefix of another today; preferring the
+		// longest keeps it that way if one ever is.
+		if len(candidate) > len(launch) {
+			tool = d.Name
+			launch = candidate
+			ok = true
+		}
+	}
+	return tool, launch, ok
 }
 
 // TitlePatterns returns the title patterns for all registered tools,
@@ -160,13 +255,14 @@ func AISessions() DetectedSessions {
 	seen := make(map[string]bool)
 	seenCommand := make(map[string]bool)
 
-	// Build process name → detector lookup.
+	// Build tool name → detector lookup. The process scan reports tool
+	// names, whatever binary each tool runs as.
 	detectorByName := make(map[string]detector, len(registry))
 	for _, d := range registry {
-		detectorByName[d.ProcessName] = d
+		detectorByName[d.Name] = d
 	}
 
-	procs := listAIProcesses(detectorByName)
+	procs := listAIProcesses(newProcessMatcher(registry))
 	for _, p := range procs {
 		key := p.tool + ":" + p.cwd
 		if p.tool == "amp" || p.tool == "claude" {
@@ -195,7 +291,7 @@ func AISessions() DetectedSessions {
 
 // aiProcess holds a running AI CLI process.
 type aiProcess struct {
-	tool string // "claude", "opencode", "codex"
+	tool string // registry name: "claude", "opencode", "factory"
 	pid  string
 	cwd  string
 }
@@ -205,7 +301,7 @@ type aiProcess struct {
 // cmdTimeout is the maximum time for any subprocess (ps, lsof, sqlite3).
 const cmdTimeout = 5 * time.Second
 
-func listAIProcesses(detectors map[string]detector) []aiProcess {
+func listAIProcesses(matcher processMatcher) []aiProcess {
 	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
 	defer cancel()
 
@@ -214,7 +310,6 @@ func listAIProcesses(detectors map[string]detector) []aiProcess {
 		tool string
 	}
 	matched := make(map[string]bool) // pids already claimed, to avoid duplicates
-	isKnown := func(name string) bool { _, ok := detectors[name]; return ok }
 
 	// Pass 1: match by `comm` (the executable name). Fast and unambiguous for
 	// tools whose binary is named after the tool (e.g. an nvm/brew `claude` shim).
@@ -225,12 +320,11 @@ func listAIProcesses(detectors map[string]detector) []aiProcess {
 				continue
 			}
 			pid := fields[0]
-			comm := filepath.Base(fields[1])
-			if isKnown(comm) {
+			if tool, ok := matcher.matchComm(fields[1]); ok {
 				pids = append(pids, struct {
 					pid  string
 					tool string
-				}{pid, comm})
+				}{pid, tool})
 				matched[pid] = true
 			}
 		}
@@ -249,7 +343,7 @@ func listAIProcesses(detectors map[string]detector) []aiProcess {
 			if matched[pid] {
 				continue
 			}
-			if tool, ok := matchAIToolArgs(strings.Join(fields[1:], " "), isKnown); ok {
+			if tool, ok := matcher.matchArgs(strings.Join(fields[1:], " ")); ok {
 				pids = append(pids, struct {
 					pid  string
 					tool string

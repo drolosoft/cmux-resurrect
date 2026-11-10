@@ -797,10 +797,10 @@ func clearAutoDetectedCommands(layout *model.Layout) {
 	}
 }
 
-// aiProcessNames contains bare AI tool binary names (e.g. "claude", "opencode").
-// These are cleared before AI detection so the specialized detector can assign
-// full resume commands instead.
-var aiProcessNames = detect.ProcessNames()
+// aiProcessNames contains bare AI tool commands (e.g. "claude", "droid",
+// "acli rovodev run"). These are cleared before AI detection so the
+// specialized detector can assign full resume commands instead.
+var aiProcessNames = detect.BareCommands()
 
 // aiTitlePatterns is populated from the detector registry in the detect package.
 // Each tool's title patterns and detection logic are co-located there.

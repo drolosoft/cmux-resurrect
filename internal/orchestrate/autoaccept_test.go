@@ -123,3 +123,36 @@ func TestInjectAutoAccept_EnvPrefix(t *testing.T) {
 		t.Errorf("tool = %q, want claude", tool)
 	}
 }
+
+// Factory's binary is droid; auto_accept still lists the tool by its name.
+func TestInjectAutoAccept_LaunchCommandNotNamedAfterTool(t *testing.T) {
+	cmd, tool := InjectAutoAccept("droid", []string{"factory"})
+	if cmd != "droid --skip-permissions-unsafe" {
+		t.Errorf("got %q", cmd)
+	}
+	if tool != "factory" {
+		t.Errorf("tool = %q, want factory", tool)
+	}
+
+	cmd, tool = InjectAutoAccept("droid", []string{"all"})
+	if cmd != "droid --skip-permissions-unsafe" || tool != "factory" {
+		t.Errorf("with all: got (%q, %q)", cmd, tool)
+	}
+}
+
+// auto_accept takes registry names, the same names a saved layout uses.
+func TestInjectAutoAccept_BinaryNameInList(t *testing.T) {
+	cmd, tool := InjectAutoAccept("droid", []string{"droid"})
+	if cmd != "droid" || tool != "" {
+		t.Errorf("got (%q, %q), want droid unchanged", cmd, tool)
+	}
+}
+
+// Older versions saved the registry name as the command of a tier-2 pane.
+// "factory" starts nothing, so no flag is added to it.
+func TestInjectAutoAccept_StaleRegistryName(t *testing.T) {
+	cmd, tool := InjectAutoAccept("factory", []string{"all"})
+	if cmd != "factory" || tool != "" {
+		t.Errorf("got (%q, %q), want factory unchanged", cmd, tool)
+	}
+}
