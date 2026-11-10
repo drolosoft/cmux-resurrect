@@ -119,9 +119,12 @@ var registry = []detector{
 		Detect:         detectAmp,
 	},
 	{
-		Name:          "gemini",
-		ProcessNames:  []string{"gemini"},
-		TitlePatterns: []string{"◇ ", "✦ ", "✋ ", "Gemini", "gemini"},
+		Name:         "gemini",
+		ProcessNames: []string{"gemini"},
+		// "◇  Ready (<dir>)", "✋  Action Required (<dir>)" and
+		// "⏲  Working… (<dir>)", or "Gemini CLI (<dir>)" when dynamic
+		// titles are off.
+		TitlePatterns: []string{"◇ ", "✦ ", "✋ ", "⏲ ", "Gemini", "gemini"},
 		// --sandbox runs tools in a sandbox, it approves nothing. -y/--yolo
 		// still works but is deprecated in favour of this one.
 		AutoAcceptFlag: "--approval-mode=yolo",
@@ -217,10 +220,13 @@ var registry = []detector{
 		Detect:         detectCodeBuddy,
 	},
 	{
-		Name:          "factory",
-		ProcessNames:  []string{"droid"},
-		Command:       "droid",
-		TitlePatterns: []string{"Factory", "factory"},
+		Name:         "factory",
+		ProcessNames: []string{"droid"},
+		Command:      "droid",
+		// Droid titles the terminal "⛬ Droid". "Droid" alone is inside
+		// "Android", and the old "factory" matched any title naming a file
+		// such as factory.go.
+		TitlePatterns: []string{"⛬ Droid", "⛬ "},
 		// --skip-permissions-unsafe belongs to `droid exec` only. The
 		// interactive droid ignores options it does not know, so it would
 		// start a session that still asks; --auto high is its own level.

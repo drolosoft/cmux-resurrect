@@ -2,6 +2,7 @@ package detect
 
 import (
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -64,6 +65,63 @@ func TestTitlePatterns(t *testing.T) {
 		}
 		if len(p) == 0 {
 			t.Errorf("empty patterns for tool %q", d.Name)
+		}
+	}
+}
+
+// toolsTitled returns the tools whose title patterns appear in title, ignoring
+// case the way the save flow compares them.
+func toolsTitled(title string) []string {
+	var tools []string
+	for _, d := range registry {
+		for _, pattern := range d.TitlePatterns {
+			if strings.Contains(strings.ToLower(title), strings.ToLower(pattern)) {
+				tools = append(tools, d.Name)
+				break
+			}
+		}
+	}
+	return tools
+}
+
+// TestTitlePatterns_RealTitles: the titles each tool set in the lab, from
+// the OSC sequences in its terminal output, with the folder renamed. Gemini
+// pads its title with spaces to 80 columns.
+func TestTitlePatterns_RealTitles(t *testing.T) {
+	tests := []struct {
+		title string
+		tool  string
+	}{
+		{"⛬ Droid", "factory"},
+		{"◇  Ready (proj)                                                                  ", "gemini"},
+		{"✋  Action Required (proj)", "gemini"},
+		{"⏲  Working… (proj)", "gemini"},
+		{"GitHub Copilot", "copilot"},
+		{"crush /Users/dev/proj", "crush"},
+		{"π > proj", "omp"},
+		{"🪿 proj", "goose"},
+		{"◇ Qoder CLI | Ready", "qoder"},
+		{"Cline", "cline"},
+		{"Vibe", "vibe"},
+		{"Qwen - proj", "qwen"},
+		{"π - proj", "pi"},
+		{"grok", "grok"},
+		{"Hermes", "hermes"},
+	}
+	for _, tt := range tests {
+		if tools := toolsTitled(tt.title); !slices.Contains(tools, tt.tool) {
+			t.Errorf("title %q names %q, want %s among them", tt.title, tools, tt.tool)
+		}
+	}
+}
+
+// TestTitlePatterns_FactoryWord: Droid titles the terminal "⛬ Droid" and
+// never with the company's name, while "factory" is a common word in file
+// and class names.
+func TestTitlePatterns_FactoryWord(t *testing.T) {
+	for _, title := range []string{"vim factory.go", "WidgetFactory.java", "make factory-reset"} {
+		if tools := toolsTitled(title); slices.Contains(tools, "factory") {
+			t.Errorf("title %q names factory", title)
 		}
 	}
 }
