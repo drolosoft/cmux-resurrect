@@ -8,6 +8,7 @@ import (
 	"context"
 	"os/exec"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 )
@@ -18,6 +19,20 @@ type Session struct {
 	CWD     string // working directory of the process
 	Command string // full resume command (e.g. "claude --resume <id>")
 	Title   string // conversation title shown in the terminal title, if known (claude)
+}
+
+// SessionKey identifies one detected session: its resume command in its
+// directory. The command alone is not enough, because Copilot and Grok resume
+// with the same words everywhere and a tier-2 tool relaunches with its bare
+// name, so two panes in two directories would look like one session.
+type SessionKey struct {
+	Command string
+	CWD     string
+}
+
+// Key returns the key that identifies s.
+func (s Session) Key() SessionKey {
+	return SessionKey{Command: s.Command, CWD: s.CWD}
 }
 
 // detector defines how to detect and resolve sessions for one AI tool.
@@ -379,6 +394,11 @@ func AutoAcceptFlags() map[string]string {
 type DetectedSessions struct {
 	ByCWD  map[string][]Session // CWD → sessions (multiple tools can share a CWD)
 	ByTool map[string][]Session // tool name → sessions (fallback when CWDs don't match)
+	// TTYs lists the terminals each session's processes run on, named the
+	// way ps names them ("ttys004", "pts/3"). Save gives a session only to a
+	// pane on one of them, so a session from another window never lands in
+	// the one being saved. A session with no entry has no known terminal.
+	TTYs map[SessionKey][]string
 }
 
 // AISessions scans for running AI CLI processes and resolves their session IDs.
@@ -390,19 +410,6 @@ func AISessions() DetectedSessions {
 	// the next call so each save sees fresh data.
 	resetAmpCache()
 
-	result := DetectedSessions{
-		ByCWD:  make(map[string][]Session),
-		ByTool: make(map[string][]Session),
-	}
-
-	// Deduplicate detector invocations:
-	//   - CWD-based tools (claude/opencode/codex): one call per (tool, cwd),
-	//     since multiple instances in the same CWD resolve to the same session.
-	//   - PID-based tools (amp, claude): one call per (tool, pid), so two
-	//     instances in the same CWD each get their own session.
-	seen := make(map[string]bool)
-	seenSession := make(map[sessionKey]bool)
-
 	// Build tool name → detector lookup. The process scan reports tool
 	// names, whatever binary each tool runs as.
 	detectorByName := make(map[string]detector, len(registry))
@@ -411,6 +418,29 @@ func AISessions() DetectedSessions {
 	}
 
 	procs := listAIProcesses(newProcessMatcher(registry))
+	return collectSessions(procs, detectorByName)
+}
+
+// collectSessions asks each process's detector for its session and indexes
+// what they return, with the terminals of all the processes each session was
+// found for.
+func collectSessions(procs []aiProcess, detectorByName map[string]detector) DetectedSessions {
+	result := DetectedSessions{
+		ByCWD:  make(map[string][]Session),
+		ByTool: make(map[string][]Session),
+		TTYs:   make(map[SessionKey][]string),
+	}
+
+	// Deduplicate detector invocations:
+	//   - CWD-based tools (claude/opencode/codex): one call per (tool, cwd),
+	//     since multiple instances in the same CWD resolve to the same session.
+	//   - PID-based tools (amp, claude): one call per (tool, pid), so two
+	//     instances in the same CWD each get their own session.
+	// The processes skipped this way still run the session, so their
+	// terminals are gathered under the key of the process that was asked.
+	var keys []string
+	first := make(map[string]aiProcess)
+	ttys := make(map[string][]string)
 	for _, p := range procs {
 		key := p.tool + ":" + p.cwd
 		if p.tool == "amp" || p.tool == "claude" {
@@ -419,35 +449,55 @@ func AISessions() DetectedSessions {
 			// can hold different conversations.
 			key = p.tool + ":" + p.pid
 		}
-		if seen[key] {
+		if _, ok := first[key]; !ok {
+			keys = append(keys, key)
+			first[key] = p
+		}
+		ttys[key] = appendTTY(ttys[key], p.tty)
+	}
+
+	seenSession := make(map[SessionKey]bool)
+	for _, key := range keys {
+		p := first[key]
+		d := detectorByName[p.tool]
+
+		s := d.Detect(p.cwd, p.pid)
+		if s == nil {
 			continue
 		}
-		seen[key] = true
-
-		d := detectorByName[p.tool]
-		addSession(result, seenSession, d.Detect(p.cwd, p.pid))
+		addSession(result, seenSession, s)
+		addTTYs(result, s.Key(), ttys[key])
 	}
 	return result
 }
 
-// sessionKey identifies one detected session: its resume command in its
-// directory. The command alone is not enough, because Copilot and Grok resume
-// with the same words everywhere and a tier-2 tool relaunches with its bare
-// name, so two panes in two directories would look like one session.
-type sessionKey struct {
-	command string
-	cwd     string
+// appendTTY adds tty to ttys unless it is empty or already there.
+func appendTTY(ttys []string, tty string) []string {
+	if tty == "" || slices.Contains(ttys, tty) {
+		return ttys
+	}
+	return append(ttys, tty)
+}
+
+// TTYName returns a terminal's name the way ps prints it: "ttys004" for both
+// "/dev/ttys004" and "ttys004". It is "" for ps's marks of a process with no
+// terminal ("??" on macOS, "?" on Linux).
+func TTYName(device string) string {
+	if device == "?" || device == "??" {
+		return ""
+	}
+	return strings.TrimPrefix(device, "/dev/")
 }
 
 // addSession indexes s in result unless seen already holds the same session.
 // PID-keyed detectors can still resolve two processes to the same session
 // (e.g. the most-recent-transcript fallback); keep one. A nil s is ignored.
-func addSession(result DetectedSessions, seen map[sessionKey]bool, s *Session) {
+func addSession(result DetectedSessions, seen map[SessionKey]bool, s *Session) {
 	if s == nil {
 		return
 	}
 
-	key := sessionKey{command: s.Command, cwd: s.CWD}
+	key := s.Key()
 	if seen[key] {
 		return
 	}
@@ -457,11 +507,31 @@ func addSession(result DetectedSessions, seen map[sessionKey]bool, s *Session) {
 	result.ByTool[s.Tool] = append(result.ByTool[s.Tool], *s)
 }
 
+// addTTYs records that the session key names runs on ttys. Two processes
+// that resolve to one session leave it on both their terminals.
+func addTTYs(result DetectedSessions, key SessionKey, ttys []string) {
+	for _, tty := range ttys {
+		result.TTYs[key] = appendTTY(result.TTYs[key], tty)
+	}
+}
+
 // aiProcess holds a running AI CLI process.
 type aiProcess struct {
 	tool string // registry name: "claude", "opencode", "factory"
 	pid  string
 	cwd  string
+	tty  string // the process's terminal as ps names it, "" when it has none
+}
+
+// parseProcessLine splits one line of `ps -o pid,tty,…` into the pid, the
+// terminal and the fields of the column that follows them. ok is false for a
+// line too short to hold all three.
+func parseProcessLine(line string) (pid, tty string, rest []string, ok bool) {
+	fields := strings.Fields(line)
+	if len(fields) < 3 {
+		return "", "", nil, false
+	}
+	return fields[0], TTYName(fields[1]), fields[2:], true
 }
 
 // listAIProcesses finds running claude, opencode, and codex processes
@@ -478,22 +548,23 @@ func listAIProcesses(matcher processMatcher) []aiProcess {
 		tool string
 	}
 	matched := make(map[string]bool) // pids already claimed, to avoid duplicates
+	ttys := make(map[string]string)  // pid → terminal, to tell windows apart
 
 	// Pass 1: match by `comm` (the executable name). Fast and unambiguous for
 	// tools whose binary is named after the tool (e.g. an nvm/brew `claude` shim).
-	if out, err := exec.CommandContext(ctx, "ps", "axo", "pid,comm").Output(); err == nil {
+	if out, err := exec.CommandContext(ctx, "ps", "axo", "pid,tty,comm").Output(); err == nil {
 		for _, line := range strings.Split(string(out), "\n") {
-			fields := strings.Fields(line)
-			if len(fields) < 2 {
+			pid, tty, comm, ok := parseProcessLine(line)
+			if !ok {
 				continue
 			}
-			pid := fields[0]
-			if tool, ok := matcher.matchComm(fields[1]); ok {
+			if tool, ok := matcher.matchComm(comm[0]); ok {
 				pids = append(pids, struct {
 					pid  string
 					tool string
 				}{pid, tool})
 				matched[pid] = true
+				ttys[pid] = tty
 			}
 		}
 	}
@@ -501,22 +572,22 @@ func listAIProcesses(matcher processMatcher) []aiProcess {
 	// Pass 2: match by full command line (`args`), catching what `comm` misses —
 	// shell aliases/functions, wrapper scripts, and interpreter-launched CLIs like
 	// `node …/claude/cli.js` whose `comm` is "node" (GitHub #6).
-	if out, err := exec.CommandContext(ctx, "ps", "axo", "pid=,args=").Output(); err == nil {
+	if out, err := exec.CommandContext(ctx, "ps", "axo", "pid=,tty=,args=").Output(); err == nil {
 		for _, line := range strings.Split(string(out), "\n") {
-			fields := strings.Fields(line)
-			if len(fields) < 2 {
+			pid, tty, args, ok := parseProcessLine(line)
+			if !ok {
 				continue
 			}
-			pid := fields[0]
 			if matched[pid] {
 				continue
 			}
-			if tool, ok := matcher.matchArgs(strings.Join(fields[1:], " ")); ok {
+			if tool, ok := matcher.matchArgs(strings.Join(args, " ")); ok {
 				pids = append(pids, struct {
 					pid  string
 					tool string
 				}{pid, tool})
 				matched[pid] = true
+				ttys[pid] = tty
 			}
 		}
 	}
@@ -533,7 +604,7 @@ func listAIProcesses(matcher processMatcher) []aiProcess {
 		if cwd == "" {
 			continue
 		}
-		result = append(result, aiProcess{tool: p.tool, pid: p.pid, cwd: cwd})
+		result = append(result, aiProcess{tool: p.tool, pid: p.pid, cwd: cwd, tty: ttys[p.pid]})
 	}
 	return result
 }

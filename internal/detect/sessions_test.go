@@ -275,6 +275,7 @@ func newDetectedSessions() DetectedSessions {
 	return DetectedSessions{
 		ByCWD:  make(map[string][]Session),
 		ByTool: make(map[string][]Session),
+		TTYs:   make(map[SessionKey][]string),
 	}
 }
 
@@ -292,7 +293,7 @@ func TestAddSession_SameCommandInTwoDirectories(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.tool, func(t *testing.T) {
 			result := newDetectedSessions()
-			seen := make(map[sessionKey]bool)
+			seen := make(map[SessionKey]bool)
 
 			addSession(result, seen, &Session{Tool: tt.tool, CWD: "/home/u/a", Command: tt.command})
 			addSession(result, seen, &Session{Tool: tt.tool, CWD: "/home/u/b", Command: tt.command})
@@ -315,7 +316,7 @@ func TestAddSession_SameCommandInTwoDirectories(t *testing.T) {
 // the same conversation.
 func TestAddSession_SameSessionTwice(t *testing.T) {
 	result := newDetectedSessions()
-	seen := make(map[sessionKey]bool)
+	seen := make(map[SessionKey]bool)
 	session := Session{Tool: "claude", CWD: "/home/u/proj", Command: "claude --resume abc123"}
 
 	addSession(result, seen, &session)
@@ -327,5 +328,144 @@ func TestAddSession_SameSessionTwice(t *testing.T) {
 	}
 	if got := len(result.ByCWD["/home/u/proj"]); got != 1 {
 		t.Errorf("ByCWD[/home/u/proj] holds %d sessions, want 1", got)
+	}
+}
+
+// TestCollectSessions_SameSessionTwiceKeepsBothTerminals: two Claude
+// processes that resolve to one session leave it once, on both their
+// terminals, so a pane on either one can claim it.
+func TestCollectSessions_SameSessionTwiceKeepsBothTerminals(t *testing.T) {
+	detectors := map[string]detector{
+		"claude": {Name: "claude", Detect: func(cwd, pid string) *Session {
+			return &Session{Tool: "claude", CWD: cwd, Command: "claude --resume abc123"}
+		}},
+	}
+	procs := []aiProcess{
+		{tool: "claude", pid: "20", cwd: "/home/u/proj", tty: "ttys001"},
+		{tool: "claude", pid: "21", cwd: "/home/u/proj", tty: "ttys002"},
+	}
+
+	result := collectSessions(procs, detectors)
+
+	if got := len(result.ByTool["claude"]); got != 1 {
+		t.Errorf("ByTool[claude] holds %d sessions, want 1", got)
+	}
+	key := SessionKey{Command: "claude --resume abc123", CWD: "/home/u/proj"}
+	if got, want := result.TTYs[key], []string{"ttys001", "ttys002"}; !slices.Equal(got, want) {
+		t.Errorf("session terminals = %q, want %q", got, want)
+	}
+}
+
+// TestCollectSessions_ProcessWithoutTerminal: a process ps shows with no
+// terminal leaves its session with no entry, never an empty name a pane
+// without a terminal could match.
+func TestCollectSessions_ProcessWithoutTerminal(t *testing.T) {
+	detectors := map[string]detector{
+		"codex": {Name: "codex", Detect: func(cwd, pid string) *Session {
+			return &Session{Tool: "codex", CWD: cwd, Command: "codex resume thread-1"}
+		}},
+	}
+	procs := []aiProcess{{tool: "codex", pid: "10", cwd: "/home/u/proj"}}
+
+	result := collectSessions(procs, detectors)
+
+	if got := len(result.ByTool["codex"]); got != 1 {
+		t.Fatalf("ByTool[codex] holds %d sessions, want 1", got)
+	}
+	if ttys, ok := result.TTYs[result.ByTool["codex"][0].Key()]; ok {
+		t.Errorf("session terminals = %q, want no entry", ttys)
+	}
+}
+
+// TestParseProcessLine reads one line of `ps -o pid,tty,…`. A process with
+// no terminal shows "??" on macOS and "?" on Linux; both mean none.
+func TestParseProcessLine(t *testing.T) {
+	tests := []struct {
+		line     string
+		wantPID  string
+		wantTTY  string
+		wantRest []string
+		wantOK   bool
+	}{
+		{line: "  4242 ttys004  /usr/local/bin/claude", wantPID: "4242", wantTTY: "ttys004", wantRest: []string{"/usr/local/bin/claude"}, wantOK: true},
+		{line: "4242 pts/3 node /opt/claude/cli.js --resume", wantPID: "4242", wantTTY: "pts/3", wantRest: []string{"node", "/opt/claude/cli.js", "--resume"}, wantOK: true},
+		{line: "4242 ?? /usr/local/bin/claude", wantPID: "4242", wantTTY: "", wantRest: []string{"/usr/local/bin/claude"}, wantOK: true},
+		{line: "4242 ? claude", wantPID: "4242", wantTTY: "", wantRest: []string{"claude"}, wantOK: true},
+		{line: "4242 ttys004", wantOK: false},
+		{line: "", wantOK: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.line, func(t *testing.T) {
+			pid, tty, rest, ok := parseProcessLine(tt.line)
+			if ok != tt.wantOK {
+				t.Fatalf("parseProcessLine(%q) ok = %v, want %v", tt.line, ok, tt.wantOK)
+			}
+			if !ok {
+				return
+			}
+			if pid != tt.wantPID || tty != tt.wantTTY || !slices.Equal(rest, tt.wantRest) {
+				t.Errorf("parseProcessLine(%q) = (%q, %q, %q), want (%q, %q, %q)",
+					tt.line, pid, tty, rest, tt.wantPID, tt.wantTTY, tt.wantRest)
+			}
+		})
+	}
+}
+
+// TestTTYName: cmux and ps name a terminal with or without /dev/, and a
+// pane matches a process only when both are spelled the same way.
+func TestTTYName(t *testing.T) {
+	tests := map[string]string{
+		"/dev/ttys004": "ttys004",
+		"ttys004":      "ttys004",
+		"/dev/pts/3":   "pts/3",
+		"??":           "",
+		"?":            "",
+		"":             "",
+	}
+	for device, want := range tests {
+		if got := TTYName(device); got != want {
+			t.Errorf("TTYName(%q) = %q, want %q", device, got, want)
+		}
+	}
+}
+
+// TestCollectSessions_EveryProcessTerminal: a tool keyed by directory is
+// asked once for two processes in one folder, but both processes' terminals
+// end up on the session. Claude is asked once per process, and each session
+// carries only its own terminal.
+func TestCollectSessions_EveryProcessTerminal(t *testing.T) {
+	detectors := map[string]detector{
+		"codex": {Name: "codex", Detect: func(cwd, pid string) *Session {
+			return &Session{Tool: "codex", CWD: cwd, Command: "codex resume thread-1"}
+		}},
+		"claude": {Name: "claude", Detect: func(cwd, pid string) *Session {
+			return &Session{Tool: "claude", CWD: cwd, Command: "claude --resume " + pid}
+		}},
+	}
+	procs := []aiProcess{
+		{tool: "codex", pid: "10", cwd: "/home/u/proj", tty: "ttys001"},
+		{tool: "codex", pid: "11", cwd: "/home/u/proj", tty: "ttys002"},
+		{tool: "claude", pid: "20", cwd: "/home/u/proj", tty: "ttys003"},
+		{tool: "claude", pid: "21", cwd: "/home/u/proj", tty: "ttys004"},
+	}
+
+	result := collectSessions(procs, detectors)
+
+	codex := result.ByTool["codex"]
+	if len(codex) != 1 {
+		t.Fatalf("codex sessions = %+v, want one", codex)
+	}
+	if got := result.TTYs[codex[0].Key()]; !slices.Equal(got, []string{"ttys001", "ttys002"}) {
+		t.Errorf("codex terminals = %q, want ttys001 and ttys002", got)
+	}
+
+	claude := result.ByTool["claude"]
+	if len(claude) != 2 {
+		t.Fatalf("claude sessions = %+v, want two", claude)
+	}
+	first := result.TTYs[claude[0].Key()]
+	second := result.TTYs[claude[1].Key()]
+	if !slices.Equal(first, []string{"ttys003"}) || !slices.Equal(second, []string{"ttys004"}) {
+		t.Errorf("claude terminals = %q and %q, want ttys003 and ttys004", first, second)
 	}
 }
