@@ -48,13 +48,13 @@ Obsidian-compatible, version-controlled, shareable workspace definitions.
 <td width="50%" valign="top">
 
 **🤖 [AI Auto-Detection](docs/commands.md#ai-session-auto-detection)**<br>
-15 AI tools detected. Sessions resume mid-conversation automatically.
+15 AI tools detected: 7 resume the conversation, 8 are recognised and relaunched.
 
 **🔍 [Alfred Integration](docs/alfred.md)** <sup>NEW</sup><br>
 Search and launch any workspace from Alfred with one keystroke.
 
 **⚡ [Auto-Accept](docs/configuration.md#auto-accept-for-ai-agents)** <sup>NEW</sup><br>
-Skip permission prompts on restore for Claude, Codex, OpenCode, and 10 more.
+Skip permission prompts on restore for Claude, Codex, OpenCode, and 11 more.
 
 </td>
 </tr>

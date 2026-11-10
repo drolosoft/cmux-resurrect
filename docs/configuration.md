@@ -90,21 +90,27 @@ auto_accept = ["all"]
 
 **Supported agents and their flags:**
 
-| Agent | Flag injected |
-|-------|--------------|
-| claude | `--dangerously-skip-permissions` |
-| opencode | `--yolo` |
-| codex | `--full-auto` |
-| amp | `--dangerously-allow-all` |
-| gemini | `--sandbox` |
-| copilot | `--allow-all` |
-| grok | `--always-approve` |
-| aider | `--yes` |
-| pi | `--approve` |
-| codebuddy | `--dangerously-skip-permissions` |
-| factory | `--skip-permissions-unsafe` |
-| qoder | `--permission-mode auto` |
-| hermes | `--yolo` |
+The list takes the agent names below. The flag goes right after the command that starts the agent, which is not always the agent's name: `factory` runs as `droid` and `rovo` starts with `acli rovodev run`.
+
+| Agent | Command | Flag injected |
+|-------|---------|--------------|
+| claude | `claude` | `--dangerously-skip-permissions` |
+| opencode | `opencode` | `--auto` |
+| codex | `codex` | `--dangerously-bypass-approvals-and-sandbox` |
+| amp | `amp` | `--dangerously-allow-all` |
+| gemini | `gemini` | `--approval-mode=yolo` |
+| copilot | `copilot` | `--allow-all` |
+| grok | `grok` | `--always-approve` |
+| cursor | `agent` | `--force` |
+| aider | `aider` | `--yes-always` |
+| pi | `pi` | none (Pi does not ask before running tools) |
+| rovo | `acli rovodev run` | `--yolo` |
+| hermes | `hermes` | `--yolo` |
+| codebuddy | `codebuddy` | `--dangerously-skip-permissions` |
+| factory | `droid` | `--skip-permissions-unsafe` |
+| qoder | `qoder` | `--yolo` |
+
+OpenCode releases older than the ones that document `--auto` (1.14.48, for example) reject any flag they do not know and will not start. Leave `opencode` out of the list on those versions.
 
 You can also configure this during `crex setup`.
 

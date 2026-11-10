@@ -12,6 +12,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Every layout keeps its previous version** — before a save replaces `<name>.toml` with different content, the old file is copied to `<name>.toml.prev` (one level, mode 0600), and `crex delete` moves the file there instead of removing it; `crex rename` moves the copy along. A save that changes nothing (an identical autosave included) leaves the copy alone, so a second identical save never pushes the good version out. `crex list` never shows these copies. To undo: `cp <name>.toml.prev <name>.toml`
 
+### Changed
+- **Auto-accept flags now do what they say** — with `auto_accept`, restore adds the flag each agent documents today for skipping its permission prompts. codex gets `--dangerously-bypass-approvals-and-sandbox` instead of `--full-auto`, which never skipped approvals and which Codex 0.128 rejects, so codex panes did not start at all. gemini gets `--approval-mode=yolo` instead of `--sandbox`, which only ran tools in a sandbox. qoder gets `--yolo` instead of `--permission-mode auto`, which still stopped some commands
+- **More agents get the right flag** — opencode gets `--auto` (its documented name for the old `--yolo`) and aider `--yes-always`. cursor gets `--force` and rovo `--yolo`; before, they had none. pi gets no flag: Pi does not ask before running tools, and `--approve` was about trusting a project. The full table is in [Auto-Accept for AI Agents](docs/configuration.md#auto-accept-for-ai-agents)
+
+### Fixed
+- **Tools crex cannot resume are started with their real command** — a restored pane typed the name crex gives the tool, so Cursor came back as `cursor` (which opens the editor), Factory as `factory` and Rovo Dev as `rovo`, none of them a command that starts the agent. Restore now types `agent`, `droid` and `acli rovodev run`. Detection also looks for the binaries these tools really run as: `agent` and `cursor-agent` (only inside Cursor's install folder, since `agent` alone is a common name), `droid`, `atlassian_cli_rovodev` or `acli rovodev`, `codebuddy` and `cbc`, `qoder` and `qodercli`. A pane saved with the old name gets the right command on the next save if the tool is running there
+- **Pi no longer claims other panes** — Pi was recognised by "Pi" anywhere in the terminal title, which also matched "api", "pipeline" and "copilot". It is now recognised by the "π - " title Pi sets
+- **The README no longer says all 15 AI tools resume** — 7 resume the conversation; the other 8 are recognised and started again without their history
+
+### Compatibility
+- **Behaviour change for auto-accept users:** codex and gemini panes now really start without permission prompts, and qoder skips every prompt instead of letting its classifier stop some commands. Remove a tool from `auto_accept` (or replace `"all"` with a list) to keep its prompts
+- **OpenCode before `--auto`:** older OpenCode releases such as 1.14.48 have neither `--auto` nor `--yolo` and refuse to start with an unknown flag. That was already true with `--yolo`; leave `opencode` out of `auto_accept` on those versions
+- **No layout or config change:** tool names in saved layouts and in `auto_accept` are the same, so existing files load as before
+
 ## [v1.28.1] — 2026-10-19
 
 ### Fixed
