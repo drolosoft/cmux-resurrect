@@ -68,6 +68,23 @@ func TestTitlePatterns(t *testing.T) {
 	}
 }
 
+// The save flow tries tools in this order when a title matches several, so it
+// has to be the registry's, every time.
+func TestOrderedTitlePatterns(t *testing.T) {
+	ordered := OrderedTitlePatterns()
+	if len(ordered) != len(registry) {
+		t.Fatalf("OrderedTitlePatterns returned %d tools, registry has %d", len(ordered), len(registry))
+	}
+	for i, d := range registry {
+		if ordered[i].Tool != d.Name {
+			t.Errorf("position %d: tool %q, want %q", i, ordered[i].Tool, d.Name)
+		}
+		if !slices.Equal(ordered[i].Patterns, d.TitlePatterns) {
+			t.Errorf("%s: patterns %q, want %q", d.Name, ordered[i].Patterns, d.TitlePatterns)
+		}
+	}
+}
+
 func TestBatchCWDs_EmptyInput(t *testing.T) {
 	result := batchCWDs(nil)
 	if len(result) != 0 {

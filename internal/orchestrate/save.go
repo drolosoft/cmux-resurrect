@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/drolosoft/cmux-resurrect/internal/client"
 	"github.com/drolosoft/cmux-resurrect/internal/detect"
@@ -803,8 +804,10 @@ func clearAutoDetectedCommands(layout *model.Layout) {
 var aiProcessNames = detect.BareCommands()
 
 // aiTitlePatterns is populated from the detector registry in the detect package.
-// Each tool's title patterns and detection logic are co-located there.
-var aiTitlePatterns = detect.TitlePatterns()
+// Each tool's title patterns and detection logic are co-located there. It is
+// a slice in registry order, not a map, so a title that matches several tools
+// tries them in the same order on every save.
+var aiTitlePatterns = detect.OrderedTitlePatterns()
 
 // applyDetectedSessions scans for running AI CLI sessions (Claude Code,
 // OpenCode, Codex) and sets the resume command on matching panes.
@@ -878,24 +881,28 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces []client.TreeWor
 				if titled[sl.cmd] {
 					continue
 				}
-				for tool, patterns := range aiTitlePatterns {
-					if !titleMatchesAI(sl.title, patterns) {
-						continue
-					}
+				// Every tool the title names is a candidate, the most
+				// specific first. A tool with nothing running here must not
+				// end the search for the one that has.
+				for _, tool := range titleTools(sl.title) {
+					var s *detect.Session
 					for _, cwd := range sl.searchCWDs() {
-						var s *detect.Session
 						if byTitle {
 							s = findTitledSession(detected.ByCWD[cwd], tool, sl.title)
 						} else {
 							s = findSession(detected.ByCWD[cwd], tool)
 						}
 						if s != nil {
-							*sl.cmd = s.Command
-							consumed[s.Command] = true
-							titled[sl.cmd] = true
 							break
 						}
 					}
+					if s == nil {
+						continue
+					}
+
+					*sl.cmd = s.Command
+					consumed[s.Command] = true
+					titled[sl.cmd] = true
 					break
 				}
 			}
@@ -911,14 +918,14 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces []client.TreeWor
 			if sl.assigned() {
 				continue
 			}
-			for tool, patterns := range aiTitlePatterns {
-				if !titleMatchesAI(sl.title, patterns) {
+			for _, tool := range titleTools(sl.title) {
+				s := findSession(detected.ByTool[tool], tool)
+				if s == nil {
 					continue
 				}
-				if s := findSession(detected.ByTool[tool], tool); s != nil {
-					*sl.cmd = s.Command
-					consumed[s.Command] = true
-				}
+
+				*sl.cmd = s.Command
+				consumed[s.Command] = true
 				break
 			}
 		}
@@ -1025,16 +1032,42 @@ func commandSlots(ws *model.Workspace, titles map[surfaceTitleKey]string) []comm
 	return out
 }
 
-// titleMatchesAI checks whether a surface title contains any of the
-// given AI tool name patterns (case-insensitive).
-func titleMatchesAI(title string, patterns []string) bool {
-	lower := strings.ToLower(title)
-	for _, p := range patterns {
-		if strings.Contains(lower, strings.ToLower(p)) {
-			return true
+// titleTools returns the tools whose title patterns appear in title, the most
+// specific first: the tool with the longest matching pattern leads, and tools
+// that tie keep registry order. Patterns overlap ("amp" is inside "example",
+// and "✳ " is not Claude's alone), so the caller tries every candidate and
+// keeps the first that really has a session for the slot.
+func titleTools(title string) []string {
+	var tools []string
+	matchLength := make(map[string]int)
+	for _, entry := range aiTitlePatterns {
+		length := titleMatchLength(title, entry.Patterns)
+		if length == 0 {
+			continue
 		}
+		tools = append(tools, entry.Tool)
+		matchLength[entry.Tool] = length
 	}
-	return false
+
+	sort.SliceStable(tools, func(i, j int) bool {
+		return matchLength[tools[i]] > matchLength[tools[j]]
+	})
+	return tools
+}
+
+// titleMatchLength returns the length, in characters, of the longest of the
+// given AI tool name patterns found in a surface title (case-insensitive), or
+// 0 when the title contains none of them.
+func titleMatchLength(title string, patterns []string) int {
+	lower := strings.ToLower(title)
+	longest := 0
+	for _, p := range patterns {
+		if !strings.Contains(lower, strings.ToLower(p)) {
+			continue
+		}
+		longest = max(longest, utf8.RuneCountInString(p))
+	}
+	return longest
 }
 
 // layoutContentChanged compares the structural content of two layouts,

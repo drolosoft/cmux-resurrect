@@ -1,6 +1,7 @@
 package orchestrate
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/drolosoft/cmux-resurrect/internal/client"
@@ -247,17 +248,119 @@ func TestApplyDetectedSessions_SameCWDMatchedByTitle(t *testing.T) {
 
 // Pi titles its terminal "π - <session>". The plain "Pi" it used to match
 // is inside "api", "pipeline" and "copilot".
-func TestTitleMatchesAI_Pi(t *testing.T) {
-	patterns := aiTitlePatterns["pi"]
+func TestTitleMatchLength_Pi(t *testing.T) {
+	patterns := detect.TitlePatterns()["pi"]
 
 	for _, title := range []string{"π - crex", "π - refactor the registry"} {
-		if !titleMatchesAI(title, patterns) {
-			t.Errorf("titleMatchesAI(%q) = false for pi", title)
+		if titleMatchLength(title, patterns) == 0 {
+			t.Errorf("titleMatchLength(%q) = 0 for pi", title)
 		}
 	}
 	for _, title := range []string{"api docs", "deploy pipeline", "GitHub Copilot", "~/Git/pixel"} {
-		if titleMatchesAI(title, patterns) {
-			t.Errorf("titleMatchesAI(%q) = true for pi", title)
+		if got := titleMatchLength(title, patterns); got != 0 {
+			t.Errorf("titleMatchLength(%q) = %d for pi, want 0", title, got)
 		}
+	}
+}
+
+// titleTools lists every tool a title names, the longest pattern first and
+// ties in registry order, so the pick does not change from one save to the
+// next.
+func TestTitleTools(t *testing.T) {
+	tests := []struct {
+		title string
+		want  []string
+	}{
+		{title: "✳ Fix amp timeout", want: []string{"amp", "claude"}},
+		{title: "✳ Claude Code", want: []string{"claude"}},
+		{title: "OpenCode | example", want: []string{"opencode", "amp"}},
+		{title: "zsh", want: nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.title, func(t *testing.T) {
+			if got := titleTools(tt.title); !slices.Equal(got, tt.want) {
+				t.Errorf("titleTools(%q) = %q, want %q", tt.title, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestApplyDetectedSessions_TitleMatchesTwoTools: a Claude pane titled
+// "✳ Fix amp timeout" matches Claude's "✳ " and Amp's "amp". Only Claude has
+// a session there. The check used to stop at whichever tool the map handed
+// out first, so the pane lost its resume command on some saves and not on
+// others. The second pane keeps the workspace out of the cwd-only pass, which
+// would otherwise hide the miss.
+func TestApplyDetectedSessions_TitleMatchesTwoTools(t *testing.T) {
+	layout := &model.Layout{
+		Workspaces: []model.Workspace{{
+			Title: "proj",
+			CWD:   "/home/u/proj",
+			Panes: []model.Pane{
+				{Type: "terminal", Index: 0},
+				{Type: "terminal", Index: 1, Split: "right"},
+			},
+		}},
+	}
+	tree := []client.TreeWorkspace{{
+		Title: "proj",
+		Panes: []client.TreePane{
+			{Index: 0, Surfaces: []client.TreeSurface{{Title: "✳ Fix amp timeout"}}},
+			{Index: 1, Surfaces: []client.TreeSurface{{Title: "zsh"}}},
+		},
+	}}
+	claude := detect.Session{Tool: "claude", CWD: "/home/u/proj", Command: "claude --resume abc123"}
+	detected := detect.DetectedSessions{
+		ByCWD:  map[string][]detect.Session{"/home/u/proj": {claude}},
+		ByTool: map[string][]detect.Session{"claude": {claude}},
+	}
+
+	applyDetectedSessions(layout, tree, detected)
+
+	panes := layout.Workspaces[0].Panes
+	if panes[0].Command != claude.Command {
+		t.Errorf("claude pane command = %q, want %q", panes[0].Command, claude.Command)
+	}
+	if panes[1].Command != "" {
+		t.Errorf("shell pane command = %q, want none", panes[1].Command)
+	}
+}
+
+// TestApplyDetectedSessions_LongestTitlePatternWins: "OpenCode | example"
+// matches OpenCode and, through "example", Amp. Both tools run in the
+// directory, so both have a session to give. The longer pattern says more
+// about the pane, so OpenCode takes it on every save.
+func TestApplyDetectedSessions_LongestTitlePatternWins(t *testing.T) {
+	layout := &model.Layout{
+		Workspaces: []model.Workspace{{
+			Title: "proj",
+			CWD:   "/home/u/proj",
+			Panes: []model.Pane{
+				{Type: "terminal", Index: 0},
+				{Type: "terminal", Index: 1, Split: "right"},
+			},
+		}},
+	}
+	tree := []client.TreeWorkspace{{
+		Title: "proj",
+		Panes: []client.TreePane{
+			{Index: 0, Surfaces: []client.TreeSurface{{Title: "OpenCode | example"}}},
+			{Index: 1, Surfaces: []client.TreeSurface{{Title: "zsh"}}},
+		},
+	}}
+	opencode := detect.Session{Tool: "opencode", CWD: "/home/u/proj", Command: "opencode --session ses_1"}
+	amp := detect.Session{Tool: "amp", CWD: "/home/u/proj", Command: "amp threads continue T-1"}
+	detected := detect.DetectedSessions{
+		ByCWD: map[string][]detect.Session{"/home/u/proj": {amp, opencode}},
+		ByTool: map[string][]detect.Session{
+			"amp":      {amp},
+			"opencode": {opencode},
+		},
+	}
+
+	applyDetectedSessions(layout, tree, detected)
+
+	if got := layout.Workspaces[0].Panes[0].Command; got != opencode.Command {
+		t.Errorf("pane command = %q, want %q", got, opencode.Command)
 	}
 }

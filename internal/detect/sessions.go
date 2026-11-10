@@ -229,6 +229,23 @@ func TitlePatterns() map[string][]string {
 	return result
 }
 
+// ToolTitlePatterns pairs a tool name with the title patterns that confirm it.
+type ToolTitlePatterns struct {
+	Tool     string
+	Patterns []string
+}
+
+// OrderedTitlePatterns returns the title patterns of every registered tool in
+// registry order. A title can match several tools, and ranging over the map
+// from TitlePatterns tries them in a different order on every run.
+func OrderedTitlePatterns() []ToolTitlePatterns {
+	result := make([]ToolTitlePatterns, 0, len(registry))
+	for _, d := range registry {
+		result = append(result, ToolTitlePatterns{Tool: d.Name, Patterns: d.TitlePatterns})
+	}
+	return result
+}
+
 // AutoAcceptFlags returns a map of tool name → auto-accept CLI flag
 // for all registered tools that have one. Tools without a flag are omitted.
 func AutoAcceptFlags() map[string]string {
