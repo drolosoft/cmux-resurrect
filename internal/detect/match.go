@@ -31,11 +31,16 @@ func interpreterFamily(name string) string {
 type processMatcher struct {
 	byProcessName map[string]detector // every process name of every tool
 	launchers     []detector          // tools that also run through a launcher binary
+	scripted      []detector          // tools an interpreter runs, known by CommandMarkers
+	services      map[string][]string // tool name → markers of its background service
 }
 
 // newProcessMatcher indexes detectors by the names their processes take.
 func newProcessMatcher(detectors []detector) processMatcher {
-	matcher := processMatcher{byProcessName: make(map[string]detector)}
+	matcher := processMatcher{
+		byProcessName: make(map[string]detector),
+		services:      make(map[string][]string),
+	}
 	for _, entry := range detectors {
 		for _, process := range entry.ProcessNames {
 			matcher.byProcessName[process] = entry
@@ -43,8 +48,25 @@ func newProcessMatcher(detectors []detector) processMatcher {
 		if len(entry.LaunchPrefixes) > 0 {
 			matcher.launchers = append(matcher.launchers, entry)
 		}
+		if len(entry.CommandMarkers) > 0 {
+			matcher.scripted = append(matcher.scripted, entry)
+		}
+		if len(entry.ServiceMarkers) > 0 {
+			matcher.services[entry.Name] = entry.ServiceMarkers
+		}
 	}
 	return matcher
+}
+
+// runsService reports whether commandLine, a process of tool, is the tool's
+// background service rather than a session.
+func (matcher processMatcher) runsService(tool, commandLine string) bool {
+	for _, marker := range matcher.services[tool] {
+		if strings.Contains(commandLine, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 // matchComm identifies a process from the `comm` column of ps: the
@@ -63,12 +85,24 @@ func (matcher processMatcher) matchComm(comm string) (string, bool) {
 //     (e.g. `acli rovodev run`)
 //  2. argv[0] basename is a known process name (alias expansion / wrapper
 //     named after the tool)
-//  3. argv[0] is a known interpreter AND a later non-flag path argument names a
+//  3. argv[0] is a known interpreter AND the command line holds one of a
+//     tool's CommandMarkers
+//  4. argv[0] is a known interpreter AND a later non-flag path argument names a
 //     tool as its basename (minus extension) or as a path segment
 //
 // It never matches a tool name that appears only as a file *argument* of a
-// non-interpreter command (e.g. `cat claude`, `vim ~/claude/notes.md`).
+// non-interpreter command (e.g. `cat claude`, `vim ~/claude/notes.md`), nor a
+// tool's background service, whichever rule found the tool.
 func (matcher processMatcher) matchArgs(args string) (string, bool) {
+	tool, ok := matcher.toolInArgs(args)
+	if !ok || matcher.runsService(tool, args) {
+		return "", false
+	}
+	return tool, true
+}
+
+// toolInArgs applies the rules of matchArgs, all but the service check.
+func (matcher processMatcher) toolInArgs(args string) (string, bool) {
 	fields := strings.Fields(args)
 	if len(fields) == 0 {
 		return "", false
@@ -85,6 +119,16 @@ func (matcher processMatcher) matchArgs(args string) (string, bool) {
 
 	if !scriptInterpreters[interpreterFamily(argv0)] {
 		return "", false
+	}
+
+	// A marker is a stronger sign than a path segment, and the code an
+	// interpreter runs with -c is full of words that could look like one.
+	for _, entry := range matcher.scripted {
+		for _, marker := range entry.CommandMarkers {
+			if strings.Contains(args, marker) {
+				return entry.Name, true
+			}
+		}
 	}
 
 	// Interpreter case: scan path-like, non-flag arguments for a tool name.

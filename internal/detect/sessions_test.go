@@ -427,6 +427,39 @@ func TestParseProcessLine(t *testing.T) {
 	}
 }
 
+// TestMatchProcesses_SkipsToolServices reads the two ps passes the lab
+// captured for Cline and Hermes. Cline's compiled binary also runs its hub
+// daemon, which ps's comm column cannot tell from the TUI; Hermes's client
+// starts a gateway. Both daemons outlive the terminal they came from and are
+// never a session: only the command line says so.
+func TestMatchProcesses_SkipsToolServices(t *testing.T) {
+	const cline = "/Users/dev/.npm-global/lib/node_modules/cline/bin/.cline"
+	commOutput := "  PID TTY      COMM\n" +
+		"59390 ttys004  script\n" +
+		"59392 ttys004  node\n" +
+		"59393 ttys004  " + cline + "\n" +
+		"59937 ??       " + cline + "\n" +
+		" 6497 ttys005  " + hermesPython + "\n" +
+		" 6889 ??       " + hermesPython + "\n"
+	argsOutput := "59390 ttys004  script -q /tmp/cline.typescript cline\n" +
+		"59392 ttys004  node /Users/dev/.npm-global/bin/cline\n" +
+		"59393 ttys004  " + cline + "\n" +
+		"59937 ??       " + cline + " --cline-hub-daemon --cwd /Users/dev/proj --host 127.0.0.1 --port 25463 --pathname /hub\n" +
+		" 6497 ttys005  " + hermesPython + " -I -c " + hermesLauncherScript + "\n" +
+		" 6889 ??       " + hermesPython + " -m hermes_cli.main --profile default gateway run --quiet --idle-exit\n"
+
+	got := matchProcesses(newProcessMatcher(registry), commOutput, argsOutput)
+
+	want := []matchedProcess{
+		{pid: "59393", tool: "cline", tty: "ttys004"},
+		{pid: "59392", tool: "cline", tty: "ttys004"},
+		{pid: "6497", tool: "hermes", tty: "ttys005"},
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("matchProcesses() = %+v, want %+v", got, want)
+	}
+}
+
 // TestTTYName: cmux and ps name a terminal with or without /dev/, and a
 // pane matches a process only when both are spelled the same way.
 func TestTTYName(t *testing.T) {

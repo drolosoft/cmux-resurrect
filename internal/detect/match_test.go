@@ -175,6 +175,54 @@ func TestInterpreterFamily(t *testing.T) {
 	}
 }
 
+// hermesLauncherScript is the start and the end of the 7.8 KB program that
+// the hermes launcher of install.sh hands its own python3 with -c, as ps
+// prints it: newlines show as \012. The middle, which repairs a checkout an
+// interrupted `hermes update` left behind, is cut out.
+const hermesLauncherScript = `import os, re, sys\012import contextlib, hashlib, io, pathlib, shutil, subprocess\012os.environ.pop('PYTHONHOME', None)\012os.environ.pop('PYTHONPATH', None)\012sys.path.insert(0, '/Users/dev/.hermes/hermes-agent')\012def _hermes_closure_repair():\012    import contextlib, hashlib, io, shutil, subprocess\012    from pathlib import Path\012    root = Path('/Users/dev/.hermes/hermes-agent')\012    git = root / '.git'\012` +
+	`sys._hermes_pin_default_home = True\012try:\012    import hermes_bootstrap\012except Exception:\012    _hermes_closure_repair()\012    raise\012if not os.environ.get('HERMES_HOME'):\012    from hermes_constants import get_default_hermes_root\012    os.environ['HERMES_HOME'] = str(get_default_hermes_root())\012from hermes_cli.main import main\012sys.argv[0] = re.sub(r'(-script\.pyw|\.exe)?$', '', sys.argv[0])\012sys.exit(main())\012`
+
+// hermesPython is the interpreter install.sh puts under ~/.hermes/tools.
+// No part of its path, nor of the script, is called hermes.
+const hermesPython = "/Users/dev/.hermes/tools/python-3.14.9+20261021-darwin-arm64/bin/python3"
+
+// TestMatchArgs_Hermes: Hermes Agent runs as its own python3 with the
+// program above as -c, its --tui adds a Node child, and the client starts a
+// gateway daemon with `-m hermes_cli.main … gateway run`. The client and the
+// TUI are a session; the gateway runs for every session at once, detached
+// from any terminal, and is never one.
+func TestMatchArgs_Hermes(t *testing.T) {
+	matcher := newProcessMatcher(registry)
+
+	tests := []struct {
+		name     string
+		args     string
+		wantTool string
+		wantOK   bool
+	}{
+		{"classic client", hermesPython + " -I -c " + hermesLauncherScript, "hermes", true},
+		{"client resuming a session", hermesPython + " -I -c " + hermesLauncherScript + " --resume local-63000000000000000000000000000000000000000000000000000000000028d3", "hermes", true},
+		{"client with --tui", hermesPython + " -I -c " + hermesLauncherScript + " --tui", "hermes", true},
+		{"tui child", "/Users/dev/.hermes/tools/node-26.12.1-darwin-arm64/bin/node --expose-gc /Users/dev/.hermes/hermes-agent/ui-tui/dist/entry.js", "hermes", true},
+		{"pip install", "/Users/dev/.local/share/uv/tools/hermes-agent/bin/python /Users/dev/.local/bin/hermes", "hermes", true},
+
+		{"gateway daemon", hermesPython + " -m hermes_cli.main --profile default gateway run --quiet --idle-exit", "", false},
+		{"gateway started by hand", hermesPython + " -I -c " + hermesLauncherScript + " gateway run", "", false},
+		{"pip gateway", "/Users/dev/.local/share/uv/tools/hermes-agent/bin/python /Users/dev/.local/bin/hermes gateway run", "", false},
+		{"editor on the source", "vim /Users/dev/src/hermes-agent/hermes_cli/main.py", "", false},
+		{"another node app with the same flags", "node --expose-gc /srv/app/dist/entry.js", "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tool, ok := matcher.matchArgs(tt.args)
+			if ok != tt.wantOK || tool != tt.wantTool {
+				t.Errorf("matchArgs(%.120q…) = (%q, %v), want (%q, %v)", tt.args, tool, ok, tt.wantTool, tt.wantOK)
+			}
+		})
+	}
+}
+
 // The Cursor installer puts both `agent` and `cursor-agent` in ~/.local/bin
 // as links into ~/.local/share/cursor-agent/versions/<version>/. The link
 // path says nothing about Cursor; the file it points to does.

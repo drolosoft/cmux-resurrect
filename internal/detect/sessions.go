@@ -49,6 +49,14 @@ type detector struct {
 	ProcessNames   []string // binary names as shown by ps (e.g. "claude"), main one first
 	PathMarker     string   // when set, a process counts only if its path contains it
 	LaunchPrefixes []string // launcher command lines that also mean the tool (e.g. "acli rovodev")
+	// CommandMarkers name a tool that an interpreter runs as code or as a
+	// file not named after it: an interpreter's command line that contains
+	// one of them runs the tool (`python3 -c '…from hermes_cli.main…'`).
+	CommandMarkers []string
+	// ServiceMarkers name the tool's own background service. A process of
+	// the tool whose command line contains one runs for every session at
+	// once, outside any terminal, and is never a session itself.
+	ServiceMarkers []string
 	Command        string   // what a shell types to start the tool, when it is not Name
 	TitlePatterns  []string // substrings in terminal title confirming the tool
 	AutoAcceptFlag string   // CLI flag to skip permission prompts (empty if none)
@@ -176,8 +184,15 @@ var registry = []detector{
 		Detect:         detectRovo,
 	},
 	{
-		Name:           "hermes",
-		ProcessNames:   []string{"hermes"},
+		Name:         "hermes",
+		ProcessNames: []string{"hermes"},
+		// install.sh's launcher runs Hermes as its own python3 with a -c
+		// program that imports hermes_cli.main, and --tui adds a Node child
+		// on ui-tui/dist/entry.js; neither has a path named hermes. The
+		// client also starts the gateway daemon as
+		// `python3 -m hermes_cli.main … gateway run`.
+		CommandMarkers: []string{"hermes_cli.main", "hermes-agent/ui-tui/"},
+		ServiceMarkers: []string{"gateway run"},
 		TitlePatterns:  []string{"Hermes", "hermes"},
 		AutoAcceptFlag: "--yolo",
 		// Hermes freezes --yolo into a session when it is created. Passing
@@ -274,9 +289,12 @@ var registry = []detector{
 		// bin/.cline, so ps shows both. Cline approves tool calls by
 		// default; its --yolo is a separate mode for unattended runs, so
 		// crex adds no flag.
-		ProcessNames:  []string{"cline", ".cline"},
-		TitlePatterns: []string{"Cline"},
-		Detect:        detectCline,
+		ProcessNames: []string{"cline", ".cline"},
+		// The same binary runs the hub daemon, which carries the project
+		// in its arguments and outlives the TUI that started it.
+		ServiceMarkers: []string{"--cline-hub-daemon"},
+		TitlePatterns:  []string{"Cline"},
+		Detect:         detectCline,
 	},
 	{
 		Name: "vibe",
@@ -556,79 +574,111 @@ func parseProcessLine(line string) (pid, tty string, rest []string, ok bool) {
 	return fields[0], TTYName(fields[1]), fields[2:], true
 }
 
-// listAIProcesses finds running claude, opencode, and codex processes
-// and resolves their working directories via lsof.
 // cmdTimeout is the maximum time for any subprocess (ps, lsof, sqlite3).
 const cmdTimeout = 5 * time.Second
 
+// listAIProcesses finds the running processes of every registered tool and
+// resolves their working directories via lsof.
 func listAIProcesses(matcher processMatcher) []aiProcess {
 	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
 	defer cancel()
 
-	var pids []struct {
-		pid  string
-		tool string
+	// comm stays the last column: ps cuts any column that is not the last
+	// to 16 characters, and on macOS comm is often a full path. A failed
+	// pass leaves its output empty, and the other one still runs.
+	commOutput, _ := exec.CommandContext(ctx, "ps", "axo", "pid,tty,comm").Output()
+	argsOutput, _ := exec.CommandContext(ctx, "ps", "axo", "pid=,tty=,args=").Output()
+
+	matches := matchProcesses(matcher, string(commOutput), string(argsOutput))
+	if len(matches) == 0 {
+		return nil
 	}
-	matched := make(map[string]bool) // pids already claimed, to avoid duplicates
-	ttys := make(map[string]string)  // pid → terminal, to tell windows apart
+
+	pids := make([]struct{ pid, tool string }, len(matches))
+	for i, match := range matches {
+		pids[i] = struct{ pid, tool string }{match.pid, match.tool}
+	}
+	cwds := batchCWDs(pids)
+
+	var result []aiProcess
+	for _, match := range matches {
+		cwd := cwds[match.pid]
+		if cwd == "" {
+			continue
+		}
+		result = append(result, aiProcess{tool: match.tool, pid: match.pid, cwd: cwd, tty: match.tty})
+	}
+	return result
+}
+
+// matchedProcess is a process ps shows running a registered tool.
+type matchedProcess struct {
+	pid  string
+	tool string // registry name
+	tty  string // the process's terminal as ps names it, "" when it has none
+}
+
+// matchProcesses finds the processes that run a registered tool in the output
+// of the two ps passes: commOutput lists `pid,tty,comm` and argsOutput
+// `pid=,tty=,args=`. Processes come back in the order the passes found them,
+// without the tools' background services.
+func matchProcesses(matcher processMatcher, commOutput, argsOutput string) []matchedProcess {
+	var matches []matchedProcess
+	matched := make(map[string]bool)  // pids already claimed, to avoid duplicates
+	services := make(map[string]bool) // pids of tool daemons the comm pass claimed
 
 	// Pass 1: match by `comm` (the executable name). Fast and unambiguous for
 	// tools whose binary is named after the tool (e.g. an nvm/brew `claude` shim).
-	if out, err := exec.CommandContext(ctx, "ps", "axo", "pid,tty,comm").Output(); err == nil {
-		for _, line := range strings.Split(string(out), "\n") {
-			pid, tty, comm, ok := parseProcessLine(line)
-			if !ok {
-				continue
-			}
-			if tool, ok := matcher.matchComm(comm[0]); ok {
-				pids = append(pids, struct {
-					pid  string
-					tool string
-				}{pid, tool})
-				matched[pid] = true
-				ttys[pid] = tty
-			}
+	for _, line := range strings.Split(commOutput, "\n") {
+		pid, tty, comm, ok := parseProcessLine(line)
+		if !ok {
+			continue
+		}
+		if tool, ok := matcher.matchComm(comm[0]); ok {
+			matches = append(matches, matchedProcess{pid: pid, tool: tool, tty: tty})
+			matched[pid] = true
 		}
 	}
 
 	// Pass 2: match by full command line (`args`), catching what `comm` misses —
 	// shell aliases/functions, wrapper scripts, and interpreter-launched CLIs like
 	// `node …/claude/cli.js` whose `comm` is "node" (GitHub #6).
-	if out, err := exec.CommandContext(ctx, "ps", "axo", "pid=,tty=,args=").Output(); err == nil {
-		for _, line := range strings.Split(string(out), "\n") {
-			pid, tty, args, ok := parseProcessLine(line)
-			if !ok {
-				continue
-			}
-			if matched[pid] {
-				continue
-			}
-			if tool, ok := matcher.matchArgs(strings.Join(args, " ")); ok {
-				pids = append(pids, struct {
-					pid  string
-					tool string
-				}{pid, tool})
-				matched[pid] = true
-				ttys[pid] = tty
-			}
-		}
-	}
-
-	if len(pids) == 0 {
-		return nil
-	}
-
-	cwds := batchCWDs(pids)
-
-	var result []aiProcess
-	for _, p := range pids {
-		cwd := cwds[p.pid]
-		if cwd == "" {
+	for _, line := range strings.Split(argsOutput, "\n") {
+		pid, tty, args, ok := parseProcessLine(line)
+		if !ok {
 			continue
 		}
-		result = append(result, aiProcess{tool: p.tool, pid: p.pid, cwd: cwd, tty: ttys[p.pid]})
+		commandLine := strings.Join(args, " ")
+
+		// The comm pass sees only the executable, which a tool's daemon
+		// shares with its sessions (Cline's hub is bin/.cline again); the
+		// command line is what tells them apart.
+		if matched[pid] {
+			if matcher.runsService(toolOf(matches, pid), commandLine) {
+				services[pid] = true
+			}
+			continue
+		}
+
+		if tool, ok := matcher.matchArgs(commandLine); ok {
+			matches = append(matches, matchedProcess{pid: pid, tool: tool, tty: tty})
+			matched[pid] = true
+		}
 	}
-	return result
+
+	return slices.DeleteFunc(matches, func(match matchedProcess) bool {
+		return services[match.pid]
+	})
+}
+
+// toolOf returns the tool matched for pid, or "" when matches has none.
+func toolOf(matches []matchedProcess, pid string) string {
+	for _, match := range matches {
+		if match.pid == pid {
+			return match.tool
+		}
+	}
+	return ""
 }
 
 // batchCWDs returns each PID's working directory in a single lsof call.
