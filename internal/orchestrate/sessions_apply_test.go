@@ -244,3 +244,20 @@ func TestApplyDetectedSessions_SameCWDMatchedByTitle(t *testing.T) {
 		t.Errorf("'Fix login bug' tab command = %q, want %q", got, login.Command)
 	}
 }
+
+// Pi titles its terminal "π - <session>". The plain "Pi" it used to match
+// is inside "api", "pipeline" and "copilot".
+func TestTitleMatchesAI_Pi(t *testing.T) {
+	patterns := aiTitlePatterns["pi"]
+
+	for _, title := range []string{"π - crex", "π - refactor the registry"} {
+		if !titleMatchesAI(title, patterns) {
+			t.Errorf("titleMatchesAI(%q) = false for pi", title)
+		}
+	}
+	for _, title := range []string{"api docs", "deploy pipeline", "GitHub Copilot", "~/Git/pixel"} {
+		if titleMatchesAI(title, patterns) {
+			t.Errorf("titleMatchesAI(%q) = true for pi", title)
+		}
+	}
+}

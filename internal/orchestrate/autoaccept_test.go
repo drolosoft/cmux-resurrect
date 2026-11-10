@@ -16,7 +16,7 @@ func TestInjectAutoAccept_Claude(t *testing.T) {
 
 func TestInjectAutoAccept_OpenCode(t *testing.T) {
 	cmd, tool := InjectAutoAccept("opencode --session ses_xyz", []string{"opencode"})
-	if cmd != "opencode --yolo --session ses_xyz" {
+	if cmd != "opencode --auto --session ses_xyz" {
 		t.Errorf("got %q", cmd)
 	}
 	if tool != "opencode" {
@@ -26,7 +26,7 @@ func TestInjectAutoAccept_OpenCode(t *testing.T) {
 
 func TestInjectAutoAccept_Codex(t *testing.T) {
 	cmd, tool := InjectAutoAccept("codex resume abc123", []string{"codex"})
-	if cmd != "codex --full-auto resume abc123" {
+	if cmd != "codex --dangerously-bypass-approvals-and-sandbox resume abc123" {
 		t.Errorf("got %q", cmd)
 	}
 	if tool != "codex" {
@@ -85,8 +85,9 @@ func TestInjectAutoAccept_FlagAlreadyPresent(t *testing.T) {
 }
 
 func TestInjectAutoAccept_NoFlag(t *testing.T) {
-	cmd, tool := InjectAutoAccept("cursor --resume abc123", []string{"all"})
-	if cmd != "cursor --resume abc123" {
+	// Pi has no prompt to skip: it never asks before running a tool.
+	cmd, tool := InjectAutoAccept("pi --continue", []string{"all"})
+	if cmd != "pi --continue" {
 		t.Errorf("got %q, want unchanged", cmd)
 	}
 	if tool != "" {
@@ -104,13 +105,33 @@ func TestInjectAutoAccept_EmptyCommand(t *testing.T) {
 	}
 }
 
-func TestInjectAutoAccept_MultiWordFlag(t *testing.T) {
-	cmd, tool := InjectAutoAccept("qoder resume abc123", []string{"qoder"})
-	if cmd != "qoder --permission-mode auto resume abc123" {
+func TestInjectAutoAccept_MultiWordLaunch(t *testing.T) {
+	cmd, tool := InjectAutoAccept("acli rovodev run", []string{"rovo"})
+	if cmd != "acli rovodev run --yolo" {
 		t.Errorf("got %q", cmd)
 	}
-	if tool != "qoder" {
-		t.Errorf("tool = %q, want qoder", tool)
+	if tool != "rovo" {
+		t.Errorf("tool = %q, want rovo", tool)
+	}
+}
+
+func TestInjectAutoAccept_Gemini(t *testing.T) {
+	cmd, tool := InjectAutoAccept("gemini --resume abc12345", []string{"gemini"})
+	if cmd != "gemini --approval-mode=yolo --resume abc12345" {
+		t.Errorf("got %q", cmd)
+	}
+	if tool != "gemini" {
+		t.Errorf("tool = %q, want gemini", tool)
+	}
+}
+
+func TestInjectAutoAccept_Cursor(t *testing.T) {
+	cmd, tool := InjectAutoAccept("agent", []string{"cursor"})
+	if cmd != "agent --force" {
+		t.Errorf("got %q", cmd)
+	}
+	if tool != "cursor" {
+		t.Errorf("tool = %q, want cursor", tool)
 	}
 }
 

@@ -116,20 +116,20 @@ type registryRow struct {
 // changes what crex types into users' terminals, so it has to show up here.
 var wantRegistry = map[string]registryRow{
 	"claude":    {[]string{"claude"}, "claude", "--dangerously-skip-permissions"},
-	"opencode":  {[]string{"opencode"}, "opencode", "--yolo"},
-	"codex":     {[]string{"codex"}, "codex", "--full-auto"},
+	"opencode":  {[]string{"opencode"}, "opencode", "--auto"},
+	"codex":     {[]string{"codex"}, "codex", "--dangerously-bypass-approvals-and-sandbox"},
 	"amp":       {[]string{"amp"}, "amp", "--dangerously-allow-all"},
-	"gemini":    {[]string{"gemini"}, "gemini", "--sandbox"},
+	"gemini":    {[]string{"gemini"}, "gemini", "--approval-mode=yolo"},
 	"copilot":   {[]string{"copilot"}, "copilot", "--allow-all"},
 	"grok":      {[]string{"grok"}, "grok", "--always-approve"},
-	"cursor":    {[]string{"agent", "cursor-agent"}, "agent", ""},
-	"aider":     {[]string{"aider"}, "aider", "--yes"},
-	"pi":        {[]string{"pi"}, "pi", "--approve"},
-	"rovo":      {[]string{"atlassian_cli_rovodev"}, "acli rovodev run", ""},
+	"cursor":    {[]string{"agent", "cursor-agent"}, "agent", "--force"},
+	"aider":     {[]string{"aider"}, "aider", "--yes-always"},
+	"pi":        {[]string{"pi"}, "pi", ""},
+	"rovo":      {[]string{"atlassian_cli_rovodev"}, "acli rovodev run", "--yolo"},
 	"hermes":    {[]string{"hermes"}, "hermes", "--yolo"},
 	"codebuddy": {[]string{"codebuddy", "cbc"}, "codebuddy", "--dangerously-skip-permissions"},
 	"factory":   {[]string{"droid"}, "droid", "--skip-permissions-unsafe"},
-	"qoder":     {[]string{"qoder", "qodercli"}, "qoder", "--permission-mode auto"},
+	"qoder":     {[]string{"qoder", "qodercli"}, "qoder", "--yolo"},
 }
 
 func TestRegistryTable(t *testing.T) {

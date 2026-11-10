@@ -63,17 +63,22 @@ var registry = []detector{
 		Detect:         detectClaude,
 	},
 	{
-		Name:           "opencode",
-		ProcessNames:   []string{"opencode"},
-		TitlePatterns:  []string{"OpenCode", "opencode", "OC |"},
-		AutoAcceptFlag: "--yolo",
+		Name:          "opencode",
+		ProcessNames:  []string{"opencode"},
+		TitlePatterns: []string{"OpenCode", "opencode", "OC |"},
+		// --auto is the documented flag; --yolo survives only as a hidden
+		// alias. Older releases such as 1.14.48 have neither and refuse to
+		// start with an unknown flag.
+		AutoAcceptFlag: "--auto",
 		Detect:         detectOpenCode,
 	},
 	{
-		Name:           "codex",
-		ProcessNames:   []string{"codex"},
-		TitlePatterns:  []string{"Codex", "codex"},
-		AutoAcceptFlag: "--full-auto",
+		Name:          "codex",
+		ProcessNames:  []string{"codex"},
+		TitlePatterns: []string{"Codex", "codex"},
+		// --full-auto never skipped approvals, and Codex 0.128 removed it
+		// from the interactive CLI, which then refuses to start.
+		AutoAcceptFlag: "--dangerously-bypass-approvals-and-sandbox",
 		Detect:         detectCodex,
 	},
 	{
@@ -84,10 +89,12 @@ var registry = []detector{
 		Detect:         detectAmp,
 	},
 	{
-		Name:           "gemini",
-		ProcessNames:   []string{"gemini"},
-		TitlePatterns:  []string{"◇ ", "✦ ", "✋ ", "Gemini", "gemini"},
-		AutoAcceptFlag: "--sandbox",
+		Name:          "gemini",
+		ProcessNames:  []string{"gemini"},
+		TitlePatterns: []string{"◇ ", "✦ ", "✋ ", "Gemini", "gemini"},
+		// --sandbox runs tools in a sandbox, it approves nothing. -y/--yolo
+		// still works but is deprecated in favour of this one.
+		AutoAcceptFlag: "--approval-mode=yolo",
 		Detect:         detectGemini,
 	},
 	{
@@ -110,22 +117,26 @@ var registry = []detector{
 		// The installer links both names to the same launcher under
 		// ~/.local/share/cursor-agent/. "agent" alone could be anything,
 		// so the install path has to confirm it.
-		ProcessNames:  []string{"agent", "cursor-agent"},
-		PathMarker:    "cursor-agent",
-		Command:       "agent",
-		TitlePatterns: []string{"Cursor", "cursor"},
+		ProcessNames:   []string{"agent", "cursor-agent"},
+		PathMarker:     "cursor-agent",
+		Command:        "agent",
+		TitlePatterns:  []string{"Cursor", "cursor"},
+		AutoAcceptFlag: "--force",
 	}),
 	processAware(detector{
-		Name:           "aider",
-		ProcessNames:   []string{"aider"},
-		TitlePatterns:  []string{"Aider", "aider"},
-		AutoAcceptFlag: "--yes",
+		Name:          "aider",
+		ProcessNames:  []string{"aider"},
+		TitlePatterns: []string{"Aider", "aider"},
+		// --yes only worked as an argparse prefix of --yes-always.
+		AutoAcceptFlag: "--yes-always",
 	}),
 	processAware(detector{
-		Name:           "pi",
-		ProcessNames:   []string{"pi"},
-		TitlePatterns:  []string{"Pi"},
-		AutoAcceptFlag: "--approve",
+		Name:         "pi",
+		ProcessNames: []string{"pi"},
+		// Pi titles the terminal "π - <session>". A plain "Pi" matched
+		// "api", "pipeline" and "copilot". Pi has no flag: it does not ask
+		// before running tools, and --approve is about trusting a project.
+		TitlePatterns: []string{"π - "},
 	}),
 	processAware(detector{
 		Name: "rovo",
@@ -135,6 +146,7 @@ var registry = []detector{
 		LaunchPrefixes: []string{"acli rovodev"},
 		Command:        "acli rovodev run",
 		TitlePatterns:  []string{"Rovo", "rovo"},
+		AutoAcceptFlag: "--yolo",
 	}),
 	processAware(detector{
 		Name:           "hermes",
@@ -159,10 +171,12 @@ var registry = []detector{
 		AutoAcceptFlag: "--skip-permissions-unsafe",
 	}),
 	processAware(detector{
-		Name:           "qoder",
-		ProcessNames:   []string{"qoder", "qodercli"},
-		TitlePatterns:  []string{"Qoder", "qoder"},
-		AutoAcceptFlag: "--permission-mode auto",
+		Name:          "qoder",
+		ProcessNames:  []string{"qoder", "qodercli"},
+		TitlePatterns: []string{"Qoder", "qoder"},
+		// The auto permission mode still lets a classifier stop commands;
+		// --yolo is the one that skips every prompt.
+		AutoAcceptFlag: "--yolo",
 	}),
 }
 
