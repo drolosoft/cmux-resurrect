@@ -99,7 +99,7 @@ func latestHermesSession(dbPath, cwd string) string {
 	// newest sessions (the lab saw exactly that while Hermes ran), so the
 	// failure stands and Hermes starts fresh rather than in an older session.
 	if err != nil && !hermesWALPending(dbPath) {
-		immutable :=url.URL{Scheme: "file", Path: dbPath, RawQuery: "immutable=1"}
+		immutable := url.URL{Scheme: "file", Path: dbPath, RawQuery: "immutable=1"}
 		out, err = queryHermesDB(immutable.String(), query)
 	}
 	if err != nil {
