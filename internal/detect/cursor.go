@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -18,19 +19,21 @@ const cursorCommand = "agent"
 const cursorStore = "store.db"
 
 // detectCursor finds the chat a Cursor CLI process was having in cwd. The
-// CLI files each chat as ~/.cursor/chats/<md5 of the directory>/<chat id>/
+// CLI files each chat as <config>/chats/<md5 of the directory>/<chat id>/
 // with the conversation in store.db, and `agent --resume <chat id>` reopens
-// it. Cursor does not document this layout; it comes from entireio/cli,
-// which reads the same store. When no chat belongs to the directory, Cursor
-// is relaunched fresh, as crex did before it read the chats.
-func detectCursor(cwd, _ string) *Session {
+// it; config is ~/.cursor unless the process environment moves it (see
+// cursorConfigDir). Cursor does not document this layout; it comes from
+// entireio/cli, which reads the same store, and from the CLI's own bundle.
+// When no chat belongs to the directory, Cursor is relaunched fresh, as crex
+// did before it read the chats.
+func detectCursor(cwd, pid string) *Session {
 	session := &Session{Tool: "cursor", CWD: cwd, Command: cursorCommand}
 
-	home, err := os.UserHomeDir()
-	if err != nil {
+	configDir, custom := cursorConfigDir(pid)
+	if configDir == "" {
 		return session
 	}
-	chatsDir := filepath.Join(home, ".cursor", "chats")
+	chatsDir := filepath.Join(configDir, "chats")
 
 	// The process does not say which chat it has open, so the chat written
 	// last in the directory stands for it. Two Cursors in one directory
@@ -48,8 +51,66 @@ func detectCursor(cwd, _ string) *Session {
 		return session
 	}
 
-	session.Command = cursorCommand + " --resume " + chatID
+	session.Command = cursorResumeCommand(configDir, custom, chatID)
 	return session
+}
+
+// cursorConfigDir returns the folder a Cursor process keeps its chats in,
+// resolved the way the CLI 2026.11.05 does it (cursor-config/dist/paths.js):
+// $CURSOR_CONFIG_DIR, else $XDG_CONFIG_HOME/cursor, else ~/.cursor, where a
+// variable that holds only blanks counts as unset. custom reports whether it
+// differs from ~/.cursor, in which case the resume command must name it
+// again. It returns "" when the folder cannot be known.
+func cursorConfigDir(pid string) (dir string, custom bool) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", false
+	}
+	defaultDir := filepath.Join(home, ".cursor")
+
+	env := cursorEnvironment(pid)
+	dir = defaultDir
+	if configured := env["CURSOR_CONFIG_DIR"]; strings.TrimSpace(configured) != "" {
+		dir = configured
+	} else if xdg := env["XDG_CONFIG_HOME"]; strings.TrimSpace(xdg) != "" {
+		dir = filepath.Join(xdg, "cursor")
+	}
+
+	// Cursor would read a relative value from its own directory, which crex
+	// cannot be sure of. No chat is better than one from another folder.
+	if !filepath.IsAbs(dir) {
+		return "", false
+	}
+
+	dir = filepath.Clean(dir)
+	return dir, dir != defaultDir
+}
+
+// cursorEnvironment returns the variables Cursor chooses its folder from: the
+// environment of the process when it can be read, and crex's own otherwise,
+// since both usually come from the same login shell.
+func cursorEnvironment(pid string) map[string]string {
+	if env := processEnv(pid); env != nil {
+		return env
+	}
+
+	return map[string]string{
+		"CURSOR_CONFIG_DIR": os.Getenv("CURSOR_CONFIG_DIR"),
+		"XDG_CONFIG_HOME":   os.Getenv("XDG_CONFIG_HOME"),
+	}
+}
+
+// cursorResumeCommand builds the command that reopens a Cursor chat. When the
+// chat lives outside ~/.cursor it sets CURSOR_CONFIG_DIR to that folder, even
+// if the process found it through XDG_CONFIG_HOME: the variable names the
+// folder itself, wins over XDG_CONFIG_HOME in the restored shell, and leaves
+// the other programs that read XDG_CONFIG_HOME alone.
+func cursorResumeCommand(configDir string, custom bool, chatID string) string {
+	cmd := cursorCommand + " --resume " + chatID
+	if custom {
+		cmd = "CURSOR_CONFIG_DIR=" + shellQuote(configDir) + " " + cmd
+	}
+	return cmd
 }
 
 // cursorWorkspaceKeys returns the folder names Cursor may have filed the
@@ -67,7 +128,7 @@ func cursorWorkspaceKeys(cwd string) []string {
 }
 
 // cursorWorkspaceKey is the folder name Cursor gives a directory under
-// ~/.cursor/chats: the hex MD5 of its path. MD5 is Cursor's naming, not a
+// <config>/chats: the hex MD5 of its path. MD5 is Cursor's naming, not a
 // security measure.
 func cursorWorkspaceKey(path string) string {
 	sum := md5.Sum([]byte(path))
