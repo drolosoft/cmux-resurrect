@@ -9,10 +9,20 @@ import (
 // scriptInterpreters are binaries that run an AI CLI as a script argument.
 // When the foreground process is one of these, the tool identity lives in a
 // later path argument (e.g. `node …/claude/cli.js`) rather than in argv[0].
+// They are listed by family: interpreterFamily turns python3.12 or Python
+// into python before the lookup.
 var scriptInterpreters = map[string]bool{
 	"node": true, "bun": true, "deno": true, "npx": true, "bunx": true,
-	"python": true, "python3": true, "ruby": true, "perl": true,
+	"python": true, "ruby": true, "perl": true,
 	"tsx": true, "ts-node": true,
+}
+
+// interpreterFamily returns the interpreter name without what installs add
+// to it: the version (python3.12, ruby3.3) and the case. Homebrew's and
+// python.org's framework builds re-exec themselves as
+// Python.app/Contents/MacOS/Python, and uv links python to python3.12.
+func interpreterFamily(name string) string {
+	return strings.TrimRight(strings.ToLower(name), "0123456789.")
 }
 
 // processMatcher tells which registered tool a process runs, from what ps
@@ -73,7 +83,7 @@ func (matcher processMatcher) matchArgs(args string) (string, bool) {
 		return tool, true
 	}
 
-	if !scriptInterpreters[argv0] {
+	if !scriptInterpreters[interpreterFamily(argv0)] {
 		return "", false
 	}
 

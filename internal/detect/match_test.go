@@ -111,6 +111,70 @@ func TestMatchComm(t *testing.T) {
 	}
 }
 
+// TestMatchArgs_InterpreterNames: the lab ran each tool from a real install
+// and these are the command lines ps printed, with the lab folder renamed.
+// Homebrew's and python.org's framework Pythons re-exec themselves as
+// …/Python.app/Contents/MacOS/Python, a capital P that the interpreter list
+// did not hold, so Aider was never recognised there. uv's Pythons are links
+// to a versioned name such as python3.12.
+func TestMatchArgs_InterpreterNames(t *testing.T) {
+	matcher := newProcessMatcher(registry)
+
+	tests := []struct {
+		name     string
+		args     string
+		wantTool string
+		wantOK   bool
+	}{
+		{"homebrew framework python", "/opt/homebrew/Cellar/python@3.12/3.12.11/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python /Users/dev/.local/bin/aider", "aider", true},
+		{"python.org framework python", "/Library/Frameworks/Python.framework/Versions/3.13/Resources/Python.app/Contents/MacOS/Python /Users/dev/.local/bin/aider --yes-always", "aider", true},
+		{"uv venv python", "/Users/dev/.local/share/uv/tools/aider-chat/bin/python /Users/dev/.local/bin/aider", "aider", true},
+		{"versioned python", "/opt/homebrew/opt/python@3.12/bin/python3.12 /Users/dev/.local/bin/aider", "aider", true},
+		{"python 3.14", "python3.14 /usr/local/bin/aider --restore-chat-history", "aider", true},
+		{"bun by full path", "/Users/dev/.bun/bin/bun /Users/dev/.bun/bin/qwen", "qwen", true},
+
+		// Gemini's npm launcher starts itself again as a child with a heap
+		// option in front of the script, from the absolute node path.
+		{"gemini launcher", "node /Users/dev/.npm-global/bin/gemini", "gemini", true},
+		{"gemini child with a heap option", "/Users/dev/.nvm/versions/node/v23.11.0/bin/node --max-old-space-size=18432 /Users/dev/.npm-global/bin/gemini", "gemini", true},
+
+		{"framework python running something else", "/Library/Frameworks/Python.framework/Versions/3.13/Resources/Python.app/Contents/MacOS/Python /srv/app/manage.py runserver", "", false},
+		{"a program whose name only starts like python", "/usr/local/bin/pythonista /Users/dev/.local/bin/aider", "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tool, ok := matcher.matchArgs(tt.args)
+			if ok != tt.wantOK || tool != tt.wantTool {
+				t.Errorf("matchArgs(%q) = (%q, %v), want (%q, %v)", tt.args, tool, ok, tt.wantTool, tt.wantOK)
+			}
+		})
+	}
+}
+
+// TestInterpreterFamily: an interpreter is known by its family whatever its
+// case or version suffix.
+func TestInterpreterFamily(t *testing.T) {
+	tests := map[string]string{
+		"node":       "node",
+		"Python":     "python",
+		"python3":    "python",
+		"python3.12": "python",
+		"python3.14": "python",
+		"bun":        "bun",
+		"ruby3.3":    "ruby",
+		"perl5.34":   "perl",
+		"ts-node":    "ts-node",
+		"pythonista": "pythonista",
+		"zsh":        "zsh",
+	}
+	for name, want := range tests {
+		if got := interpreterFamily(name); got != want {
+			t.Errorf("interpreterFamily(%q) = %q, want %q", name, got, want)
+		}
+	}
+}
+
 // The Cursor installer puts both `agent` and `cursor-agent` in ~/.local/bin
 // as links into ~/.local/share/cursor-agent/versions/<version>/. The link
 // path says nothing about Cursor; the file it points to does.
