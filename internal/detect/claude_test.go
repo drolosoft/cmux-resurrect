@@ -5,7 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
+	"time"
 )
 
 // stubProcessEnv replaces the process environment reader for one test.
@@ -201,5 +203,117 @@ func TestClaudeSessionTitle(t *testing.T) {
 
 	if got := claudeSessionTitle(filepath.Join(t.TempDir(), "missing.jsonl")); got != "" {
 		t.Errorf("title = %q, want empty for missing transcript", got)
+	}
+}
+
+func TestDetectClaude_NoProjectDir(t *testing.T) {
+	s := detectClaude("/nonexistent/path/that/does/not/exist", "")
+	if s != nil {
+		t.Error("expected nil for nonexistent CWD")
+	}
+}
+
+func TestDetectClaude_EmptyProjectDir(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", t.TempDir())
+	home := os.Getenv("HOME")
+	// Claude uses HOME-relative paths; this test won't match unless
+	// we create the exact expected path. Test the "no jsonl files" case
+	// by creating the project dir structure.
+	projectPath := strings.ReplaceAll(dir, "/", "-")
+	projectDir := filepath.Join(home, ".claude", "projects", projectPath)
+	if err := os.MkdirAll(projectDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	s := detectClaude(dir, "")
+	if s != nil {
+		t.Error("expected nil for empty project dir")
+	}
+}
+
+func TestDetectClaude_WithSession(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", t.TempDir())
+	home := os.Getenv("HOME")
+	projectPath := strings.ReplaceAll(dir, "/", "-")
+	projectDir := filepath.Join(home, ".claude", "projects", projectPath)
+	if err := os.MkdirAll(projectDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a fake session file (must be >= 500 bytes to pass the size filter).
+	sessionID := "abc123-def456-789"
+	sessionFile := filepath.Join(projectDir, sessionID+".jsonl")
+	content := make([]byte, 600)
+	for i := range content {
+		content[i] = 'x'
+	}
+	if err := os.WriteFile(sessionFile, content, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	s := detectClaude(dir, "")
+	if s == nil {
+		t.Fatal("expected session, got nil")
+	}
+	if s.Tool != "claude" {
+		t.Errorf("Tool = %q, want claude", s.Tool)
+	}
+	if s.Command != "claude --resume "+sessionID {
+		t.Errorf("Command = %q", s.Command)
+	}
+}
+
+func TestDetectClaude_PicksMostRecent(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", t.TempDir())
+	home := os.Getenv("HOME")
+	projectPath := strings.ReplaceAll(dir, "/", "-")
+	projectDir := filepath.Join(home, ".claude", "projects", projectPath)
+	if err := os.MkdirAll(projectDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create two session files with different timestamps (>= 500 bytes each).
+	pad := make([]byte, 600)
+	old := filepath.Join(projectDir, "old-session.jsonl")
+	if err := os.WriteFile(old, pad, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(10 * time.Millisecond)
+	recent := filepath.Join(projectDir, "recent-session.jsonl")
+	if err := os.WriteFile(recent, pad, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	s := detectClaude(dir, "")
+	if s == nil {
+		t.Fatal("expected session")
+	}
+	if s.Command != "claude --resume recent-session" {
+		t.Errorf("expected most recent session, got %q", s.Command)
+	}
+}
+
+func TestDetectClaude_InvalidSessionID(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", t.TempDir())
+	home := os.Getenv("HOME")
+	projectPath := strings.ReplaceAll(dir, "/", "-")
+	projectDir := filepath.Join(home, ".claude", "projects", projectPath)
+	if err := os.MkdirAll(projectDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Session ID with shell metacharacters.
+	bad := filepath.Join(projectDir, "foo;rm -rf.jsonl")
+	if err := os.WriteFile(bad, []byte("bad"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	s := detectClaude(dir, "")
+	if s != nil {
+		t.Error("expected nil for invalid session ID")
 	}
 }

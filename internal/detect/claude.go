@@ -7,8 +7,88 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 )
+
+// detectClaude finds the session of a Claude Code process. The config dir
+// comes from the process's CLAUDE_CONFIG_DIR (default ~/.claude). The exact
+// session is read from <config>/sessions/<pid>.json when present; otherwise
+// the most recent transcript in <config>/projects/<encoded-cwd>/ is used.
+func detectClaude(cwd, pid string) *Session {
+	configDir, custom := claudeConfigDir(pid)
+	if configDir == "" {
+		return nil
+	}
+
+	sessionID, transcript := claudeSessionForPID(configDir, pid, cwd)
+	if sessionID == "" {
+		for _, dir := range claudeProjectDirs(configDir, cwd) {
+			if sessionID = latestClaudeSession(dir); sessionID != "" {
+				transcript = filepath.Join(dir, sessionID+".jsonl")
+				break
+			}
+		}
+	}
+	if sessionID == "" {
+		return nil
+	}
+	return &Session{
+		Tool:    "claude",
+		CWD:     cwd,
+		Command: claudeResumeCommand(configDir, custom, sessionID),
+		Title:   claudeSessionTitle(transcript),
+	}
+}
+
+// latestClaudeSession returns the ID of the most recently modified
+// transcript in a Claude project directory, or "" if none qualifies.
+func latestClaudeSession(projectDir string) string {
+	entries, err := os.ReadDir(projectDir)
+	if err != nil {
+		return ""
+	}
+
+	// Find the most recently modified .jsonl file. Skip files under 500
+	// bytes — Claude creates tiny placeholder sessions (236 bytes) when
+	// a --resume with a wrong ID fails. These placeholders can be more
+	// recent than the actual running session and must be ignored.
+	const minSessionSize = 500
+	type fileInfo struct {
+		name    string
+		modTime int64
+	}
+	var sessions []fileInfo
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".jsonl") {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		if info.Size() < minSessionSize {
+			continue
+		}
+		sessions = append(sessions, fileInfo{
+			name:    e.Name(),
+			modTime: info.ModTime().UnixNano(),
+		})
+	}
+	if len(sessions) == 0 {
+		return ""
+	}
+
+	sort.Slice(sessions, func(i, j int) bool {
+		return sessions[i].modTime > sessions[j].modTime
+	})
+
+	sessionID := strings.TrimSuffix(sessions[0].name, ".jsonl")
+	if !validSessionID.MatchString(sessionID) {
+		return ""
+	}
+	return sessionID
+}
 
 // claudeConfigDir returns the Claude Code config directory a process uses:
 // $CLAUDE_CONFIG_DIR from the process environment when set (e.g. a
