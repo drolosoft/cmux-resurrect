@@ -781,10 +781,11 @@ func batchCWDs(pids []struct{ pid, tool string }) map[string]string {
 
 	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "lsof", "-p", strings.Join(pidStrs, ","), "-Fn").Output()
-	if err != nil {
-		return cwds
-	}
+
+	// lsof exits with status 1 when one of the pids has ended since the ps
+	// scan, and still lists every process that is alive. Its output is read
+	// whatever the status, or one process closing would cost all the others.
+	out, _ := exec.CommandContext(ctx, "lsof", "-p", strings.Join(pidStrs, ","), "-Fn").Output()
 
 	// `lsof -Fn` emits one process group at a time:
 	//   p<pid>

@@ -1,7 +1,10 @@
 package detect
 
 import (
+	"os/exec"
+	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -147,6 +150,46 @@ func TestBatchCWDs_EmptyInput(t *testing.T) {
 	result := batchCWDs(nil)
 	if len(result) != 0 {
 		t.Error("expected empty map for nil input")
+	}
+}
+
+// TestBatchCWDs_OneProcessGone: a process can end between the ps scan and the
+// lsof call. lsof then exits with status 1 and still lists every process that
+// is alive, so the others keep their directories instead of the whole scan
+// coming back empty.
+func TestBatchCWDs_OneProcessGone(t *testing.T) {
+	if _, err := exec.LookPath("lsof"); err != nil {
+		t.Skip("lsof is not installed")
+	}
+
+	gone := exec.Command("true")
+	if err := gone.Run(); err != nil {
+		t.Fatal(err)
+	}
+
+	dir := t.TempDir()
+	alive := exec.Command("sleep", "30")
+	alive.Dir = dir
+	if err := alive.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = alive.Process.Kill()
+		_ = alive.Wait()
+	})
+
+	alivePID := strconv.Itoa(alive.Process.Pid)
+	cwds := batchCWDs([]struct{ pid, tool string }{
+		{strconv.Itoa(gone.Process.Pid), "codex"},
+		{alivePID, "claude"},
+	})
+
+	want, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cwds[alivePID] != want {
+		t.Errorf("cwd of the live process = %q, want %q (all cwds: %q)", cwds[alivePID], want, cwds)
 	}
 }
 
