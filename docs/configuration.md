@@ -112,6 +112,8 @@ The list takes the agent names below. The flag goes right after the command that
 
 OpenCode releases older than the ones that document `--auto` (1.14.48, for example) reject any flag they do not know and will not start. Leave `opencode` out of the list on those versions.
 
+Hermes keeps the approval mode a session was created with and exits when a resume asks for another, so crex adds `--yolo` only when Hermes starts a fresh session, never to `hermes --resume`.
+
 You can also configure this during `crex setup`.
 
 > **Warning:** This is dangerous. Agents will execute file changes, shell commands,
