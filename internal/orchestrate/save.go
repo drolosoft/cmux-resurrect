@@ -2,7 +2,9 @@ package orchestrate
 
 import (
 	"fmt"
+	"maps"
 	"os"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -119,7 +121,7 @@ func (s *Saver) Save(name, description string) (*model.Layout, error) {
 	if os.Getenv("CREX_DEBUG") != "" {
 		debugDetection(layout, win.Workspaces)
 	}
-	applyDetectedSessions(layout, win.Workspaces, detected)
+	applyDetectedSessions(layout, win.Workspaces, otherWindows(tree, win), detected)
 
 	// An anchor still carrying cmux's "Group N" placeholder, or no title, is
 	// stored under its group's name; one the user named keeps that name. The
@@ -207,6 +209,20 @@ func currentWindow(tree *client.TreeResponse) client.TreeWindow {
 		}
 	}
 	return windows[0]
+}
+
+// otherWindows returns the workspaces of every window in the tree except win,
+// the one being saved. AI detection checks them before it guesses which pane a
+// session belongs to.
+func otherWindows(tree *client.TreeResponse, win client.TreeWindow) []client.TreeWorkspace {
+	var workspaces []client.TreeWorkspace
+	for _, w := range tree.Windows {
+		if w.Ref == win.Ref {
+			continue
+		}
+		workspaces = append(workspaces, w.Workspaces...)
+	}
+	return workspaces
 }
 
 func callerWindowRef(c *client.CallerInfo) string {
@@ -739,14 +755,14 @@ func debugDetection(layout *model.Layout, treeWorkspaces []client.TreeWorkspace)
 	fmt.Fprintf(os.Stderr, "\n  [debug] Detected sessions:\n")
 	for cwd, sessions := range detected.ByCWD {
 		for _, s := range sessions {
-			fmt.Fprintf(os.Stderr, "    tool=%s cwd=%s cmd=%s\n", s.Tool, cwd, s.Command)
+			fmt.Fprintf(os.Stderr, "    tool=%s cwd=%s cmd=%s ttys=%v\n", s.Tool, cwd, s.Command, detected.TTYs[s.Key()])
 		}
 	}
 	fmt.Fprintf(os.Stderr, "  [debug] Surface titles:\n")
 	for _, tw := range treeWorkspaces {
 		for _, tp := range tw.Panes {
 			for _, s := range tp.Surfaces {
-				fmt.Fprintf(os.Stderr, "    ws=%q pane=%d title=%q\n", tw.Title, tp.Index, s.Title)
+				fmt.Fprintf(os.Stderr, "    ws=%q pane=%d title=%q tty=%s\n", tw.Title, tp.Index, s.Title, s.TTY)
 			}
 		}
 	}
@@ -833,27 +849,68 @@ var aiTitlePatterns = detect.OrderedTitlePatterns()
 // OpenCode, Codex) and sets the resume command on matching panes.
 // Detection is best-effort: if anything fails, panes are left unchanged.
 //
-// Matching strategy (two passes):
-//  1. Title-confirmed: both CWD and surface title agree → highest confidence.
-//  2. CWD-only fallback: for tools that don't set a recognizable title,
-//     match by CWD alone — but only if no other workspace already claimed
-//     that CWD in pass 1.
+// Matching strategy:
+//  1. Title-confirmed (pass 1a): both CWD and surface title agree → highest
+//     confidence.
+//  2. Title only (pass 1b), for a slot whose title names a tool but whose
+//     directory matched no session.
+//  3. CWD-only fallback (pass 2): for tools that don't set a recognizable
+//     title, match by CWD alone, in single-pane workspaces.
+//
+// A session runs in one window, and the saved window must never take one
+// from another: restoring it would open a second copy of a conversation that
+// is still running. When the backend reports each surface's terminal (cmux),
+// every pass gives a slot only a session whose process runs on that slot's
+// terminal. Without terminals (Ghostty) nothing proves where a process runs:
+// 1a still trusts title and directory together, while 1b and 2, which have
+// only one of the two, skip a session whose directory is open in another
+// window, where it most likely runs. Losing a doubtful resume is better than
+// resuming someone else's conversation.
+//
+// Directories are compared with symlinks resolved, since lsof reports
+// /private/tmp/x for a process the shell sees in /tmp/x.
 //
 // Each session (its command in its directory) is consumed after the first
 // match to prevent duplicates.
-func applyDetectedSessions(layout *model.Layout, treeWorkspaces []client.TreeWorkspace, detected detect.DetectedSessions) {
+func applyDetectedSessions(layout *model.Layout, treeWorkspaces, otherWorkspaces []client.TreeWorkspace, detected detect.DetectedSessions) {
 	if len(detected.ByCWD) == 0 {
 		return
 	}
 
-	// Live surface titles by workspace title + pane index + surface index.
+	// Live surfaces by workspace title + pane index + surface index.
 	// EVERY surface is recorded, not just the first of each pane: a pane's
 	// extra tabs each run their own AI session (GitHub #8).
-	surfaceTitles := make(map[surfaceTitleKey]string)
+	surfaces := make(map[surfaceTitleKey]client.TreeSurface)
 	for _, tw := range treeWorkspaces {
 		for _, tp := range tw.Panes {
 			for k, s := range tp.Surfaces {
-				surfaceTitles[surfaceTitleKey{tw.Title, tp.Index, k}] = s.Title
+				surfaces[surfaceTitleKey{tw.Title, tp.Index, k}] = s
+			}
+		}
+	}
+
+	// Sessions by their directory with symlinks resolved. The directories
+	// are read in sorted order, so two spellings of one folder list their
+	// sessions the same way on every save.
+	dirs := make(dirResolver)
+	byDir := make(map[string][]detect.Session)
+	for _, cwd := range slices.Sorted(maps.Keys(detected.ByCWD)) {
+		dir := dirs.resolve(cwd)
+		byDir[dir] = append(byDir[dir], detected.ByCWD[cwd]...)
+	}
+
+	// cmux reports the terminal of every live shell; Ghostty never does.
+	terminalsKnown := slices.ContainsFunc(treeWorkspaces, hasTTY)
+
+	// Directories open in the other windows. Only Ghostty reports a
+	// surface's directory in the tree, and only Ghostty needs them.
+	openElsewhere := make(map[string]bool)
+	for _, tw := range otherWorkspaces {
+		for _, tp := range tw.Panes {
+			for _, s := range tp.Surfaces {
+				if s.CWD != "" {
+					openElsewhere[dirs.resolve(s.CWD)] = true
+				}
 			}
 		}
 	}
@@ -861,26 +918,39 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces []client.TreeWor
 	// Sessions already given to a slot. A session is its command in its
 	// directory: "copilot --continue" or a bare "aider" reads the same in
 	// every directory the tool runs in.
-	consumed := make(map[sessionKey]bool)
+	consumed := make(map[detect.SessionKey]bool)
 
-	// findSession returns an unconsumed session for the given tool from a CWD list.
-	findSession := func(sessions []detect.Session, tool string) *detect.Session {
+	// mayTake reports whether sl may take s. guess is set by the passes that
+	// match on the title alone or on the directory alone.
+	mayTake := func(s detect.Session, sl commandSlot, guess bool) bool {
+		if consumed[s.Key()] {
+			return false
+		}
+		if terminalsKnown {
+			return sl.tty != "" && slices.Contains(detected.TTYs[s.Key()], sl.tty)
+		}
+		return !guess || !openElsewhere[dirs.resolve(s.CWD)]
+	}
+
+	// findSession returns a session for the given tool from a list that sl
+	// may take.
+	findSession := func(sessions []detect.Session, tool string, sl commandSlot, guess bool) *detect.Session {
 		for i := range sessions {
-			if sessions[i].Tool == tool && !consumed[keyOf(sessions[i])] {
+			if sessions[i].Tool == tool && mayTake(sessions[i], sl, guess) {
 				return &sessions[i]
 			}
 		}
 		return nil
 	}
 
-	// findTitledSession returns an unconsumed session whose conversation
+	// findTitledSession returns a session sl may take whose conversation
 	// title appears in the surface title. Claude Code shows its session
 	// title in the terminal title, which tells apart several sessions
 	// running in the same directory.
-	findTitledSession := func(sessions []detect.Session, tool, title string) *detect.Session {
+	findTitledSession := func(sessions []detect.Session, tool string, sl commandSlot) *detect.Session {
 		for i := range sessions {
 			s := &sessions[i]
-			if s.Tool == tool && !consumed[keyOf(*s)] && s.Title != "" && strings.Contains(title, s.Title) {
+			if s.Tool == tool && s.Title != "" && strings.Contains(sl.title, s.Title) && mayTake(*s, sl, false) {
 				return s
 			}
 		}
@@ -901,7 +971,7 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces []client.TreeWor
 	for _, byTitle := range []bool{true, false} {
 		for i := range layout.Workspaces {
 			ws := &layout.Workspaces[i]
-			for _, sl := range commandSlots(ws, surfaceTitles) {
+			for _, sl := range commandSlots(ws, surfaces) {
 				if titled[sl.cmd] {
 					continue
 				}
@@ -912,9 +982,9 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces []client.TreeWor
 					var s *detect.Session
 					for _, cwd := range sl.searchCWDs() {
 						if byTitle {
-							s = findTitledSession(detected.ByCWD[cwd], tool, sl.title)
+							s = findTitledSession(byDir[dirs.resolve(cwd)], tool, sl)
 						} else {
-							s = findSession(detected.ByCWD[cwd], tool)
+							s = findSession(byDir[dirs.resolve(cwd)], tool, sl, false)
 						}
 						if s != nil {
 							break
@@ -925,7 +995,7 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces []client.TreeWor
 					}
 
 					*sl.cmd = s.Command
-					consumed[keyOf(*s)] = true
+					consumed[s.Key()] = true
 					titled[sl.cmd] = true
 					break
 				}
@@ -934,22 +1004,23 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces []client.TreeWor
 	}
 
 	// Pass 1b: Title match only (fallback). For slots with a matching title
-	// but no CWD-matched session, assign any unconsumed session for that tool.
+	// but no CWD-matched session, assign an unconsumed session for that tool
+	// that the slot may take.
 	for i := range layout.Workspaces {
 		ws := &layout.Workspaces[i]
-		for _, sl := range commandSlots(ws, surfaceTitles) {
+		for _, sl := range commandSlots(ws, surfaces) {
 			// Skip if already assigned in Pass 1a.
 			if sl.assigned() {
 				continue
 			}
 			for _, tool := range titleTools(sl.title) {
-				s := findSession(detected.ByTool[tool], tool)
+				s := findSession(detected.ByTool[tool], tool, sl, true)
 				if s == nil {
 					continue
 				}
 
 				*sl.cmd = s.Command
-				consumed[keyOf(*s)] = true
+				consumed[s.Key()] = true
 				break
 			}
 		}
@@ -963,7 +1034,7 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces []client.TreeWor
 		if len(ws.Panes) != 1 || ws.Panes[0].Type != "terminal" {
 			continue
 		}
-		for _, sl := range commandSlots(ws, surfaceTitles) {
+		for _, sl := range commandSlots(ws, surfaces) {
 			// Allow upgrade if the command is empty or a bare AI tool name
 			// (set by foreground detection, e.g. "claude" without --resume).
 			if sl.assigned() {
@@ -972,10 +1043,10 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces []client.TreeWor
 			// Any tool: this pass exists for tools with no title signal.
 			claimed := false
 			for _, cwd := range sl.searchCWDs() {
-				for _, s := range detected.ByCWD[cwd] {
-					if !consumed[keyOf(s)] {
+				for _, s := range byDir[dirs.resolve(cwd)] {
+					if mayTake(s, sl, true) {
 						*sl.cmd = s.Command
-						consumed[keyOf(s)] = true
+						consumed[s.Key()] = true
 						claimed = true
 						break
 					}
@@ -988,17 +1059,27 @@ func applyDetectedSessions(layout *model.Layout, treeWorkspaces []client.TreeWor
 	}
 }
 
-// sessionKey identifies one detected session while sessions are handed out:
-// its command in its directory, the same identity detect.AISessions keeps
-// one session per.
-type sessionKey struct {
-	command string
-	cwd     string
-}
+// dirResolver resolves directories to their real path, each one once per
+// save.
+type dirResolver map[string]string
 
-// keyOf returns the key that marks s as consumed.
-func keyOf(s detect.Session) sessionKey {
-	return sessionKey{command: s.Command, cwd: s.CWD}
+// resolve returns dir with symlinks resolved, so /tmp/x and /private/tmp/x
+// compare equal. A directory that cannot be resolved (it is gone, or it was
+// never on this machine) is only cleaned.
+func (r dirResolver) resolve(dir string) string {
+	if dir == "" {
+		return ""
+	}
+	if real, ok := r[dir]; ok {
+		return real
+	}
+
+	real, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		real = filepath.Clean(dir)
+	}
+	r[dir] = real
+	return real
 }
 
 // surfaceTitleKey addresses one live surface: workspace title + the pane's
@@ -1018,6 +1099,7 @@ type commandSlot struct {
 	title string  // live surface title, used to confirm which tool runs here
 	cwd   string  // the slot's own working directory ("" when not captured)
 	wsCWD string  // the enclosing workspace's directory
+	tty   string  // the slot's terminal as ps names it ("" when not reported)
 }
 
 // searchCWDs lists the directories to match a session against, most specific
@@ -1038,19 +1120,21 @@ func (s commandSlot) assigned() bool {
 }
 
 // commandSlots enumerates a workspace's terminal panes and their extra tabs,
-// pairing each with its live surface title.
-func commandSlots(ws *model.Workspace, titles map[surfaceTitleKey]string) []commandSlot {
+// pairing each with its live surface title and terminal.
+func commandSlots(ws *model.Workspace, surfaces map[surfaceTitleKey]client.TreeSurface) []commandSlot {
 	var out []commandSlot
 	for j := range ws.Panes {
 		p := &ws.Panes[j]
 		if p.Type != "terminal" {
 			continue
 		}
+		live := surfaces[surfaceTitleKey{ws.Title, p.Index, 0}]
 		out = append(out, commandSlot{
 			cmd:   &p.Command,
-			title: titles[surfaceTitleKey{ws.Title, p.Index, 0}],
+			title: live.Title,
 			cwd:   p.CWD,
 			wsCWD: ws.CWD,
+			tty:   detect.TTYName(live.TTY),
 		})
 		for k := range p.Surfaces {
 			s := &p.Surfaces[k]
@@ -1058,11 +1142,13 @@ func commandSlots(ws *model.Workspace, titles map[surfaceTitleKey]string) []comm
 			if s.Type != "" && s.Type != "terminal" {
 				continue
 			}
+			live := surfaces[surfaceTitleKey{ws.Title, p.Index, k + 1}]
 			out = append(out, commandSlot{
 				cmd:   &s.Command,
-				title: titles[surfaceTitleKey{ws.Title, p.Index, k + 1}],
+				title: live.Title,
 				cwd:   s.CWD,
 				wsCWD: ws.CWD,
+				tty:   detect.TTYName(live.TTY),
 			})
 		}
 	}

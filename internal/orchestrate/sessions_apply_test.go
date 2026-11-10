@@ -1,6 +1,8 @@
 package orchestrate
 
 import (
+	"os"
+	"path/filepath"
 	"slices"
 	"testing"
 
@@ -45,7 +47,7 @@ func TestApplyDetectedSessions_ReorderedPanesMatchByIndex(t *testing.T) {
 		},
 	}
 
-	applyDetectedSessions(layout, tree, detected)
+	applyDetectedSessions(layout, tree, nil, detected)
 
 	panes := layout.Workspaces[0].Panes
 	if got := panes[1].Command; got != "claude --resume abc123" {
@@ -105,7 +107,7 @@ func TestApplyDetectedSessions_ExtraTabsGetTheirOwnSession(t *testing.T) {
 		},
 	}
 
-	applyDetectedSessions(layout, tree, detected)
+	applyDetectedSessions(layout, tree, nil, detected)
 
 	pane := layout.Workspaces[0].Panes[0]
 	if pane.Command != "claude --resume aaa" {
@@ -149,7 +151,7 @@ func TestApplyDetectedSessions_NoSessionStealingAcrossTabs(t *testing.T) {
 		ByTool: map[string][]detect.Session{"claude": {one}},
 	}
 
-	applyDetectedSessions(layout, tree, detected)
+	applyDetectedSessions(layout, tree, nil, detected)
 
 	pane := layout.Workspaces[0].Panes[0]
 	assigned := 0
@@ -236,7 +238,7 @@ func TestApplyDetectedSessions_SameCWDMatchedByTitle(t *testing.T) {
 		ByTool: map[string][]detect.Session{"claude": {login, review}},
 	}
 
-	applyDetectedSessions(layout, tree, detected)
+	applyDetectedSessions(layout, tree, nil, detected)
 
 	if got := layout.Workspaces[0].Panes[0].Command; got != review.Command {
 		t.Errorf("'Review code' tab command = %q, want %q", got, review.Command)
@@ -316,7 +318,7 @@ func TestApplyDetectedSessions_TitleMatchesTwoTools(t *testing.T) {
 		ByTool: map[string][]detect.Session{"claude": {claude}},
 	}
 
-	applyDetectedSessions(layout, tree, detected)
+	applyDetectedSessions(layout, tree, nil, detected)
 
 	panes := layout.Workspaces[0].Panes
 	if panes[0].Command != claude.Command {
@@ -359,7 +361,7 @@ func TestApplyDetectedSessions_LongestTitlePatternWins(t *testing.T) {
 		},
 	}
 
-	applyDetectedSessions(layout, tree, detected)
+	applyDetectedSessions(layout, tree, nil, detected)
 
 	if got := layout.Workspaces[0].Panes[0].Command; got != opencode.Command {
 		t.Errorf("pane command = %q, want %q", got, opencode.Command)
@@ -408,7 +410,7 @@ func TestApplyDetectedSessions_SameCommandInTwoDirectories(t *testing.T) {
 				ByTool: map[string][]detect.Session{tt.tool: {inA, inB}},
 			}
 
-			applyDetectedSessions(layout, tree, detected)
+			applyDetectedSessions(layout, tree, nil, detected)
 
 			for i, pane := range layout.Workspaces[0].Panes {
 				if pane.Command != tt.command {
@@ -417,4 +419,307 @@ func TestApplyDetectedSessions_SameCommandInTwoDirectories(t *testing.T) {
 			}
 		})
 	}
+}
+
+// detectedSessions indexes sessions the way detect.AISessions does, keeping
+// the order given. ttys maps a session's command to the terminals its process
+// runs on; a session left out of it has none.
+func detectedSessions(ttys map[string][]string, sessions ...detect.Session) detect.DetectedSessions {
+	detected := detect.DetectedSessions{
+		ByCWD:  make(map[string][]detect.Session),
+		ByTool: make(map[string][]detect.Session),
+		TTYs:   make(map[detect.SessionKey][]string),
+	}
+	for _, s := range sessions {
+		detected.ByCWD[s.CWD] = append(detected.ByCWD[s.CWD], s)
+		detected.ByTool[s.Tool] = append(detected.ByTool[s.Tool], s)
+		if terminals, ok := ttys[s.Command]; ok {
+			detected.TTYs[s.Key()] = terminals
+		}
+	}
+	return detected
+}
+
+// singlePaneWorkspace returns a saved workspace of one terminal pane in cwd
+// and the live tree workspace behind it, titled title on terminal tty.
+func singlePaneWorkspace(name, cwd, title, tty string) (model.Workspace, client.TreeWorkspace) {
+	saved := model.Workspace{
+		Title: name,
+		CWD:   cwd,
+		Panes: []model.Pane{{Type: "terminal", Index: 0, CWD: cwd}},
+	}
+	live := client.TreeWorkspace{
+		Title: name,
+		Panes: []client.TreePane{{Index: 0, Surfaces: []client.TreeSurface{{Title: title, TTY: tty, CWD: cwd}}}},
+	}
+	return saved, live
+}
+
+// commandsOf lists the command of every pane of every workspace in layout.
+func commandsOf(layout *model.Layout) []string {
+	var commands []string
+	for _, ws := range layout.Workspaces {
+		for _, pane := range ws.Panes {
+			commands = append(commands, pane.Command)
+		}
+	}
+	return commands
+}
+
+// TestOtherWindows: AI detection is told about every window but the saved
+// one, so it can see where else a session's directory is open.
+func TestOtherWindows(t *testing.T) {
+	tree := &client.TreeResponse{Windows: []client.TreeWindow{
+		{Ref: "window:1", Workspaces: []client.TreeWorkspace{{Title: "mine"}}},
+		{Ref: "window:2", Workspaces: []client.TreeWorkspace{{Title: "a"}, {Title: "b"}}},
+		{Ref: "window:3", Workspaces: []client.TreeWorkspace{{Title: "c"}}},
+	}}
+
+	var titles []string
+	for _, ws := range otherWindows(tree, tree.Windows[0]) {
+		titles = append(titles, ws.Title)
+	}
+
+	if want := []string{"a", "b", "c"}; !slices.Equal(titles, want) {
+		t.Errorf("otherWindows = %q, want %q", titles, want)
+	}
+}
+
+// TestApplyDetectedSessions_PlainShellsGetNoSessionFromAnotherWindow
+// reproduces the save of 2026-10-15: two plain shells of a fresh window, in ~
+// and in the crex repository, came back with `claude --resume` of three
+// conversations running in another window. The cwd-only pass matched them by
+// directory alone; their terminals say none of those processes is theirs.
+func TestApplyDetectedSessions_PlainShellsGetNoSessionFromAnotherWindow(t *testing.T) {
+	home, homeLive := singlePaneWorkspace("home", "/home/u", "zsh", "ttys010")
+	crex, crexLive := singlePaneWorkspace("crex", "/home/u/crex", "zsh", "ttys011")
+	layout := &model.Layout{Workspaces: []model.Workspace{home, crex}}
+	tree := []client.TreeWorkspace{homeLive, crexLive}
+
+	detected := detectedSessions(
+		map[string][]string{
+			"claude --resume c673208d": {"ttys001"},
+			"claude --resume 3773a8f8": {"ttys002"},
+			"claude --resume d517100a": {"ttys003"},
+		},
+		detect.Session{Tool: "claude", CWD: "/home/u", Command: "claude --resume c673208d"},
+		detect.Session{Tool: "claude", CWD: "/home/u/crex", Command: "claude --resume 3773a8f8"},
+		detect.Session{Tool: "claude", CWD: "/home/u/crex", Command: "claude --resume d517100a"},
+	)
+
+	applyDetectedSessions(layout, tree, nil, detected)
+
+	for i, command := range commandsOf(layout) {
+		if command != "" {
+			t.Errorf("shell %d command = %q, want none: the session runs in another window", i, command)
+		}
+	}
+}
+
+// TestApplyDetectedSessions_ClaudeTitledShellGetsNoSessionFromAnotherWindow
+// reproduces the save of 2026-10-14: a shell whose title was a path inside
+// Claude Code's scratchpad (claude-501) took the live auris session of
+// another window through the title-only pass.
+func TestApplyDetectedSessions_ClaudeTitledShellGetsNoSessionFromAnotherWindow(t *testing.T) {
+	const scratchpad = "/private/tmp/claude-501/scratchpad"
+	auris := detect.Session{Tool: "claude", CWD: "/home/u/auris", Command: "claude --resume auris"}
+
+	t.Run("cmux reports terminals", func(t *testing.T) {
+		shell, shellLive := singlePaneWorkspace("scratch", scratchpad, scratchpad, "ttys010")
+		layout := &model.Layout{Workspaces: []model.Workspace{shell}}
+		detected := detectedSessions(map[string][]string{auris.Command: {"ttys001"}}, auris)
+
+		applyDetectedSessions(layout, []client.TreeWorkspace{shellLive}, nil, detected)
+
+		if got := layout.Workspaces[0].Panes[0].Command; got != "" {
+			t.Errorf("shell command = %q, want none", got)
+		}
+	})
+
+	t.Run("Ghostty, the session shows in another window", func(t *testing.T) {
+		shell, shellLive := singlePaneWorkspace("scratch", scratchpad, scratchpad, "")
+		_, aurisLive := singlePaneWorkspace("auris", auris.CWD, "✳ Claude Code", "")
+		layout := &model.Layout{Workspaces: []model.Workspace{shell}}
+		detected := detectedSessions(nil, auris)
+
+		applyDetectedSessions(layout, []client.TreeWorkspace{shellLive}, []client.TreeWorkspace{aurisLive}, detected)
+
+		if got := layout.Workspaces[0].Panes[0].Command; got != "" {
+			t.Errorf("shell command = %q, want none", got)
+		}
+	})
+}
+
+// TestApplyDetectedSessions_SymlinkedDirectory reproduces the other case of
+// 2026-10-14: a Claude pane in /tmp/x missed its own session, which lsof
+// reports under /private/tmp/x, and the title-only pass gave it another
+// window's session instead. The directories are compared with symlinks
+// resolved.
+func TestApplyDetectedSessions_SymlinkedDirectory(t *testing.T) {
+	dir := t.TempDir()
+	real := filepath.Join(dir, "real")
+	link := filepath.Join(dir, "link")
+	if err := os.Mkdir(real, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(real, link); err != nil {
+		t.Fatal(err)
+	}
+
+	// Two panes keep the workspace out of the cwd-only pass, so the title
+	// passes alone decide.
+	layout := &model.Layout{
+		Workspaces: []model.Workspace{{
+			Title: "x",
+			CWD:   link,
+			Panes: []model.Pane{
+				{Type: "terminal", Index: 0, CWD: link},
+				{Type: "terminal", Index: 1, CWD: link, Split: "right"},
+			},
+		}},
+	}
+	tree := []client.TreeWorkspace{{
+		Title: "x",
+		Panes: []client.TreePane{
+			{Index: 0, Surfaces: []client.TreeSurface{{Title: "✳ Claude Code"}}},
+			{Index: 1, Surfaces: []client.TreeSurface{{Title: "zsh"}}},
+		},
+	}}
+	other := detect.Session{Tool: "claude", CWD: "/home/u/auris", Command: "claude --resume other"}
+	mine := detect.Session{Tool: "claude", CWD: real, Command: "claude --resume mine"}
+	detected := detectedSessions(nil, other, mine)
+
+	applyDetectedSessions(layout, tree, nil, detected)
+
+	if got := layout.Workspaces[0].Panes[0].Command; got != mine.Command {
+		t.Errorf("claude pane command = %q, want %q", got, mine.Command)
+	}
+}
+
+// TestApplyDetectedSessions_TerminalPicksThePaneSession: two Claude panes in
+// one directory, with no session title to tell them apart. Each process's
+// terminal says which pane it runs in, whatever order detection found them.
+func TestApplyDetectedSessions_TerminalPicksThePaneSession(t *testing.T) {
+	layout := &model.Layout{
+		Workspaces: []model.Workspace{{
+			Title: "proj",
+			CWD:   "/home/u/proj",
+			Panes: []model.Pane{
+				{Type: "terminal", Index: 0},
+				{Type: "terminal", Index: 1, Split: "right"},
+			},
+		}},
+	}
+	tree := []client.TreeWorkspace{{
+		Title: "proj",
+		Panes: []client.TreePane{
+			{Index: 0, Surfaces: []client.TreeSurface{{Title: "✳ Claude Code", TTY: "/dev/ttys005"}}},
+			{Index: 1, Surfaces: []client.TreeSurface{{Title: "✳ Claude Code", TTY: "/dev/ttys004"}}},
+		},
+	}}
+	onFour := detect.Session{Tool: "claude", CWD: "/home/u/proj", Command: "claude --resume four"}
+	onFive := detect.Session{Tool: "claude", CWD: "/home/u/proj", Command: "claude --resume five"}
+	detected := detectedSessions(
+		map[string][]string{onFour.Command: {"ttys004"}, onFive.Command: {"ttys005"}},
+		onFour, onFive,
+	)
+
+	applyDetectedSessions(layout, tree, nil, detected)
+
+	want := []string{onFive.Command, onFour.Command}
+	if got := commandsOf(layout); !slices.Equal(got, want) {
+		t.Errorf("pane commands = %q, want %q", got, want)
+	}
+}
+
+// TestApplyDetectedSessions_TerminalBeatsAnotherWindowInTitleOnlyPass: the
+// pane's directory does not match its session's (it was read before a cd),
+// so the title-only pass decides. It must take the session on the pane's own
+// terminal, not the first Claude session detected anywhere.
+func TestApplyDetectedSessions_TerminalBeatsAnotherWindowInTitleOnlyPass(t *testing.T) {
+	layout := &model.Layout{
+		Workspaces: []model.Workspace{{
+			Title: "proj",
+			CWD:   "/home/u/proj/sub",
+			Panes: []model.Pane{
+				{Type: "terminal", Index: 0, CWD: "/home/u/proj/sub"},
+				{Type: "terminal", Index: 1, CWD: "/home/u/proj/sub", Split: "right"},
+			},
+		}},
+	}
+	tree := []client.TreeWorkspace{{
+		Title: "proj",
+		Panes: []client.TreePane{
+			{Index: 0, Surfaces: []client.TreeSurface{{Title: "✳ Claude Code", TTY: "ttys005"}}},
+			{Index: 1, Surfaces: []client.TreeSurface{{Title: "zsh", TTY: "ttys006"}}},
+		},
+	}}
+	other := detect.Session{Tool: "claude", CWD: "/home/u/auris", Command: "claude --resume other"}
+	mine := detect.Session{Tool: "claude", CWD: "/home/u/proj", Command: "claude --resume mine"}
+	detected := detectedSessions(
+		map[string][]string{other.Command: {"ttys001"}, mine.Command: {"ttys005"}},
+		other, mine,
+	)
+
+	applyDetectedSessions(layout, tree, nil, detected)
+
+	want := []string{mine.Command, ""}
+	if got := commandsOf(layout); !slices.Equal(got, want) {
+		t.Errorf("pane commands = %q, want %q", got, want)
+	}
+}
+
+// TestApplyDetectedSessions_GhosttyGuessesOnlyWhatNoOtherWindowShows: Ghostty
+// reports no terminals, so the guessing passes (title only, cwd only) cannot
+// prove a session is the pane's. They still guess, as before, but never with
+// a session whose directory is open in another window, where it most likely
+// runs.
+func TestApplyDetectedSessions_GhosttyGuessesOnlyWhatNoOtherWindowShows(t *testing.T) {
+	_, elsewhere := singlePaneWorkspace("crex", "/home/u/crex", "✳ Claude Code", "")
+
+	t.Run("cwd-only pass", func(t *testing.T) {
+		session := detect.Session{Tool: "codex", CWD: "/home/u/crex", Command: "codex resume thread-1"}
+		for _, tt := range []struct {
+			name   string
+			others []client.TreeWorkspace
+			want   string
+		}{
+			{name: "open in another window", others: []client.TreeWorkspace{elsewhere}, want: ""},
+			{name: "open nowhere else", others: nil, want: session.Command},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				shell, shellLive := singlePaneWorkspace("crex", "/home/u/crex", "zsh", "")
+				layout := &model.Layout{Workspaces: []model.Workspace{shell}}
+
+				applyDetectedSessions(layout, []client.TreeWorkspace{shellLive}, tt.others, detectedSessions(nil, session))
+
+				if got := layout.Workspaces[0].Panes[0].Command; got != tt.want {
+					t.Errorf("shell command = %q, want %q", got, tt.want)
+				}
+			})
+		}
+	})
+
+	t.Run("title-only pass", func(t *testing.T) {
+		session := detect.Session{Tool: "claude", CWD: "/home/u/crex", Command: "claude --resume crex"}
+		for _, tt := range []struct {
+			name   string
+			others []client.TreeWorkspace
+			want   string
+		}{
+			{name: "open in another window", others: []client.TreeWorkspace{elsewhere}, want: ""},
+			{name: "open nowhere else", others: nil, want: session.Command},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				pane, paneLive := singlePaneWorkspace("notes", "/home/u/notes", "✳ Claude Code", "")
+				layout := &model.Layout{Workspaces: []model.Workspace{pane}}
+
+				applyDetectedSessions(layout, []client.TreeWorkspace{paneLive}, tt.others, detectedSessions(nil, session))
+
+				if got := layout.Workspaces[0].Panes[0].Command; got != tt.want {
+					t.Errorf("pane command = %q, want %q", got, tt.want)
+				}
+			})
+		}
+	})
 }
