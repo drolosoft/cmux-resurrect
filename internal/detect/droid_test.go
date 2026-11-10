@@ -3,6 +3,7 @@ package detect
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -11,12 +12,16 @@ import (
 // github.com/entireio/cli at commit b7b42d0 (cmd/entire/cli/agent/
 // factoryaidroid/factoryaidroid.go and subagent_session.go,
 // cmd/entire/cli/agentimport/factory_test.go): one transcript per session in
-// <home>/.factory/sessions/<cwd with every non-alphanumeric character as
-// "-">/<id>.jsonl, opened by a line like
+// <home>/.factory/sessions/<project key>/<id>.jsonl, opened by a line like
 // {"type":"session_start","id":"s0","version":2,"cwd":"/repo"}. Worker
 // sessions started by the Task tool live in the same folder and name their
 // parent in callingSessionId. The resume flag is `droid --resume <id>` from
 // docs.factory.com/reference/cli-reference.
+//
+// The project key is the one function DO computes in the bundle of Droid
+// 1.7.0: "-" and the real path of the directory (links resolved) without its
+// leading "/", with each "/" as "-". Dots, underscores and spaces stay as
+// they are.
 
 // writeDroidSession creates a Droid transcript in the session folder of
 // folderCWD whose header records headerCWD, and dates it age ago so tests can
@@ -25,14 +30,15 @@ import (
 func writeDroidSession(t *testing.T, home, folderCWD, headerCWD, sessionID string, age time.Duration) {
 	t.Helper()
 	header := `{"type":"session_start","id":"` + sessionID + `","version":2,"cwd":"` + headerCWD + `"}`
-	writeDroidTranscript(t, home, folderCWD, sessionID, header, age)
+	writeDroidTranscript(t, home, droidProjectKey(folderCWD), sessionID, header, age)
 }
 
 // writeDroidTranscript writes a transcript with the given first line, followed
-// by one message, and sets its modification time to age ago.
-func writeDroidTranscript(t *testing.T, home, folderCWD, sessionID, header string, age time.Duration) {
+// by one message, into the session folder named folder, and sets its
+// modification time to age ago.
+func writeDroidTranscript(t *testing.T, home, folder, sessionID, header string, age time.Duration) {
 	t.Helper()
-	sessionDir := filepath.Join(home, ".factory", "sessions", nonAlnum.ReplaceAllString(folderCWD, "-"))
+	sessionDir := filepath.Join(home, ".factory", "sessions", folder)
 	if err := os.MkdirAll(sessionDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -74,6 +80,75 @@ func TestDetectDroid_ResumesSession(t *testing.T) {
 	}
 	if want := "droid --resume " + sessionID; s.Command != want {
 		t.Errorf("Command = %q, want %q", s.Command, want)
+	}
+}
+
+// The keys below are what Droid 1.7.0's own function prints for the same
+// paths, run with node on its code copied from the bundle; the paths do not
+// exist, so no link is resolved.
+func TestDroidProjectKey(t *testing.T) {
+	cases := []struct {
+		cwd  string
+		want string
+	}{
+		{"/src/app.io/", "-src-app.io"},
+		{"/no/such//dir_x y", "-no-such-dir_x y"},
+		{"/w/my-app", "-w-my-app"},
+		{"/", "-"},
+	}
+	for _, tc := range cases {
+		if got := droidProjectKey(tc.cwd); got != tc.want {
+			t.Errorf("droidProjectKey(%q) = %q, want %q", tc.cwd, got, tc.want)
+		}
+	}
+}
+
+// Droid keeps dots, underscores and spaces in the folder name, so a project
+// called "my.app_v2 dir" has its sessions in "-src-my.app_v2 dir", not in
+// "-src-my-app-v2-dir".
+func TestDetectDroid_FolderKeepsDotsUnderscoresAndSpaces(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	stubProcessEnv(t, nil)
+	cwd := "/src/my.app_v2 dir"
+	sessionID := "7d2f0c1e-3b4a-4c5d-8e9f-a0b1c2d3e4f5"
+
+	header := `{"type":"session_start","id":"` + sessionID + `","version":2,"cwd":"` + cwd + `"}`
+	writeDroidTranscript(t, home, "-src-my.app_v2 dir", sessionID, header, time.Minute)
+
+	s := detectDroid(cwd, "")
+	if want := "droid --resume " + sessionID; s == nil || s.Command != want {
+		t.Fatalf("got %+v, want Command %q", s, want)
+	}
+}
+
+// Droid names the folder after the real path, so a pane whose cwd goes
+// through a link (/tmp is /private/tmp on macOS) still finds the session
+// filed under the resolved path, whose header records that path.
+func TestDetectDroid_SymlinkedCwd(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	stubProcessEnv(t, nil)
+
+	real := filepath.Join(t.TempDir(), "real")
+	if err := os.Mkdir(real, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(real, link); err != nil {
+		t.Fatal(err)
+	}
+	resolved, err := filepath.EvalSymlinks(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	header := `{"type":"session_start","id":"linked","version":2,"cwd":"` + resolved + `"}`
+	writeDroidTranscript(t, home, "-"+strings.ReplaceAll(strings.TrimPrefix(resolved, "/"), "/", "-"), "linked", header, time.Minute)
+
+	s := detectDroid(link, "")
+	if s == nil || s.Command != "droid --resume linked" || s.CWD != link {
+		t.Fatalf("detectDroid(link) = %+v, want droid --resume linked in %s", s, link)
 	}
 }
 
@@ -158,7 +233,7 @@ func TestDetectDroid_SkipsWorkerSessions(t *testing.T) {
 	// the parent session the user is talking to.
 	writeDroidSession(t, home, cwd, cwd, "parent", time.Hour)
 	worker := `{"type":"session_start","id":"worker","cwd":"/src/app","callingSessionId":"parent","callingToolUseId":"toolu_1"}`
-	writeDroidTranscript(t, home, cwd, "worker", worker, time.Minute)
+	writeDroidTranscript(t, home, "-src-app", "worker", worker, time.Minute)
 
 	s := detectDroid(cwd, "")
 	if s == nil || s.Command != "droid --resume parent" {
@@ -172,7 +247,7 @@ func TestDetectDroid_RejectsUnsafeID(t *testing.T) {
 	stubProcessEnv(t, nil)
 	cwd := "/src/app"
 	header := `{"type":"session_start","id":"x;rm -rf ~","cwd":"/src/app"}`
-	writeDroidTranscript(t, home, cwd, "unsafe", header, time.Minute)
+	writeDroidTranscript(t, home, "-src-app", "unsafe", header, time.Minute)
 
 	s := detectDroid(cwd, "")
 	if s == nil || s.Command != "droid" {

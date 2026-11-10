@@ -10,11 +10,17 @@ import (
 )
 
 // detectDroid finds the session of a Factory Droid process. Droid keeps one
-// transcript per session in <home>/.factory/sessions/<encoded-cwd>/<id>.jsonl,
+// transcript per session in <home>/.factory/sessions/<project key>/<id>.jsonl,
 // where home is the process's FACTORY_HOME_OVERRIDE or the user's home, and
-// the folder is the cwd with every non-alphanumeric character as "-". The
-// newest transcript whose header records this cwd is resumed. Without one,
-// Droid starts fresh, as it did before crex could resume it.
+// the project key is the real path of the cwd with each "/" as "-" (see
+// droidProjectKey). The newest transcript whose header records this cwd is
+// resumed. Without one, Droid starts fresh, as it did before crex could
+// resume it.
+//
+// No older folder naming is looked up. Droid 1.7.0 still reads a flat
+// sessions/<id>.jsonl when it resumes by id, but that layout carries no
+// directory in its path, and nothing in the bundle names a folder with
+// every non-alphanumeric character as "-".
 func detectDroid(cwd, pid string) *Session {
 	fresh := &Session{Tool: "factory", CWD: cwd, Command: "droid"}
 
@@ -23,7 +29,7 @@ func detectDroid(cwd, pid string) *Session {
 		return fresh
 	}
 
-	sessionDir := filepath.Join(home, ".factory", "sessions", nonAlnum.ReplaceAllString(cwd, "-"))
+	sessionDir := filepath.Join(home, ".factory", "sessions", droidProjectKey(cwd))
 	sessionID := latestDroidSession(sessionDir, cwd)
 	if sessionID == "" {
 		return fresh
@@ -58,6 +64,21 @@ func droidHome(pid string) (dir string, custom bool) {
 	return override, override != home
 }
 
+// droidProjectKey returns the name of the folder Droid files the sessions of
+// a directory under: "-" followed by the real path, links resolved, without
+// its leading "/" and with each "/" as "-" (/src/my.app_v2 dir becomes
+// -src-my.app_v2 dir, and /tmp/x on macOS -private-tmp-x). This is function
+// DO in the bundle of Droid 1.7.0. Droid resolves the path only when it
+// exists, so a directory that is gone keeps the spelling it was given.
+func droidProjectKey(cwd string) string {
+	path := filepath.Clean(cwd)
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		path = resolved
+	}
+
+	return "-" + strings.ReplaceAll(strings.TrimPrefix(path, "/"), "/", "-")
+}
+
 // latestDroidSession returns the ID of the most recently modified Droid
 // session in sessionDir that was started in cwd, or "" if none qualifies.
 // The folder name alone is not enough: /w/acme/foo-bar and /w/acme-foo/bar
@@ -66,6 +87,13 @@ func latestDroidSession(sessionDir, cwd string) string {
 	entries, err := os.ReadDir(sessionDir)
 	if err != nil {
 		return ""
+	}
+
+	// The header may hold the real path (getcwd resolves links) while crex
+	// holds the linked spelling of the same directory, so either one counts.
+	resolvedCWD := cwd
+	if resolved, err := filepath.EvalSymlinks(cwd); err == nil {
+		resolvedCWD = resolved
 	}
 
 	type transcript struct {
@@ -93,7 +121,10 @@ func latestDroidSession(sessionDir, cwd string) string {
 
 	for _, candidate := range transcripts {
 		header, ok := readDroidSessionStart(candidate.path)
-		if !ok || header.CWD != cwd || !validSessionID.MatchString(header.ID) {
+		if !ok || !validSessionID.MatchString(header.ID) {
+			continue
+		}
+		if header.CWD != cwd && header.CWD != resolvedCWD {
 			continue
 		}
 
