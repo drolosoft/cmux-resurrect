@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [v1.29.0] — 2026-11-12
 
 ### Added
 - **A support page for every AI tool** — [`docs/ai-tools.md`](docs/ai-tools.md) lists the 24 tools with the command that starts each one, the command that resumes it, its auto-accept flag, the version it was tested against and how far (level A, B or C). A test fails when the page and the registry disagree, and `scripts/check-ai-tools.sh` checks the tools installed on a machine: it runs each one's `--help` and reports any flag crex types that is no longer listed
@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Hermes gets `--yolo` only on a fresh start** — Hermes keeps the approval mode a session was created with and exits when a resume asks for another, so restore leaves the flag out of `hermes --resume <id>`
 
 ### Fixed
+- **The first pane's command is no longer typed too early on cmux** — restore waited for the first pane of a new workspace with a workspace-level check that calls the shell ready as soon as the sidebar shows a directory. cmux shows it before the shell exists, so the command (an agent's resume, for example) was sometimes typed into nothing and the pane came back as a plain shell while restore still reported OK. The first pane now waits for its own terminal, as splits and tabs already did
+- **Replacing a workspace that has a running process** — current cmux refuses to close such a workspace unless the close is forced, so `crex restore --mode replace` could leave the old workspace open next to the new one. crex only closes a workspace you asked it to replace, and it now answers that refusal by closing with `--force`
 - **A pane keeps the session that runs on its own terminal** — an idle Claude Code titles the terminal with just the conversation's title, which names no tool, so in a workspace of two or more panes save never tried Claude there and the pane came back as a bare `claude`. On cmux, which reports each pane's terminal, save now first gives every pane the session whose process runs on that terminal, whatever the title says. When several sessions share one terminal (a tool started from inside another tool's shell), the conversation title, then the command in the foreground, then the tool the title names decide; if none of them picks one, the terminal does not choose
 - **No pane gets a session that runs in no terminal** — an AI session started outside any terminal (by a desktop app, or a daemon) can never be what a pane shows, yet on Ghostty a shell titled "claude notes" took such a Claude session by its title alone. Save now gives no pane a session whose processes have no terminal, on any backend, as long as the scan saw a terminal for at least one session
 - **`CREX_DEBUG` shows the sessions the save used** — the debug dump ran a detection of its own, so it could list sessions that the save itself never saw, or miss ones it did. It now prints the very sessions the save matched, with their terminals, in directory order
@@ -718,6 +720,7 @@ Initial public release.
 [v1.22.2]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.22.2
 [v1.23.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.23.0
 [v1.24.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.24.0
+[v1.29.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.29.0
 [v1.28.1]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.28.1
 [v1.28.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.28.0
 [v1.27.2]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.27.2
