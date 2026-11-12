@@ -187,9 +187,10 @@ func TestCmux_GroupsSurviveSaveAndRestore(t *testing.T) {
 
 	sourceWindow, sourceSurface := openAuditWindow(t)
 
-	// cmux's `group create --from` always adds a fresh anchor, so the saved
-	// anchor is wrapped the same way restore does it: create, set-anchor,
-	// close the extra one.
+	// Older cmux releases add a fresh anchor on `group create --from`, newer
+	// ones anchor the group on the workspace given. The saved anchor is
+	// wrapped the way restore does it: create, set-anchor, and close the
+	// extra anchor when there is one.
 	split := `{"direction":"horizontal","split":0.5,"children":[{"pane":{"surfaces":[{"type":"terminal","cwd":"/tmp"}]}},{"pane":{"surfaces":[{"type":"terminal","cwd":"/usr"}]}}]}`
 	setup := fmt.Sprintf(`
 ref() { awk '{print $2}'; }
@@ -198,7 +199,7 @@ wrap() {
   g=$(echo "$out" | python3 -c "import json,sys;print(json.load(sys.stdin)['group']['ref'])")
   extra=$(echo "$out" | python3 -c "import json,sys;print(json.load(sys.stdin)['group']['anchor_workspace_ref'])")
   cmux workspace-group set-anchor --group "$g" --workspace "$2" >/dev/null
-  cmux close-workspace --workspace "$extra" >/dev/null
+  [ "$extra" = "$2" ] || cmux close-workspace --workspace "$extra" --force >/dev/null
   echo "$g"
 }
 A=$(cmux new-workspace --name %[1]s-anchor-a --cwd /tmp | ref)

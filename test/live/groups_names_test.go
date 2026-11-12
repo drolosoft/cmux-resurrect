@@ -21,9 +21,10 @@ import (
 var defaultAnchorTitle = regexp.MustCompile(`Group \d+`)
 
 // groupShell is the shell prelude the group scenarios share. wrap turns a
-// workspace into the anchor of a new group the way restore does it (cmux's
-// `create --from` always adds a fresh anchor, which is closed again) and
-// prints the group ref.
+// workspace into the anchor of a new group the way restore does it (older cmux
+// releases add a fresh anchor on `create --from`, which is closed again;
+// newer ones anchor the group on the workspace given) and prints the group
+// ref.
 const groupShell = `
 ref() { awk '{print $2}'; }
 wrap() {
@@ -31,7 +32,7 @@ wrap() {
   g=$(echo "$out" | python3 -c "import json,sys;print(json.load(sys.stdin)['group']['ref'])")
   extra=$(echo "$out" | python3 -c "import json,sys;print(json.load(sys.stdin)['group']['anchor_workspace_ref'])")
   cmux workspace-group set-anchor --group "$g" --workspace "$2" >/dev/null
-  cmux close-workspace --workspace "$extra" >/dev/null
+  [ "$extra" = "$2" ] || cmux close-workspace --workspace "$extra" --force >/dev/null
   echo "$g"
 }
 `
@@ -244,8 +245,23 @@ echo "TWIN $(cmux new-workspace --name %[3]s --cwd /tmp --group "$G" --group-pla
 		t.Fatalf("setup did not create two twins:\n%s", setupOut)
 	}
 	for _, ref := range twinRefs {
-		_, _ = cmuxRun(t, "select-workspace", "--workspace", ref)
-		if !waitFor(30*time.Second, time.Second, func() bool { return workspaceHasTTY(t, ref) }) {
+		// Selecting the workspace is not always enough in a window that is
+		// not in front, so its surface is focused too, and both are repeated
+		// every few seconds until the shell is there.
+		tries := 0
+		rendered := waitFor(60*time.Second, time.Second, func() bool {
+			if tries%5 == 0 {
+				_, _ = cmuxRun(t, "select-workspace", "--workspace", ref)
+				if workspace := wsByRef(t, ref); workspace != nil {
+					for _, surface := range allSurfaces(workspace) {
+						focusSurface(t, workspace.ID, surface.ID)
+					}
+				}
+			}
+			tries++
+			return workspaceHasTTY(t, ref)
+		})
+		if !rendered {
 			t.Fatalf("twin %s never got a terminal", ref)
 		}
 	}

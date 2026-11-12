@@ -234,7 +234,7 @@ func geomShapes(geoms []paneGeom) []string {
 
 func closeWorkspace(t *testing.T, ref string) {
 	t.Helper()
-	_, _ = cmuxRun(t, "close-workspace", "--workspace", ref)
+	_, _ = cmuxRun(t, "close-workspace", "--workspace", ref, "--force")
 }
 
 // newWorkspaces runs fn and returns the refs of workspaces that appeared.

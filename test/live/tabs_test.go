@@ -547,7 +547,7 @@ func closeWindowByWorkspaces(t *testing.T, windowRef string) {
 		}
 		for _, ref := range refs {
 			_, _ = cmuxRun(t, "workspace-action", "--action", "unpin", "--workspace", ref)
-			_, _ = cmuxRun(t, "close-workspace", "--workspace", ref)
+			_, _ = cmuxRun(t, "close-workspace", "--workspace", ref, "--force")
 		}
 		time.Sleep(time.Second)
 	}
