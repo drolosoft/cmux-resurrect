@@ -377,8 +377,22 @@ func (c *CLIClient) UnpinWorkspace(ref string) error {
 	return err
 }
 
+// closeNeedsConfirmation is the error code cmux answers when a workspace
+// still has a running process and the close came without --force.
+const closeNeedsConfirmation = "confirmation_required"
+
+// CloseWorkspace closes a workspace. cmux refuses to close one that has a
+// running process unless --force is given, and crex only closes a workspace
+// the user asked it to replace, so that refusal is answered with --force.
+// The first attempt goes without it because older cmux releases closed
+// without asking.
 func (c *CLIClient) CloseWorkspace(ref string) error {
 	_, err := c.run("close-workspace", "--workspace", ref)
+	if err == nil || !strings.Contains(err.Error(), closeNeedsConfirmation) {
+		return err
+	}
+
+	_, err = c.run("close-workspace", "--workspace", ref, "--force")
 	return err
 }
 
