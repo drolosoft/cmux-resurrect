@@ -75,7 +75,7 @@ cleanup() {
         # Demo workspaces are created PINNED (the blueprint pins them), and
         # cmux refuses to close a pinned workspace — unpin first or they leak.
         cmux workspace-action --action unpin --workspace "$ref" >/dev/null 2>&1 || true
-        cmux close-workspace --workspace "$ref" 2>/dev/null || true
+        cmux close-workspace --workspace "$ref" --force 2>/dev/null || true
         sleep 0.2
     done
     rm -rf "$DEMO_DIR" "$SCREENSHOTS_DIR"
@@ -154,7 +154,7 @@ CREX="crex --config $DEMO_DIR/config.toml"
 LEFTOVERS=$(cmux list-workspaces 2>/dev/null | grep -E "🌐 webapp|⚙️ api|📓 docs" | grep -o 'workspace:[0-9]*' || true)
 for ref in $LEFTOVERS; do
     cmux workspace-action --action unpin --workspace "$ref" >/dev/null 2>&1 || true
-    cmux close-workspace --workspace "$ref" >/dev/null 2>&1 || true
+    cmux close-workspace --workspace "$ref" --force >/dev/null 2>&1 || true
 done
 [ -n "$LEFTOVERS" ] && sleep 1
 
@@ -255,7 +255,7 @@ echo ""
 # Close workspaces created by import so restore creates them fresh (mirrors demo.tape).
 echo "📋 Scene 6: Close import workspaces + Restore layout"
 for ref in "${CLEANUP_REFS[@]}"; do
-    cmux close-workspace --workspace "$ref" 2>/dev/null || true
+    cmux close-workspace --workspace "$ref" --force 2>/dev/null || true
     sleep 0.3
 done
 CLEANUP_REFS=()
