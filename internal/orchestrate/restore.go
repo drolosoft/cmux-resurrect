@@ -870,9 +870,10 @@ func (g *groupRestorer) nameLiveAnchor(live *client.WorkspaceGroup, result *Rest
 }
 
 // anchorCreated makes a freshly restored workspace the anchor of its new
-// group. cmux always adds an anchor of its own on create (verified live), so
-// the group is handed to ours with set-anchor and the extra one is closed;
-// closing it leaves the group intact.
+// group. Older cmux releases add an anchor of their own on create, so the
+// group is handed to ours with set-anchor and the extra one is closed;
+// closing it leaves the group intact. Newer releases anchor the group on
+// our workspace from the start, and then there is nothing to close.
 func (g *groupRestorer) anchorCreated(ws model.Workspace, workspaceRef string, result *RestoreResult) {
 	if ws.Group == "" || g.failed[ws.Group] {
 		return
@@ -1095,10 +1096,14 @@ func (r *Restorer) restoreWorkspaceInGroup(ws model.Workspace, groupRef string, 
 	for i, pane := range ws.Panes {
 		if i == 0 {
 			// First pane is the default one created with the workspace.
+			// Its readiness is asked for its own surface when the backend can
+			// name it: the workspace-level check calls the shell ready as
+			// soon as the sidebar shows a cwd, which cmux does before the
+			// shell exists, and a command typed then is lost.
 			if pane.Type == "browser" && pane.URL != "" {
 				// The workspace always starts with a terminal pane;
 				// open the URL via the shell as a fallback.
-				if err := waitForShellReady(r.Client, ref, ""); err != nil {
+				if err := waitForShellReady(r.Client, ref, paneRefs[0]); err != nil {
 					result.Errors = append(result.Errors, fmt.Sprintf("  pane %d shell not ready: %v", i, err))
 				} else if err := r.Client.Send(ref, "", noHistoryCmd(fmt.Sprintf("open %q", pane.URL))); err != nil {
 					result.Errors = append(result.Errors, fmt.Sprintf("  pane %d open url: %v", i, err))
@@ -1111,7 +1116,7 @@ func (r *Restorer) restoreWorkspaceInGroup(ws model.Workspace, groupRef string, 
 					cd = ""
 				}
 				if pane.Command != "" || cd != "" {
-					if err := waitForShellReady(r.Client, ref, ""); err != nil {
+					if err := waitForShellReady(r.Client, ref, paneRefs[0]); err != nil {
 						result.Errors = append(result.Errors, fmt.Sprintf("  pane %d shell not ready: %v", i, err))
 					} else if err := r.Client.Send(ref, "", noHistoryCmd(cwdCommand(cd, r.applyAutoAccept(pane.Command)))); err != nil {
 						result.Errors = append(result.Errors, fmt.Sprintf("  pane %d send command: %v", i, err))

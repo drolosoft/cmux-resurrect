@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/drolosoft/cmux-resurrect/internal/client"
+	"github.com/drolosoft/cmux-resurrect/internal/model"
 )
 
 // readinessMockClient returns configurable CWD values on successive calls.
@@ -250,5 +251,75 @@ func TestVerifyCWD_ResendsArePacedByGrace(t *testing.T) {
 	r.verifyCWD("workspace:1", "surface:1", "/tmp/never")
 	if m.sends == 0 || m.sends > 2 {
 		t.Errorf("re-sends = %d, want 1-2 (paced by grace within the verify window)", m.sends)
+	}
+}
+
+// firstPaneMock is a backend like cmux: the sidebar knows the workspace cwd
+// before the first shell exists, and only the per-surface state says when
+// that shell can take input. It records when each Send arrived.
+type firstPaneMock struct {
+	mockClient
+	mu       sync.Mutex
+	readyAt  time.Time
+	asked    []string
+	sendTime []time.Time
+}
+
+func (m *firstPaneMock) FirstSurfaceRef(string) string {
+	return "surface:first"
+}
+
+func (m *firstPaneMock) SurfaceState(_, ref string) (*client.SurfaceState, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.asked = append(m.asked, ref)
+	return &client.SurfaceState{Ref: ref, Ready: time.Now().After(m.readyAt)}, nil
+}
+
+func (m *firstPaneMock) Send(_, _, _ string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.sendTime = append(m.sendTime, time.Now())
+	return nil
+}
+
+func TestRestore_FirstPaneWaitsForItsOwnShell(t *testing.T) {
+	// The first pane used the workspace-level heuristic, which calls the
+	// shell ready as soon as the sidebar shows a cwd. cmux shows it before
+	// the shell exists, so the command was typed too early and lost while
+	// restore still reported OK.
+	originalHeuristic, originalSurface := ShellReadyTimeout, SurfaceReadyTimeout
+	ShellReadyTimeout, SurfaceReadyTimeout = 100*time.Millisecond, 3*time.Second
+	defer func() { ShellReadyTimeout, SurfaceReadyTimeout = originalHeuristic, originalSurface }()
+
+	backend := &firstPaneMock{readyAt: time.Now().Add(600 * time.Millisecond)}
+	restorer := &Restorer{Client: backend}
+	workspace := model.Workspace{
+		Title: "agent",
+		CWD:   "/home/u/project",
+		Panes: []model.Pane{
+			{Type: "terminal", Focus: true, FocusTarget: -1, Command: "claude --resume abc"},
+		},
+	}
+
+	if _, err := restorer.restoreWorkspace(workspace, false, &RestoreResult{}); err != nil {
+		t.Fatalf("restoreWorkspace: %v", err)
+	}
+
+	backend.mu.Lock()
+	defer backend.mu.Unlock()
+
+	if len(backend.sendTime) == 0 {
+		t.Fatal("the first pane never got its command")
+	}
+	for _, sent := range backend.sendTime {
+		if sent.Before(backend.readyAt) {
+			t.Errorf("command typed %v before the first shell was ready", backend.readyAt.Sub(sent))
+		}
+	}
+	if len(backend.asked) == 0 || backend.asked[0] != "surface:first" {
+		t.Errorf("readiness asked about %v, want the first surface", backend.asked)
 	}
 }
