@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.29.1] — 2026-11-12
+
+The first published build of the v1.29 changes. v1.29.0 was tagged, but its release build stopped at two tests that failed on Linux, so it has no binaries.
+
+### Fixed
+- **Working directories of AI processes on Linux** — crex read each process's directory from `lsof -Fn`, which prints the file descriptor names on macOS but leaves them out on Linux, so no directory was found there and no session could be matched to a pane. The descriptor field is now asked for by name
+
 ## [v1.29.0] — 2026-11-12
 
 ### Added
@@ -720,7 +727,8 @@ Initial public release.
 [v1.22.2]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.22.2
 [v1.23.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.23.0
 [v1.24.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.24.0
-[v1.29.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.29.0
+[v1.29.1]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.29.1
+[v1.29.0]: https://github.com/drolosoft/cmux-resurrect/tree/v1.29.0
 [v1.28.1]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.28.1
 [v1.28.0]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.28.0
 [v1.27.2]: https://github.com/drolosoft/cmux-resurrect/releases/tag/v1.27.2
