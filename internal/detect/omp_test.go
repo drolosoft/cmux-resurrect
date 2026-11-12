@@ -350,12 +350,15 @@ func TestDetectOmp_SessionDirFromProcessEnvironment(t *testing.T) {
 }
 
 func TestDetectOmp_ProfileIgnoresAgentDir(t *testing.T) {
-	home, _ := isolateOmp(t)
+	home, tempRoot := isolateOmp(t)
 	cwd := makeOmpProject(t, filepath.Join(home, "proj"))
 
 	// OMP_PROFILE wins over PI_PROFILE, and a named profile ignores
-	// PI_CODING_AGENT_DIR (docs/config-usage.md, "Profiles").
+	// PI_CODING_AGENT_DIR (docs/config-usage.md, "Profiles"). The process
+	// carries its own TMPDIR: without one the temp root is /tmp, which on
+	// Linux holds the test's home and would turn "-proj" into "-tmp-...".
 	stubProcessEnv(t, map[string]map[string]string{"42": {
+		"TMPDIR":                 tempRoot,
 		ompProfileVariable:       "work",
 		ompLegacyProfileVariable: "old",
 		piAgentDirVariable:       filepath.Join(home, "ignored"),

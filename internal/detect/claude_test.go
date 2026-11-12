@@ -83,6 +83,14 @@ func TestDetectClaude_SessionFilePerPID(t *testing.T) {
 	projectDir := filepath.Join(configDir, "projects", "-src-app")
 	writeTranscript(t, projectDir, "first")
 	writeTranscript(t, projectDir, "second") // most recent
+
+	// Both files can get the same modification time on a fast or coarse
+	// filesystem, so "first" is dated a minute back to keep the order fixed.
+	earlier := time.Now().Add(-time.Minute)
+	if err := os.Chtimes(filepath.Join(projectDir, "first.jsonl"), earlier, earlier); err != nil {
+		t.Fatal(err)
+	}
+
 	if err := os.MkdirAll(filepath.Join(configDir, "sessions"), 0o755); err != nil {
 		t.Fatal(err)
 	}

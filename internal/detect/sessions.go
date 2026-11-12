@@ -785,9 +785,12 @@ func batchCWDs(pids []struct{ pid, tool string }) map[string]string {
 	// lsof exits with status 1 when one of the pids has ended since the ps
 	// scan, and still lists every process that is alive. Its output is read
 	// whatever the status, or one process closing would cost all the others.
-	out, _ := exec.CommandContext(ctx, "lsof", "-p", strings.Join(pidStrs, ","), "-Fn").Output()
+	//
+	// The descriptor field is asked for by name (-Ffn): macOS prints it with
+	// -Fn alone, but lsof on Linux then leaves it out and no cwd is found.
+	out, _ := exec.CommandContext(ctx, "lsof", "-p", strings.Join(pidStrs, ","), "-Ffn").Output()
 
-	// `lsof -Fn` emits one process group at a time:
+	// `lsof -Ffn` emits one process group at a time:
 	//   p<pid>
 	//   f<fd>       (e.g. fcwd, f21, f0u)
 	//   n<path>
